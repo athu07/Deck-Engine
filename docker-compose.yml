@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: deck_engine
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./output:/app/output
+      - ./meetings:/app/meetings
+      - ./staging:/app/staging
