@@ -1,0 +1,24 @@
+{
+  "name": "J2W_TestCo_FM",
+  "client": "TestCo",
+  "industry": "MANUFACTURING",
+  "functions": [
+    "ENGINEERING"
+  ],
+  "work_types": [
+    "WORKFORCE"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "X",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-06-25 15:48:39",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "NEW:G006",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_TestCo.pptx"
+}

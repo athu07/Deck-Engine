@@ -1,0 +1,36 @@
+{
+  "name": "J2W_Acme_PR",
+  "client": "Acme",
+  "industry": "BFSI",
+  "functions": [],
+  "work_types": [
+    "WORKFORCE"
+  ],
+  "phase": "Pre-read",
+  "phase_code": "PR",
+  "recipient": "Head of Engineering",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-06-25 15:58:51",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS10",
+    "CS11",
+    "CS12",
+    "CS13",
+    "SK:Test Automation",
+    "SK:Performance Engineering",
+    "SK:DevSecOps / CI-CD",
+    "CS38",
+    "CS39",
+    "CS41",
+    "CS07",
+    "CS08",
+    "NEW:G006"
+  ],
+  "deck_file": "Tailored_Deck_Acme.pptx"
+}

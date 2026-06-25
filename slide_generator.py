@@ -173,6 +173,116 @@ def draft(gap, context):
 
 
 # --------------------------------------------------------------------------- #
+# Full structured CASE STUDY (the "Create with AI" feature) — strict format
+# --------------------------------------------------------------------------- #
+CASE_STUDY_RULES = (
+    "NON-NEGOTIABLE RULES:\n"
+    "- Exactly 6 capabilities, exactly 3 results, always.\n"
+    "- No em dashes anywhere. All numbers as numerals. No real company names.\n"
+    "- Capability names never reference technology labels (no LLM, RAG, GPT, ML, API, NLP); "
+    "name each by business function.\n"
+    "- Infer realistic metrics from industry benchmarks if none are provided.\n"
+    "- Tone: straight, professional, executive.\n"
+    "RESULTS RULES:\n"
+    "- Result 1: most impactful metric (percentage, number, or time contrast), one punchy line.\n"
+    "- Result 2: operational or financial outcome, one line.\n"
+    "- Result 3: qualitative shift in decision quality, confidence, or leverage, one line.\n"
+    "- No result exceeds 15 words. No filler words.\n"
+    "- Only use a time contrast when the gap is genuinely significant and specific; "
+    "never a throwaway 'hours to minutes'.\n"
+)
+
+
+def _clean(s):
+    return str("" if s is None else s).replace("—", "-").replace("–", "-").strip()
+
+
+def _normalize_case_study(data, industry=""):
+    caps = [_clean(c) for c in (data.get("capabilities") or []) if _clean(c)][:6]
+    while len(caps) < 6:
+        caps.append("Capability: to be defined.")
+    res = [_clean(r) for r in (data.get("results") or []) if _clean(r)][:3]
+    while len(res) < 3:
+        res.append("Result to be defined.")
+    rev = data.get("review") or {}
+    subhead = _clean(data.get("subhead")) or (
+        "Client: Leading %s | Domain: %s | Function: " % ((industry or "Enterprise").title(), industry))
+    return {
+        "template": "case_study_full",
+        "title": _clean(data.get("title")) or "Proposed Case Study",
+        "subhead": subhead,
+        "challenge": _clean(data.get("challenge")),
+        "solution": _clean(data.get("solution")),
+        "capabilities": caps,
+        "results": res,
+        "review": {"quality": _clean(rev.get("quality")) or "Needs Revision",
+                   "weakest": _clean(rev.get("weakest")), "fix": _clean(rev.get("fix"))},
+    }
+
+
+def draft_case_study(brief, context=None):
+    """Generate ONE full case study from a salesperson's free-text brief, in the
+    strict format + self-review. Returns the structured fields (+ 'review'). The
+    human supplies the facts in the brief; the model just writes them up."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        "Write ONE B2B case study based on this brief from a salesperson:\n"
+        '"""\n' + (brief or "")[:1500] + '\n"""\n'
+        + (("Industry context: %s.\n" % industry) if industry else "")
+        + "\nFollow these rules exactly:\n" + CASE_STUDY_RULES
+        + "\nEach field:\n"
+        "- title: the case study title.\n"
+        "- subhead: 'Client: <generic descriptor e.g. Leading Retail Bank> | Domain: <industry> "
+        "| Function: <business function>'.\n"
+        "- challenge: 3-4 sentences, plain and operational; who the client is and what was breaking. "
+        "No solution language. Max 100 words.\n"
+        "- solution: 3-4 sentences; what was deployed and what the client can now do. No hype. Max 100 words.\n"
+        "- capabilities: EXACTLY 6, each 'Capability Name: one line max 18 words' (name = business function).\n"
+        "- results: EXACTLY 3, following the RESULTS RULES.\n"
+        "Then SELF-REVIEW what you wrote (quality verdict, weakest part, fix).\n"
+        'Return ONLY JSON: {"title":"...","subhead":"...","challenge":"...","solution":"...",'
+        '"capabilities":["six strings"],"results":["three strings"],'
+        '"review":{"quality":"Strong or Needs Revision","weakest":"one sentence or None",'
+        '"fix":"one sentence or None"}}'
+    )
+    try:
+        from secrets_loader import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=MODEL, temperature=0.5,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You are a B2B case study writer and sales reviewer "
+                 "for an enterprise AI and technology services company. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        data = {}
+    return _normalize_case_study(data, industry)
+
+
+def fill_case_study(slide, content):
+    """Fill a case_study_full template slide from structured content."""
+    singles = {"{{TITLE}}": content.get("title", ""), "{{SUBHEAD}}": content.get("subhead", ""),
+               "{{CHALLENGE}}": content.get("challenge", ""), "{{SOLUTION}}": content.get("solution", "")}
+    for sh in slide.shapes:
+        if not sh.has_text_frame:
+            continue
+        txt = sh.text_frame.text
+        hit = next((m for m in singles if m in txt), None)
+        if hit:
+            editor.set_text(sh, singles[hit])
+        elif "{{CAPABILITIES}}" in txt:
+            _set_bullets(sh, content.get("capabilities", []))
+        elif "{{RESULTS}}" in txt:
+            _set_bullets(sh, content.get("results", []))
+
+
+# --------------------------------------------------------------------------- #
 # Build the slide into a deck
 # --------------------------------------------------------------------------- #
 def _blank_layout(prs):

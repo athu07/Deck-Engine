@@ -73,6 +73,10 @@ def add(content, work_type, industry, client=""):
         "for_client": client,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
+    # rich case-study fields (the "Create with AI" feature), stored when present
+    for k in ("subhead", "challenge", "solution", "capabilities", "results", "review", "kind"):
+        if k in content:
+            rec[k] = content[k]
     items.append(rec)
     _save(items)
     return rec

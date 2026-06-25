@@ -622,6 +622,14 @@ BUILD_BODY = """
       </div>
     </div>
 
+    <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 10px">Describe a case study you know about — the AI writes it in J2W's format (problem · solution · 6 capabilities · 3 results), self-checks it, and shows it here to review before you add it.</p>
+      <textarea id="ca-brief" style="width:100%;min-height:64px;font-size:13px" placeholder="e.g. We helped a large retail bank cut fraud false positives with a real-time transaction scoring model — false positives dropped about 40% and the review team's load fell sharply."></textarea>
+      <div style="margin-top:8px"><button type="button" id="ca-genbtn" class="btn btn-primary" onclick="createAI(this)"><i class="ti ti-wand"></i> Generate</button></div>
+      <div id="ca-preview" style="display:none;margin-top:14px"></div>
+    </div>
+
     {% if gaps %}
     <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
       <h2 class="sec-title">AI will write these <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
@@ -730,8 +738,9 @@ BUILD_BODY = """
    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-check"></i> Added';}}
  function makeRow(id,title,reason){const li=document.createElement('li');
    li.className='slide-item';li.draggable=true;li.dataset.id=id;
+   var tg=id; if(id.indexOf('NEW:')===0)tg='AI'; else if(id.indexOf('SK:')===0)tg='CAP'; else if(id.indexOf('FP:')===0)tg='FOOT';
    li.innerHTML='<span class="grip"><i class="ti ti-grip-vertical"></i></span><span class="pos"></span>'+
-    '<span class="sid">'+id+'</span><div class="s-main"><div class="s-title"></div>'+
+    '<span class="sid">'+tg+'</span><div class="s-main"><div class="s-title"></div>'+
     '<div class="s-reason">'+reason+'</div></div><div class="s-actions">'+
     '<button type="button" class="mini" onclick="move(this,-1)"><i class="ti ti-chevron-up"></i></button>'+
     '<button type="button" class="mini" onclick="move(this,1)"><i class="ti ti-chevron-down"></i></button>'+
@@ -763,6 +772,49 @@ BUILD_BODY = """
      } else { btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; }
    }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; });
  }
+ function caEsc(s){var e=document.createElement('div');e.textContent=(s==null?'':s);return e.innerHTML;}
+ function createAI(btn){
+   var brief=document.getElementById('ca-brief').value.trim();
+   if(!brief){alert('Describe the slide you want.');return;}
+   btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
+   var fd=new FormData(); fd.append('brief',brief);
+   fd.append('industry',(SERVER_CTX&&SERVER_CTX.industry)||'');
+   fd.append('client_name',(SERVER_CTX&&SERVER_CTX.client_name)||'');
+   fetch('/create_ai',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+     btn.disabled=false; btn.innerHTML=old;
+     if(!d.ok){alert(d.error||'Could not generate');return;}
+     window._ca=d; caRender(d);
+   }).catch(function(){btn.disabled=false;btn.innerHTML=old;alert('Could not generate');});
+ }
+ function caRegen(){createAI(document.getElementById('ca-genbtn'));}
+ function caRender(d){
+   var caps=(d.capabilities||[]).map(c=>'<li>'+caEsc(c)+'</li>').join('');
+   var res=(d.results||[]).map(c=>'<li>'+caEsc(c)+'</li>').join('');
+   var rv=d.review||{}; var strong=((rv.quality||'')+'').toLowerCase().indexOf('strong')>-1;
+   document.getElementById('ca-preview').innerHTML=
+    '<div class="card" style="background:#f3f8f7;border:1px solid #bcdfd8">'+
+    '<div style="font-weight:700;font-size:16px">'+caEsc(d.title)+'</div>'+
+    '<div class="hint" style="font-size:12px;margin-bottom:8px">'+caEsc(d.subhead)+'</div>'+
+    '<div style="font-size:13px"><b>Challenge:</b> '+caEsc(d.challenge)+'</div>'+
+    '<div style="font-size:13px;margin-top:4px"><b>Solution:</b> '+caEsc(d.solution)+'</div>'+
+    '<div style="display:flex;gap:18px;margin-top:8px;flex-wrap:wrap">'+
+      '<div style="flex:1;min-width:220px"><b style="font-size:12px">Capabilities</b><ul style="margin:4px 0 0;padding-left:18px;font-size:12px">'+caps+'</ul></div>'+
+      '<div style="flex:1;min-width:220px"><b style="font-size:12px">Results</b><ul style="margin:4px 0 0;padding-left:18px;font-size:12px">'+res+'</ul></div></div>'+
+    '<div style="margin-top:10px;font-size:12px;padding:8px;border-radius:6px;background:'+(strong?'#e8f3f1':'#fdecea')+';color:'+(strong?'#1f5a52':'#8a2a1e')+'">'+
+      '<b>Self-review &mdash; '+caEsc(rv.quality||'')+'.</b> Weakest: '+caEsc(rv.weakest||'None')+'. Fix: '+caEsc(rv.fix||'None')+'</div>'+
+    '<div style="display:flex;gap:8px;margin-top:10px">'+
+      '<button type="button" class="btn btn-primary" onclick="addCreated()"><i class="ti ti-plus"></i> Add to deck</button>'+
+      '<button type="button" class="btn" onclick="caRegen()"><i class="ti ti-refresh"></i> Regenerate</button>'+
+      '<button type="button" class="btn" onclick="caDiscard()"><i class="ti ti-x"></i> Discard</button></div></div>';
+   document.getElementById('ca-preview').style.display='block';
+ }
+ function addCreated(){
+   var d=window._ca; if(!d) return;
+   if([...list.children].some(li=>li.dataset.id===d.id)){alert('Already added');return;}
+   list.appendChild(makeRow(d.id, d.title, 'created with AI')); renumber();
+   caDiscard(); document.getElementById('ca-brief').value='';
+ }
+ function caDiscard(){var p=document.getElementById('ca-preview');if(p)p.style.display='none'; window._ca=null;}
  (function init(){
    var d=loadDeck();
    if(RESUME){
@@ -1208,6 +1260,27 @@ def deck_resume():
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
 
 
+@app.route("/create_ai", methods=["POST"])
+def create_ai():
+    """The 'Create with AI' button: write a full structured CASE STUDY from a
+    free-text brief (strict format + self-review). Stages it and returns the content
+    as JSON so the page shows it inline. Added to the deck as a NEW:<id> order item;
+    built into THIS deck at finalize (not promoted to the master library)."""
+    brief = request.form.get("brief", "").strip()
+    if not brief:
+        return {"ok": False, "error": "Please describe the slide you want."}, 400
+    industry = request.form.get("industry", "")
+    client = request.form.get("client_name", "")
+    content = slide_generator.draft_case_study(brief, {"industry": industry})
+    content["kind"] = "user_created"
+    rec = staging.add(content, "", industry, client)
+    return {"ok": True, "id": "NEW:" + rec["id"],
+            "title": content["title"], "subhead": content["subhead"],
+            "challenge": content["challenge"], "solution": content["solution"],
+            "capabilities": content["capabilities"], "results": content["results"],
+            "review": content["review"]}
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
     """Write ONE gap slide on demand (the 'Generate with AI' button on the Suggested
@@ -1441,8 +1514,16 @@ def finalize():
                   "transcript": request.form.get("transcript", ""),
                   "client_name": client}
     skills_cands = skills.candidates(skills_ctx)
+    # "Create with AI" slides ride as NEW:<staging_id>; build them from the staged
+    # case-study content into THIS deck (not promoted to the master library).
+    create_items = []
+    for oid in final_ids:
+        if oid.startswith("NEW:"):
+            rec = staging.get(oid[4:])
+            if rec:
+                create_items.append({"id": oid, "template": "case_study_full", "content": rec})
     try:
-        assembler.build_deck(final_ids, out=path)     # builds the CS slides (skills ids ignored)
+        assembler.build_deck(final_ids, out=path)     # builds the CS slides (skills/NEW ids ignored)
         edits = {}
         for key, val in request.form.items():
             if key.startswith("edit__"):
@@ -1452,7 +1533,7 @@ def finalize():
             editor.apply_edits(path, edits)
         if client:
             editor.replace_tokens(path, {"[CLIENT]": client, "[Client]": client, "[client]": client})
-        skills.build_into(path, final_ids, skills_cands)   # fill + slot the skills slides
+        skills.build_into(path, final_ids, skills_cands + create_items)   # fill + slot extras
     except (PermissionError, BadZipFile) as e:
         return _file_busy_page(e)
     meeting_log.save(                          # auto-log this meeting (no extra step)

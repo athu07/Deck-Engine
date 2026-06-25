@@ -69,5 +69,90 @@
     "for_client": "Helios Grid",
     "created_at": "2026-06-24 11:08",
     "promoted_id": "CS136"
+  },
+  {
+    "id": "G005",
+    "status": "pending",
+    "work_type": "AI_POD",
+    "industry": "MANUFACTURING",
+    "title": "AI POD FOR MANUFACTURING WORKFORCE OPTIMIZATION",
+    "keywords": "AI Pod · Workforce Optimization · Senior Employee Ramp-Up · Productivity · Manufacturing",
+    "bullets": [
+      "Accelerated ramp-up of 25 senior employees, enhancing expertise and operational efficiency.",
+      "Leveraged AI-driven insights to streamline training processes and reduce onboarding time.",
+      "Improved productivity metrics by 30% through optimized task allocation and workforce management.",
+      "Enabled data-driven decision-making for workforce planning, resulting in reduced labor costs."
+    ],
+    "template": "case_study",
+    "for_client": "Nexa Manufacturing",
+    "created_at": "2026-06-25 11:41"
+  },
+  {
+    "id": "G006",
+    "status": "pending",
+    "work_type": "",
+    "industry": "BFSI",
+    "title": "Reducing Fraud False Positives for a Retail Bank",
+    "keywords": "",
+    "bullets": [],
+    "template": "case_study_full",
+    "for_client": "Acme",
+    "created_at": "2026-06-25 15:58",
+    "subhead": "Client: Leading Retail Bank | Domain: BFSI | Function: Risk Management",
+    "challenge": "A large retail bank faced significant challenges with their transaction fraud detection system. Their existing rules flagged many legitimate transactions, leading to customer frustration and overwhelming the review team. This inefficiency hindered their ability to manage risk effectively and maintain customer satisfaction.",
+    "solution": "We implemented a real-time transaction scoring model tailored to their operations. This advanced approach significantly reduced false positives, allowing the bank to improve customer experience and streamline their fraud review process. The bank can now efficiently focus on genuine fraud cases while enhancing overall operational efficiency.",
+    "capabilities": [
+      "Risk Assessment: Enhanced evaluation of transaction legitimacy in real-time.",
+      "Operational Efficiency: Streamlined fraud review processes to reduce workload.",
+      "Customer Experience: Improved satisfaction by minimizing unnecessary transaction declines.",
+      "Data Analytics: Leveraged data insights to refine fraud detection parameters.",
+      "Compliance Management: Ensured adherence to regulatory standards in fraud detection.",
+      "Performance Monitoring: Continuously assessed model effectiveness and adjusted strategies."
+    ],
+    "results": [
+      "False positives dropped by 40%, significantly enhancing transaction approval rates.",
+      "Operational costs reduced as review team workload decreased substantially.",
+      "Increased confidence in fraud detection led to better decision-making."
+    ],
+    "review": {
+      "quality": "Strong",
+      "weakest": "None",
+      "fix": "None"
+    },
+    "kind": "user_created"
+  },
+  {
+    "id": "G007",
+    "status": "pending",
+    "work_type": "",
+    "industry": "AUTOMOTIVE",
+    "title": "Enhancing Advanced Driver Assistance Systems for Improved Safety",
+    "keywords": "",
+    "bullets": [],
+    "template": "case_study_full",
+    "for_client": "Acme",
+    "created_at": "2026-06-25 16:12",
+    "subhead": "Client: Major Automotive Manufacturer | Domain: Automotive | Function: Product Development",
+    "challenge": "The client faced challenges with the integration of advanced driver assistance systems (ADAS) into their vehicles. Existing systems had inconsistent performance and failed to meet safety regulations. This led to increased recalls and customer dissatisfaction, impacting brand reputation and market share.",
+    "solution": "A comprehensive suite of services was deployed to enhance the ADAS capabilities. The client can now ensure seamless integration, improve system reliability, and meet all regulatory standards. Enhanced data analytics also allows for continuous optimization of the systems deployed.",
+    "capabilities": [
+      "System Integration: Streamlined integration of multiple ADAS components into vehicles.",
+      "Performance Optimization: Continuous monitoring and improvement of system effectiveness.",
+      "Regulatory Compliance: Ensured all systems meet industry safety standards.",
+      "Data Analytics: Leveraged data insights for proactive system enhancements.",
+      "User Experience Design: Enhanced interface for better driver interaction with ADAS.",
+      "Quality Assurance: Rigorous testing protocols to ensure system reliability."
+    ],
+    "results": [
+      "Reduced system failure rates by 30%.",
+      "Achieved a 20% decrease in vehicle recalls.",
+      "Enhanced decision-making confidence among engineering teams."
+    ],
+    "review": {
+      "quality": "Strong",
+      "weakest": "None",
+      "fix": "None"
+    },
+    "kind": "user_created"
   }
 ]

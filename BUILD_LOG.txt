@@ -537,6 +537,42 @@ CHART ON THE CAPABILITY SLIDE — DONE 23 June 2026
   the Workforce block / before case studies / before closers, 0 broken pictures on
   skills slides. Deck generates correctly.
 
+"CREATE WITH AI" — on-demand structured case studies — DONE 25 June 2026
+  Always-on "Create with AI" on the Suggested page: the salesperson types a free-text
+  BRIEF; the AI writes a full CASE STUDY in the strict house format + self-review;
+  it's shown INLINE on the same page to review / regenerate / add — no page bouncing.
+  Pieces:
+   - NEW TEMPLATE: case_study_full in templates.pptx (markers {{TITLE}} {{SUBHEAD}}
+     {{CHALLENGE}} {{SOLUTION}} {{CAPABILITIES}} {{RESULTS}}; text-only, restyle in
+     PowerPoint later). 2-column layout: challenge/solution left, capabilities/results
+     right.
+   - slide_generator.draft_case_study(brief, ctx): strict prompt embedding the owner's
+     NON-NEGOTIABLE + RESULTS rules (exactly 6 caps / 3 results, no em dashes, numerals,
+     no real company names, no tech labels in cap names, infer realistic metrics,
+     Result 1/2/3 roles, <=15-word results) -> JSON {title, subhead, challenge,
+     solution, capabilities[6], results[3], review{quality,weakest,fix}}. _normalize_
+     case_study() enforces 6/3 and strips em dashes. fill_case_study() fills the
+     template (singles + bullet blocks).
+   - /create_ai route: brief -> draft_case_study -> staging.add (rich fields stored) ->
+     returns JSON for the inline preview. Rides in the deck order as NEW:<staging_id>.
+   - UI (BUILD_BODY): "Create a slide with AI" card (brief box + Generate) -> inline
+     preview card (title/subhead/challenge/solution/caps/results + colour-coded
+     self-review verdict) -> Add to deck / Regenerate / Discard. makeRow shows an "AI"
+     chip for NEW: ids (CAP/FOOT for skills).
+   - /finalize: NEW:<id> items built into THIS deck via skills.build_into (generalised
+     to load case_study_full from templates.pptx + fill_case_study). NOT promoted to
+     the master library ("this deck only", owner's choice) — master stays put.
+  DESIGN NOTE: this also answers the earlier "fabricated case study" worry — the human
+  supplies the real facts in the brief; the AI just writes them up + self-checks.
+  CAVEAT: the "infer realistic metrics" rule means unprovided numbers are AI estimates
+  — the salesperson should replace them with real figures (the inline preview is where).
+  Verified: backend produced a correct fraud case study (6 caps/3 results/Strong/no em
+  dashes); /create_ai + /finalize built a logistics case study into a deck at position,
+  master unchanged (138). staging stores rich fields; ai_matcher/gap-fill paths
+  untouched. FOLLOW-UP (not built): per-field editing of a created slide on /review
+  (today: edit via regenerate, or drag/remove; review-page edits are title/subtitle
+  for library slides only).
+
 PENDING (queued by owner, not yet built):
   PROMPT 2 — make deck phase influence slide selection (WAITING on owner's
              per-phase emphasis/include/exclude rules; do NOT guess sales logic).

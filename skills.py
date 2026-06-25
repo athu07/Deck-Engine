@@ -247,16 +247,26 @@ def build_into(deck_path, order, cands, master_path="WORKING_COPY_Master_Deck.pp
     prs = Presentation(deck_path)
     sld_id_lst = prs.slides._sldIdLst
     master = Presentation(master_path)
+    tfile = None                                       # templates.pptx, loaded lazily
 
     skill_elem = {}
     for sid, c in cand_by_id.items():
-        t = find_template(master, c["template"])
+        name = c["template"]
+        if name in ("skills", "company_footprint"):    # templates live IN the master
+            t = find_template(master, name)
+        else:                                          # e.g. case_study_full -> templates.pptx
+            if tfile is None:
+                tfile = Presentation(slide_generator.TEMPLATES_FILE)
+            t = find_template(tfile, name)
         if t is None:
             continue
         new = slide_generator._copy_slide(prs, t)     # text-only template -> copies cleanly
-        fill_markers(new, c["mapping"])
-        if c.get("kind") == "capability" and c.get("chart"):
-            add_proficiency_chart(new, c["chart"])     # doughnut into the {{CHART}} box, if present
+        if name == "case_study_full":
+            slide_generator.fill_case_study(new, c["content"])
+        else:
+            fill_markers(new, c["mapping"])
+            if c.get("kind") == "capability" and c.get("chart"):
+                add_proficiency_chart(new, c["chart"])  # doughnut into the {{CHART}} box, if present
         skill_elem[sid] = list(sld_id_lst)[-1]         # the sldId just appended
 
     # reorder the whole deck to match `order` (append moves the node).
