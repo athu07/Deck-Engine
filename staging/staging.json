@@ -1,0 +1,73 @@
+[
+  {
+    "id": "G001",
+    "status": "approved",
+    "work_type": "MS",
+    "industry": "AVIATION",
+    "title": "Transforming Aviation MRO with Predictive Maintenance and AIOps",
+    "keywords": "Predictive Maintenance · AIOps · Efficiency · Cost Reduction",
+    "bullets": [
+      "Reduced aircraft downtime by 30% through predictive analytics, enhancing operational efficiency.",
+      "Achieved a 25% reduction in maintenance costs by optimizing resource allocation with AIOps.",
+      "Improved safety compliance by 40% with real-time monitoring and proactive issue resolution.",
+      "Enabled data-driven decision-making, leading to a 20% increase in overall fleet reliability."
+    ],
+    "template": "case_study",
+    "for_client": "AirCo",
+    "promoted_id": "CS133"
+  },
+  {
+    "id": "G002",
+    "status": "approved",
+    "work_type": "AI_POD",
+    "industry": "AVIATION",
+    "title": "AI-Pod Engagement Case Study: Northwind Aerospace",
+    "keywords": "Predictive Maintenance · Unplanned Downtime · Spare-Parts Forecasting · Managed Services",
+    "bullets": [
+      "Developed predictive maintenance models, reducing unplanned downtime by 30%.",
+      "Forecasted spare-parts demand with 95% accuracy, optimizing inventory management.",
+      "Implemented 24/7 managed services for analytics platform, ensuring continuous support and uptime.",
+      "Enhanced operational efficiency, leading to a 20% increase in overall productivity."
+    ],
+    "template": "case_study",
+    "for_client": "Northwind Aerospace",
+    "created_at": "2026-06-23 17:47",
+    "promoted_id": "CS134"
+  },
+  {
+    "id": "G003",
+    "status": "approved",
+    "work_type": "AI_POD",
+    "industry": "ENERGY",
+    "title": "AI POD FOR RENEWABLE ENERGY OPTIMIZATION",
+    "keywords": "Energy · AI Pod · Grid Load Forecasting · Renewable Dispatch · Solar · Wind",
+    "bullets": [
+      "Accurate grid load forecasting to enhance operational efficiency.",
+      "Optimized dispatch of solar and wind assets, reducing curtailment by up to 30%.",
+      "Lowered balancing costs through advanced predictive analytics.",
+      "Rapid deployment of data-engineering and analytics team to support AI initiatives."
+    ],
+    "template": "case_study",
+    "for_client": "Helios Grid",
+    "created_at": "2026-06-24 11:08",
+    "promoted_id": "CS135"
+  },
+  {
+    "id": "G004",
+    "status": "approved",
+    "work_type": "WORKFORCE",
+    "industry": "ENERGY",
+    "title": "AI-DRIVEN GRID OPTIMIZATION FOR RENEWABLES",
+    "keywords": "Energy · Grid Operations · AI Pod · Renewable Dispatch · Curtailment Reduction · Data Engineering",
+    "bullets": [
+      "Dedicated AI pod for accurate grid load forecasting, enhancing operational efficiency.",
+      "Optimized dispatch of solar and wind assets to minimize curtailment and balancing costs.",
+      "Rapid deployment of data-engineering and analytics squad to support AI platform integration.",
+      "Real-time insights and predictive analytics driving smarter energy management decisions."
+    ],
+    "template": "case_study",
+    "for_client": "Helios Grid",
+    "created_at": "2026-06-24 11:08",
+    "promoted_id": "CS136"
+  }
+]

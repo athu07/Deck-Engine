@@ -1,0 +1,40 @@
+{
+  "name": "J2W_SocGen_FM",
+  "client": "SocGen",
+  "industry": "BFSI",
+  "functions": [
+    "ENGINEERING"
+  ],
+  "work_types": [
+    "WORKFORCE"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "CTO",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-06-24 18:51:02",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS10",
+    "CS11",
+    "CS12",
+    "CS13",
+    "SK:Test Automation",
+    "SK:Performance Engineering",
+    "SK:DevSecOps / CI-CD",
+    "SK:Cloud Migration (AWS/Azure)",
+    "SK:Data Engineering / Platforms",
+    "FP:SocGen",
+    "CS38",
+    "CS39",
+    "CS41",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_SocGen.pptx"
+}

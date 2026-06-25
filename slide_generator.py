@@ -1,0 +1,257 @@
+# -*- coding: utf-8 -*-
+"""
+slide_generator.py  --  Step 04: turn a "needs to be created" gap into a real
+slide, built from a TEMPLATE.
+
+Design = pluggable templates:
+  - Templates live in templates.pptx. Each template is one slide, tagged in its
+    notes with  J2W_TEMPLATE: <name>  (e.g. case_study), and contains marker
+    tokens in its text:  {{TITLE}}  {{KEYWORDS}}  {{BULLETS}}
+  - To generate a slide: the AI writes the words, then we COPY the chosen
+    template slide into the deck and REPLACE the markers with those words.
+  - Add another template later = add another tagged slide to templates.pptx.
+    No code change. Swap the temporary template for the real J2W design anytime.
+
+The template made by create_temp_template() is a PLACEHOLDER — plain text boxes,
+text-only (images in a template need extra work). Replace it with the real
+J2W-designed template slide when ready; keep the same marker tokens + tag.
+"""
+
+import copy
+import json
+
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+
+import editor
+from build_library import read_id  # noqa: F401  (kept for parity / future use)
+
+MASTER = "WORKING_COPY_Master_Deck.pptx"
+TEMPLATES_FILE = "templates.pptx"
+MODEL = "gpt-4o-mini"
+TEMPLATE_TAG = "J2W_TEMPLATE:"
+
+
+# --------------------------------------------------------------------------- #
+# Template file
+# --------------------------------------------------------------------------- #
+def create_temp_template(path=TEMPLATES_FILE):
+    """Create a temporary, text-only 'case_study' template slide."""
+    master = Presentation(MASTER)
+    tp = Presentation()
+    tp.slide_width = master.slide_width
+    tp.slide_height = master.slide_height
+    slide = tp.slides.add_slide(tp.slide_layouts[6])      # 6 = Blank
+    slide.notes_slide.notes_text_frame.text = f"{TEMPLATE_TAG} case_study"
+
+    def textbox(left, top, width, height, marker, size, color, bold=False, italic=False):
+        tb = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+        p = tb.text_frame.paragraphs[0]
+        run = p.add_run()
+        run.text = marker
+        run.font.size = Pt(size)
+        run.font.bold = bold
+        run.font.italic = italic
+        run.font.color.rgb = color
+        return tb
+
+    textbox(0.6, 0.5, 12.0, 1.1, "{{TITLE}}", 28, RGBColor(0x14, 0x28, 0x50), bold=True)
+    textbox(0.6, 1.6, 12.0, 0.5, "{{KEYWORDS}}", 13, RGBColor(0x0F, 0x6E, 0x56), italic=True)
+    textbox(0.6, 2.3, 12.0, 4.0, "{{BULLETS}}", 16, RGBColor(0x33, 0x33, 0x33))
+    textbox(0.6, 6.9, 12.0, 0.4, "Generated slide — replace with the real J2W template",
+            10, RGBColor(0xAA, 0xAA, 0xAA), italic=True)
+    tp.save(path)
+    return path
+
+
+def list_templates(path=TEMPLATES_FILE):
+    """{template_name: slide} for every tagged slide in templates.pptx."""
+    prs = Presentation(path)
+    out = {}
+    for slide in prs.slides:
+        if slide.has_notes_slide:
+            txt = slide.notes_slide.notes_text_frame.text or ""
+            for line in txt.splitlines():
+                if line.strip().startswith(TEMPLATE_TAG):
+                    out[line.split(":", 1)[1].strip()] = slide
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# AI content
+# --------------------------------------------------------------------------- #
+def default_brief(work_type, industry, transcript):
+    """A starting 'what should this slide cover' brief, pre-filled from the notes.
+    The salesperson edits it before generating. No AI call."""
+    labels = {"WORKFORCE": "Workforce", "AI_POD": "AI Pod", "MS": "Managed Services"}
+    t = (transcript or "").strip()
+    snippet = (t[:180].rstrip() + "…") if len(t) > 180 else t
+    base = "%s slide" % labels.get(work_type, (work_type or "").replace("_", " ").title())
+    if industry:
+        base += " for the %s industry" % industry.replace("_", " ").title()
+    base += (", addressing: " + snippet) if snippet else \
+            ", covering J2W's relevant capability and the outcomes it delivers"
+    return base.strip() + "."
+
+
+def _similar_slides(work_type, query, n=3):
+    """The closest real J2W case-study slides — used as a FORMAT/style example so a
+    generated slide matches the existing deck instead of being invented from nothing."""
+    try:
+        lib = json.load(open("tagged_library.json", encoding="utf-8"))
+    except Exception:
+        return []
+    q = (query or "").lower()
+    scored = []
+    for r in lib:
+        tags = r.get("tags", {})
+        if (tags.get("kind", {}) or {}).get("value") != "CASE_STUDY":
+            continue
+        kws = r.get("keywords", []) or []
+        score = sum(1 for k in kws if k and k.lower() in q)
+        if (tags.get("work_type", {}) or {}).get("value") == work_type:
+            score += 1
+        scored.append((score, r))
+    scored.sort(key=lambda x: -x[0])
+    return [{"title": r.get("title", ""), "keywords": " · ".join((r.get("keywords") or [])[:8])}
+            for _, r in scored[:n]]
+
+
+def draft(gap, context):
+    """Ask the LLM to write a gap slide's content, GUIDED by a brief and grounded in
+    the format of similar real J2W slides. Returns {title, keywords, bullets:[...]}.
+    Falls back to a stub on any error."""
+    wt = gap.get("work_type", "")
+    industry = context.get("industry", "")
+    transcript = (context.get("transcript") or "")[:3000]
+    brief = (context.get("brief") or "").strip()
+    examples = _similar_slides(wt, brief or transcript)
+    ex_text = "\n".join("  - %s (keywords: %s)" % (e["title"], e["keywords"]) for e in examples) or "  (none found)"
+    prompt = (
+        f"You are writing ONE slide for a J2W sales deck. Work type: {wt}; "
+        f"industry: {industry or 'the client'}.\n\n"
+        f"WHAT THIS SLIDE SHOULD COVER (follow this brief):\n"
+        f"{brief or '(no brief given — infer it from the meeting notes below)'}\n\n"
+        f"MEETING NOTES (context):\n\"\"\"\n{transcript}\n\"\"\"\n\n"
+        f"FORMAT — follow the style of these existing J2W slides:\n{ex_text}\n\n"
+        "Write the slide so it satisfies the brief. It can be a CASE STUDY that "
+        "follows the format of the examples above, OR a different client-specific "
+        "slide if the brief calls for that. Keep every claim credible and do NOT "
+        "invent a specific real client name. Return ONLY JSON: "
+        '{"title": "...", "keywords": "A · B · C · D", "bullets": ["...", "...", "..."]}. '
+        "3-4 short bullets, each a concrete outcome or capability."
+    )
+    try:
+        from secrets_loader import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=MODEL, temperature=0.4,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You write concise B2B sales slide "
+                                              "content. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+        return {
+            "title": str(data.get("title", "Proposed case study")),
+            "keywords": str(data.get("keywords", "")),
+            "bullets": [str(b) for b in (data.get("bullets") or [])][:4],
+            "template": "case_study",
+        }
+    except Exception:
+        return {
+            "title": f"{wt} CASE STUDY — {industry or 'CLIENT'} (TO BE CREATED)",
+            "keywords": "Draft · placeholder · replace",
+            "bullets": ["Content could not be generated — add details manually."],
+            "template": "case_study",
+        }
+
+
+# --------------------------------------------------------------------------- #
+# Build the slide into a deck
+# --------------------------------------------------------------------------- #
+def _blank_layout(prs):
+    for layout in prs.slide_layouts:
+        if (layout.name or "").lower().strip() == "blank":
+            return layout
+    return prs.slide_layouts[-1]
+
+
+def _copy_slide(dest_prs, src_slide):
+    """Copy a (text-only) template slide into dest_prs as a new slide."""
+    new = dest_prs.slides.add_slide(_blank_layout(dest_prs))
+    for shp in list(new.shapes):                  # strip the layout's placeholders
+        shp._element.getparent().remove(shp._element)
+    for shp in src_slide.shapes:                  # deep-copy template shapes in
+        new.shapes._spTree.append(copy.deepcopy(shp._element))
+    return new
+
+
+def _set_bullets(shape, bullets):
+    tf = shape.text_frame
+    tf.clear()
+    for i, b in enumerate(bullets):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.text = "• " + b
+
+
+def _fill(slide, content):
+    for sh in slide.shapes:
+        if not sh.has_text_frame:
+            continue
+        txt = sh.text_frame.text
+        if "{{TITLE}}" in txt:
+            editor.set_text(sh, content.get("title", ""))
+        elif "{{KEYWORDS}}" in txt:
+            editor.set_text(sh, content.get("keywords", ""))
+        elif "{{BULLETS}}" in txt:
+            _set_bullets(sh, content.get("bullets", []))
+
+
+def _add_verify_banner(slide, slide_width):
+    """Stamp a loud red bar across the top of a slide: this AI-written slide has
+    not been checked by an expert, so it must not reach a client as-is. The banner
+    travels with the slide in the .pptx (visible in preview and in PowerPoint)."""
+    bar = slide.shapes.add_textbox(0, 0, slide_width, Inches(0.5))
+    bar.fill.solid()
+    bar.fill.fore_color.rgb = RGBColor(0xC0, 0x39, 0x2B)      # red
+    bar.line.fill.background()
+    tf = bar.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = "⚠ AI-GENERATED - NEEDS EXPERT VERIFICATION - NOT CLIENT-READY"
+    run.font.size = Pt(13)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+
+def append_generated(deck_path, items):
+    """items = [{template, title, keywords, bullets, verified}] -> add each as a
+    new slide at the end of the deck. Unverified (verified != True) slides get a
+    loud 'needs expert verification' banner stamped on them."""
+    templates = list_templates()
+    dest = Presentation(deck_path)
+    for it in items:
+        src = templates.get(it.get("template", "case_study"))
+        if src is None and templates:
+            src = next(iter(templates.values()))
+        if src is None:
+            continue
+        new_slide = _copy_slide(dest, src)
+        _fill(new_slide, it)
+        if not it.get("verified"):
+            _add_verify_banner(new_slide, dest.slide_width)
+    dest.save(deck_path)
+    return len(items)
+
+
+if __name__ == "__main__":
+    print("Created template:", create_temp_template())
+    print("Templates found:", list(list_templates().keys()))

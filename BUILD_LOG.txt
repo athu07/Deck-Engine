@@ -1,0 +1,619 @@
+====================================
+J2W DECK ENGINE — BUILD LOG
+====================================
+Owner: Athithia
+Last updated: 23 June 2026
+
+------------------------------------
+THE GOAL (never changes — for context)
+------------------------------------
+A tool where sales/tech fill in client context (client name,
+industry, work type, deck phase, recipient) + optionally paste
+a transcript, and the tool assembles a tailored PowerPoint by
+picking slides from the master deck (and generating any missing
+slides via template). Preview, then download.
+
+I am new to development. Explain simply, one step at a time,
+wait for my confirmation before moving on.
+
+Design decision: CONTENT LIBRARY, not positional index.
+Every slide = a standalone record (stable ID + text + tags).
+Deck order does NOT matter. Slides are matched by content/tags.
+The engine AUTO-TAGS slides (rules first, AI later for unclear ones).
+
+Build order (one box fully working before the next):
+  Box 0 — Explode deck into auto-tagged library        [DONE]
+  Box 1 — Brain (matcher): context in -> slide_ids out [DONE, form-only/rules-only]
+  Box 2 — Assembler: slide_ids -> new .pptx            [DONE]
+  Box 3 — Form + web page the team uses                [DONE, runs locally]
+  Box 4 — Deploy + v2 polish (transcript/AI, gap-fill,
+          file-size cleanup, formatting, deploy)        <-- WE ARE HERE
+
+Files in this folder:
+  - NEW master deck (.pptx — real PowerPoint, not PDF)
+  - Metadata registry (.xlsx) — reference for good tags + Selection Rules
+  - This build log
+
+KEY RULES I FOLLOW
+  - Work on a COPY of the master deck, never the original.
+  - Every existing slide is PICKED from the deck; only MISSING
+    slides are generated.
+  - Deck and metadata are linked by a STABLE SLIDE ID, not position.
+  - API key is a credential — never in chat, never hard-coded.
+    (NOTE: a key WAS pasted in chat once — see DECISIONS — rotate it.)
+  - One section / one box at a time. Update this log before I stop.
+
+------------------------------------
+PROMPT SEQUENCE (from Claude_Code_Prompts_A_to_F.md)
+------------------------------------
+  [x] A — Orient project, read metadata first
+  [x] B — See the new deck clearly (no changes)
+  [x] C — Compare deck vs metadata (DECISION below)
+  [x] D — Lock the slide IDs (stamped into slide notes)
+  [x] E — Build the library (Box 0, rules only)
+  [x] F — Tag (done in one pass: rules + a one-off AI experiment)
+
+------------------------------------
+WHAT WORKS (done & tested)
+------------------------------------
+Pipeline (all rules-only, no AI, no API cost):
+  context -> matcher.py -> slide_ids -> assembler.py -> Tailored_Deck.pptx
+  ...and a browser form (app.py) that does the whole thing + download.
+
+Scripts:
+  - stamp_ids.py     — stamps permanent J2W_ID into each slide's NOTES.
+                       INSERT-SAFE: only un-ID'd slides get a new id
+                       (max existing + 1); existing ids never renumber.
+  - build_library.py — deck -> library.json (68 standalone records:
+                       id + title/subtitle/text + pointer to slide).
+  - tagger.py        — rule-based tags (kind/work_type/industry/function)
+                       + per-tag confidence (AUTO/HUMAN) + keyword string.
+                       vs registry: kind 88%, industry 67%, work_type 65%,
+                       function 45%, keywords 100% captured.
+  - ai_fallback.py   — OPTIONAL AI second opinion (OpenAI). Dry-run by
+                       default; --apply to call the API. (See DECISIONS:
+                       did NOT beat rules on this task — left in but unused.)
+  - matcher.py       — Box 1 brain. Reads the registry's include_rule /
+                       std_group / section to apply the Selection Rules.
+                       Form-only for now (no transcript).
+  - assembler.py     — Box 2. Keeps only chosen slides, in order, into a
+                       NEW .pptx. Formatting preserved perfectly.
+  - app.py           — Box 3. Flask form at http://127.0.0.1:5000 ->
+                       preview -> download. Run with:  py app.py
+  - secrets_loader.py + .env — API key kept out of code (.env is git-ignored).
+
+Data files:
+  - WORKING_COPY_Master_Deck.pptx — copy, all 68 slides ID-stamped.
+  - library.json / tagged_library.json — the content library.
+  - output/Tailored_Deck_*.pptx — generated decks.
+Originals never modified (verified by byte-compare).
+
+------------------------------------
+ARCHITECTURE BACKLOG (vs j2w_simplified_architecture.svg)
+------------------------------------
+Mapped against my 5-step architecture diagram (saved in this folder).
+[x]=done  [~]=partial  [ ]=left
+
+STEP 01 — Context form
+  [x] Company / Industry / Service type (work types) / Function
+  [x] Deck phase dropdown (Pre-read / First / Second / Proposal) — required
+  [x] Recipient / stakeholder field (optional)
+  [x] Salesperson captured automatically (placeholder until login)
+  [x] Work type made mandatory (at least one)
+  [x] Transcript / MOM text box ("Give me more information")
+STEP 02 — Slide match engine
+  [x] Context + tags -> select relevant slides (rules)
+  [x] Transcript KEYWORD scoring of case studies (free, no AI) — picks
+      shift to whatever the transcript talks about; reasons show the terms
+  [x] Gap detection: flags "needs to be created" when a selected work type
+      has no strong case (industry/transcript) match; also flags any selected
+      slide that isn't actually in the deck
+  [x] AI transcript scoring (ai_matcher.py, OpenAI gpt-4o-mini) — OPT-IN
+      checkbox "Use AI". Filters keyword false positives (e.g. drops the
+      EdTech case when the iOS/Android in the transcript is about a bank's
+      app) + picks transcript-relevant OPTIONAL slides. Falls back to keyword
+      picks if AI returns nothing or errors. Leader slides CS61/CS62 never
+      auto-picked — surfaced as a suggestion to add manually.
+STEP 03 — Suggested slides panel  [COMPLETE]
+  [x] Reorder (drag + up/down)
+  [x] Add a slide not auto-picked (+ Add slide picker — all 68 slides)
+  [x] Remove a slide (✕ on each row)
+  [x] Show missing slots as "needs to be created" (amber chips in preview)
+STEP 04 — Deck assembly
+  [x] Slide exists -> pick as-is -> drop into deck (assembler.py)
+  [x] Slide missing -> AI writes content -> Python builds it from a TEMPLATE
+      (slide_generator.py). Pluggable templates: templates.pptx holds template
+      slides, each tagged in notes "J2W_TEMPLATE: <name>" with marker tokens
+      {{TITLE}} {{KEYWORDS}} {{BULLETS}}. AI drafts the words; the builder
+      clones the template slide + fills markers. "Generate with AI" checkbox on
+      each gap in the web panel; appended at end of deck.
+      LIMITATIONS (temporary): template is TEXT-ONLY (real J2W template to be
+      designed + swapped in later — same tag + markers, no code change). Image-
+      rich templates need image-part copying (follow-up). Generated slides land
+      at the END, not inserted into their section (positioning = follow-up).
+STEP 05 — Review screen
+  [x] Content review screen — per-slide cards, editable Title/Subtitle, body
+      text shown for context. [CLIENT] auto-filled with the client name.
+      Edits + token replace written back into the .pptx on download (editor.py,
+      keeps the first run's formatting). Routes: /review and /finalize.
+  [ ] Visual (pixel) full-deck preview — needs a renderer. PowerPoint IS
+      installed; could render PNG thumbnails via PowerPoint COM (pywin32) as a
+      slower optional follow-up. LibreOffice not installed.
+OUTPUTS
+  [x] Flat MVP: download .pptx
+  [ ] v2 high-end: flag gate -> resolve -> download
+OPTIONAL POLISH (REMIND ME LATER — after deploy)
+  [ ] Real J2W template (with images/logos) for generated slides -> needs
+      image-part copying in slide_generator (current template is text-only).
+  [ ] Position generated slides INTO their section, not appended at the end.
+  [ ] Pixel-perfect visual preview (PowerPoint COM thumbnails via pywin32).
+  [ ] Inline-edit BODY text too (today: Title/Subtitle only).
+  [ ] Deeper file-size reduction (prune unused layouts / compress master images).
+
+CROSS-CUTTING
+  [x] File-size cleanup — assembler now DROPS unwanted slides' relationships,
+      so their images are pruned on save. 2-slide deck = 1.54MB (was ~2.2MB
+      regardless of slide count). Floor ~1.5MB = shared slide master + layouts
+      (logos/backgrounds), which every deck needs. Going lower = prune unused
+      layouts / compress master images (optional, riskier — later).
+  [ ] Deploy (team uses it without running Python)
+
+NEXT (the ONE thing right now):
+  -> Step 01: add Transcript box + Meeting type to the form
+     (small; unblocks the AI matching in Step 02).
+
+------------------------------------
+DECISION FROM PROMPT C (deck vs metadata)
+------------------------------------
+- Deck and registry ALIGN 1:1 — 68 slides, CS01..CS68, titles match.
+  (Light alignment check; no row-by-row formal compare done.)
+- New slides already covered: all 68.
+- New slides needing tags:    0 new.
+- Stale metadata rows:        a few AUTO industry guesses look off
+                              (e.g. CS57 tagged HEALTHCARE but keywords =
+                              Energy/Grid/Utilities). Trust keywords.
+- DECISION: PATCH, don't re-tag from scratch. Use the registry's curated
+  include_rule/std_group/section as the SELECTION source (it's hand-made
+  for exactly that), and use the auto-tagged content library for slide
+  text/keywords/pointer + as the fallback for brand-new slides.
+
+------------------------------------
+TAGGING TALLY
+------------------------------------
+  Done in one pass (not section-by-section). Rules tagged all 68;
+  a one-off AI pass touched 23 tags but was NOT kept as an improvement
+  (see DECISIONS). "Needs cleanup" pile: the OPTIONAL slides CS61-68
+  (rules can't see "optional" from text — that's decided at assembly time).
+
+------------------------------------
+DECK CONTENT CHANGES
+------------------------------------
+- 64 NEW MS case studies added to WORKING_COPY (positions 61-124) ->
+  stamped CS69..CS132 (insert-safe; old CS01-68 kept; old leader/optional
+  CS61-68 now sit at positions 125-132). Library + tags rebuilt. Registry
+  rows appended for CS69-132 (work_types=MS; industry/function AUTO-inferred
+  and refinable; keywords verbatim from each slide). Registry backed up to
+  J2W_CaseStudy_Portfolio_Metadata.BACKUP.xlsx.
+- DIVIDERS are reference-only (classification), NOT for decks. matcher EXCLUDE
+  now drops all 7: CS09, CS14, CS17, CS20, CS21, CS35, CS45.
+
+------------------------------------
+UI PLATFORM (high-end redesign)
+------------------------------------
+- Custom design system in static/app.css. Brand: white #F6F6F6, black #111110,
+  teal #2C6E66. Fonts: Space Grotesk (display) + Inter. Dark icon sidebar,
+  rounded white cards, pill tabs, soft shadows (inspired by fintech dashboard).
+- All pages live in one shell (sidebar + topbar). Routes:
+    /          Dashboard  — stats + library composition + recent decks
+    /new       New deck   — context form, work-type chips, AI toggle, transcript
+    /build     Suggested  — draggable slide cards, add/remove, gaps+Generate, AI badge
+    /review    Review     — editable title/subtitle cards, [CLIENT] fill
+    /library   Library    — all 132 slides, live search + filters + keyword chips
+    /templates Templates  — template markers + how-to-swap guide
+- All original functionality preserved (drag/add/remove/download/generate/AI).
+- Tabler icons via cdn.jsdelivr.net; Google Fonts via fonts.googleapis.com.
+
+------------------------------------
+ENGINE REFINEMENTS (round 2)
+------------------------------------
+[done] 1. Sidebar reordered: New deck is the landing page (/), Dashboard moved
+          to the bottom (/dashboard).
+[done] 2. Form: removed deal stage / meeting type / recipient (didn't affect the
+          deck). Function is now REQUIRED and MULTI-select (chips); matcher
+          scores against any selected function (context key: functions = list).
+[done] 3. "Meeting transcript" -> "Give me more information" (transcript / MOM /
+          research / notes). AI toggle removed — AI runs every build.
+[done] 6. Gaps auto-fill inline (no toggle/page): flagged "Written for you" and
+          generated automatically on download.
+[done] 7. Library: per-slide download button -> /slide/<id>/download (1-slide pptx).
+[done] 8. SELF-LEARNING LOOP (staging.py): generated slide CONTENT saved as
+          'pending'. REUSE before regenerate (same work_type+industry reuses the
+          stored content, no new AI call). Review queue at /staging: Approve
+          promotes the slide into the master deck + library + registry (stamped a
+          real CS id, e.g. CS133) so it becomes matchable; Discard drops it.
+          SAFEGUARD: pending slides never affect matching until approved.
+[done] 4. "You might also include" strip under the picks — next-best related
+          slides (same industry / function / matches-your-notes), each with an
+          Add button (matcher returns result["suggested"]).
+[done] 5. In-browser PPTX PREVIEW (no Docker) via PPTXjs (jsDelivr GitHub mirror)
+          + jQuery + JSZip. Flow: Download -> /preview renders the deck +
+          "Thank you, Athithia — your deck is ready" + Download .pptx; an error
+          banner shows if a slide won't render (the file is still complete).
+          Files served at /output/<name> (?dl=1 = attachment). Owner = "Athithia"
+          (no login yet). PPTXjs is VIEW-only + best-effort; text editing stays on
+          the /review page.
+NOTE: a PowerPoint-COM renderer (renderer.py, pywin32 -> pixel-perfect slide
+      images + a slide viewer + visual review) was built then ROLLED BACK at the
+      owner's request — back to the PPTXjs preview above. renderer.py is kept on
+      disk (unused) if we revisit it; the COM approach left PowerPoint running in
+      the background and could lock files / touch the user's open PowerPoint.
+
+------------------------------------
+ENGINE REFINEMENTS (round 3) — 23 June 2026
+------------------------------------
+FORM FIELDS (the live form is NEW_FORM_BODY in app.py; the old FORM_HTML block
+is DEAD CODE — never rendered).
+[done] Deck phase — new REQUIRED single-select dropdown on the New deck form,
+       fixed list in this order: Pre-read / First Meeting / Second Meeting /
+       Proposal. Defined once as PHASES in app.py (top, near WORK_TYPES); the
+       dropdown is built from that list. Placed in the "Client & focus" card.
+[done] Recipient / stakeholder — new OPTIONAL text field (e.g. "Head of
+       Engineering"). Placed in the same card, next to Deck phase.
+[done] Salesperson — captured AUTOMATICALLY (not a form field). app.py has a
+       current_salesperson() helper that, until login exists, returns the
+       placeholder "[NOT LOGGED IN — wire to login at deploy]". ONE place to
+       swap for the real logged-in user at deploy time.
+[done] All three (phase, recipient, salesperson) are captured into the /build
+       ctx dict. NOTE: captured only — not yet threaded to /download or used in
+       matching. Phase-driven selection = PROMPT 2 (pending phase rules from
+       owner). Threading to the meeting log = PROMPT 3.
+[done] Work type now MANDATORY (at least one of Workforce / AI Pods / Managed
+       services). Enforced two ways: (1) JS submit guard shows an inline red
+       "Please select at least one work type" warning and blocks submit; (2)
+       server-side backstop in /build re-renders the form with an error banner
+       if none arrive (covers JS-disabled). Other fields left unchanged.
+
+AUTOMATIC MEETING LOG (PROMPT 3) — DONE 23 June 2026
+  New module meeting_log.py. Every generated deck saves ONE record automatically
+  (no extra step for the salesperson) — called at the end of BOTH /download and
+  /finalize, right after the .pptx is built.
+  Naming convention (owner's choice): one JSON file per client+phase, named
+    J2W_<ClientName>_<PhaseCode>.json   (e.g. J2W_AcmeBank_FM.json)
+  Phase codes:  Pre-read=PR  First Meeting=FM  Second Meeting=SM  Proposal=PP.
+  Client name is stripped of spaces/illegal chars ("Acme Bank" -> "AcmeBank").
+  OVERWRITE behaviour (owner's choice): newest deck for a client+phase replaces
+  the previous record (only the latest kept). Full date+time still stored inside.
+  Saved in meetings/ folder. Each record holds: name, client, industry,
+  functions[], work_types[], phase, phase_code, recipient, salesperson,
+  generated_at (YYYY-MM-DD HH:MM:SS), slide_ids[], deck_file.
+  Salesperson is recomputed server-side from current_salesperson() (placeholder
+  until login). Phase/recipient/functions/work_types are threaded from the form
+  through hidden fields in BUILD_BODY + REVIEW_BODY and the /review route.
+  Verified by saving + printing one sample record (then deleted the test file;
+  meetings/ starts empty for real use). meeting_log.all_meetings() (newest-first)
+  is ready for PROMPT 4.
+
+SEARCH PAST MEETINGS (PROMPT 4) — DONE 23 June 2026
+  New page at /meetings ("Past meetings" in the sidebar, ti-history icon).
+  Filter by Industry + Work type + Phase (GET form; blank = Any). EXACT-match
+  AND filter for now (smarter content-based similarity = later). Results table,
+  NEWEST FIRST, columns: Client (+industry), Salesperson, Recipient, Date, Phase,
+  Deck (links to /output/<file>). Reads meeting_log.all_meetings(). No per-user
+  restriction — any team member sees all meetings. Template MEETINGS_BODY +
+  route meetings() in app.py; WT_LABELS maps codes to friendly names.
+  Verified with the Flask test client: all=2, work_type=MS->1, industry=Banking
+  ->1, phase=Proposal->1, Workforce+Proposal->0 (correct AND). Test records then
+  deleted; meetings/ starts empty.
+
+  *** DEPLOY-TIME PRIVACY REMINDER (Athithia, raise this at deploy) ***
+  The meeting log stores CLIENT NAMES (and recipients/transcripts feed the same
+  flow). This data must stay PRIVATE to the team. At deploy: put the whole app
+  behind TEAM LOGIN — never a public URL. Ties to decision #9 in HANDOFF.md and
+  the salesperson placeholder (current_salesperson()) which wires to that login.
+
+ADD LIBRARY SLIDES TO A DECK — "DECK TRAY" — DONE 23 June 2026
+  Goal: from the Slide library, hand-pick any slide into the deck you're building.
+  (NOTE: the Suggested-slides page already had an "Add slide" picker for all 133
+  slides; this adds the same power from the nicer Library browse view.)
+  HOW IT WORKS — a browser-side "deck tray" (localStorage key j2w_deck), no server
+  session / no DB:
+    - Library cards get a "+ Add to deck" button; a floating "Open deck (N)" pill
+      shows the count and links to the deck. Cards already in the deck show a tick.
+    - The deck tray stores {active, ctx{client/industry/phase/recipient/transcript/
+      functions[]/work_types[]}, order[ids], buildId}.
+    - Suggested-slides page (BUILD_BODY): on a NEW build it seeds the tray from the
+      matcher picks + current form context (overwrites = fresh deck). Every reorder/
+      add/remove persists the order back to the tray.
+    - NEW route GET /deck re-opens the deck: rebuilds the slide list from the tray
+      and refills the hidden form fields (client/phase/etc.) client-side, so
+      Download/Review/Generate + meeting-logging all keep working unchanged.
+    - buildId guard: re-opening the SAME build (e.g. browser Back) restores the deck
+      as left (keeps library adds) instead of resetting to the matcher picks.
+  UNCHANGED: matcher, assembler, meeting_log, /download, /review, /finalize — they
+  still just receive the final slide-id list + context.
+  LIMITATION (acceptable): if you start a deck COLD from the library (no build yet),
+  there's no client name/phase context — /download then defaults client to "Client".
+  Intended flow is build -> jump to library -> add -> Open deck. Manual adds also
+  bypass matcher exclusions (you can deliberately add a divider/leader slide).
+  Verified: routes /, /library, /deck, /meetings all 200; library renders add
+  buttons + pill; /deck is in resume mode; /build renders with the tray vars.
+
+AI-SLIDE VERIFICATION GATE (tech-team safety concern) — DONE 23 June 2026
+  POLICY: every AI-written gap slide is "NEEDS EXPERT VERIFICATION - not client-
+  ready" until a human expert approves it. Makes the existing staging quarantine
+  louder + harder to bypass. What changed:
+  1. CARRIED WITH THE SLIDE: when an unverified AI slide is added to a built deck,
+     slide_generator.append_generated() stamps a LOUD RED BANNER across its top
+     ("⚠ AI-GENERATED - NEEDS EXPERT VERIFICATION - NOT CLIENT-READY"). Travels in
+     the .pptx — visible in the in-browser preview AND in PowerPoint. Each item now
+     carries a `verified` flag; only verified!=True slides get the banner, so an
+     APPROVED/promoted slide (rebuilt from content via promote()) is clean.
+  2. PREVIEW/BUILD WARNING: _maybe_generate() now RETURNS the list of unverified
+     slides added; /download + /finalize pass it to PREVIEW_BODY, which shows a red
+     banner "This deck contains AI-written slides that need expert verification
+     before sending to a client" + lists each (title / work type / keywords) with a
+     link to the Review queue.
+  3. REVIEW QUEUE (/staging): each pending card now shows the loud red status
+     "⚠ NEEDS EXPERT VERIFICATION / Not client-ready until an expert approves",
+     plus reviewer context — which client/deck it was generated for (for_client),
+     the topic (keywords), and WHEN (new created_at field in staging.add). Approve
+     button relabelled "Verify & approve".
+  4. APPROVE = the verification action (unchanged mechanism): promote() clears the
+     status to approved -> slide becomes client-ready + joins the master library;
+     future decks use it with NO banner. Discard drops it.
+  staging.py: added created_at + VERIFY_STATUS constant. Verified end-to-end:
+  banner stamped only on unverified slides; preview + staging templates render the
+  warnings; all routes 200.
+
+  PLANNED NEXT STEP (depends on team login — NOT built yet):
+    EXPERT ROUTING / NOTIFICATION — when an unverified slide is created, notify the
+    right solution lead / expert to verify it. Needs the team-login + user identity
+    we haven't built. Wire after deploy + login (ties to current_salesperson() and
+    decision #9). For now it's flagging + warnings only.
+
+FORM REORDER + "ANY FUNCTION" BUTTON — DONE 23 June 2026
+  - Reordered the New deck form so Work type comes right after Client name +
+    Industry. New order of cards: (1) Client & focus [client, industry, deck
+    phase, recipient], (2) Work type, (3) Function, (4) Give me more information.
+    Function moved out of the Client & focus card into its own card below Work
+    type. No field behaviour changed by the move.
+  - Added an "Any function" button (chip) to the Function section. Function was
+    already optional (submitting none = no function filter); this button makes
+    that explicit: clicking it CLEARS all function chips and highlights itself
+    ("not function-specific / anything can be used"); ticking any function chip
+    clears the highlight. Pure client-side JS (toggleAnyFn/fnChanged/setAnyActive)
+    — sends no extra value; empty functions list already means "any" to matcher.
+    (Chose "Any function" over "All of the above"/"Auto from notes" per owner.)
+
+LINEAR FLOW + INLINE AI ACCEPT/REJECT — DONE 23 June 2026
+  Owner found the flow confusing (two exits from Suggested: Download vs Review),
+  and AI slides were generated silently at download with no way to see/approve
+  them. Redesigned into ONE linear path with the AI made visible + controllable.
+  Owner decisions: strictly linear; Accept = full sign-off (into library);
+  Review queue becomes read-only history; drop the red banner.
+  NEW FLOW:  New deck -> Suggested slides -> Review & edit -> Preview -> Download.
+  - Suggested page: ONE button "Next: Review & edit" (action=/review). Removed the
+    Download button. Gaps card reworded: "AI will write these ... accept/reject on
+    the next step". Gaps still carry hidden `gen` work types.
+  - /review: for each `gen` work type it WRITES the AI slide now (reuse a pending
+    draft via staging.find, else slide_generator.draft + staging.add) and shows it
+    as an editable "AI-written" card (title/keywords/bullets) with Accept/Reject
+    radios (default Accept). Library slides keep title/subtitle editing. Carries
+    `ai_ids` (the Gxxx staging ids) + `order` (CSxx) as hidden fields. One button
+    "Next: Preview" (action=/finalize).
+  - /finalize: for each ai_id -> Reject = staging.discard; Accept = update_content
+    with the edits then staging.promote() (real CSxx into master+library+registry,
+    client-ready) and append that CSxx to the deck order. Then assemble + apply
+    title/subtitle edits + token fill. NO _maybe_generate, NO banner. meeting_log
+    records the final CSxx ids.
+  - Preview: passes unverified=[] (warning never shows now). Download at the end.
+  - Review queue (/staging) -> READ-ONLY HISTORY: lists every AI slide with status
+    Accepted / Rejected / Not-yet-decided + context. No approve/discard buttons.
+    Sidebar label renamed "AI history". (Old /staging approve/discard routes remain
+    but are no longer linked.) staging.update_content() helper added.
+  NOTE: /download route + _maybe_generate + slide_generator banner are now VESTIGIAL
+  (not reached by the linear UI) — left in place, harmless. Each Accept permanently
+  grows the master deck (that's what "joins the library" means — owner's choice).
+  Verified end-to-end (backed up master/registry/library/staging, ran review->
+  finalize with 1 accept + 1 reject, deck = base+accepted, no banner, then RESTORED
+  the backups so master stayed at 133 slides).
+
+SLIDE-GENERATION REFINEMENT (guided + grounded) — DONE 23 June 2026
+  Problem: the old draft() just told the AI to "invent a realistic case study" from
+  work_type+industry+transcript — barely guided, and fabricated fake client wins.
+  Owner's call: a BRIEF box pre-filled from the notes (editable); the AI follows the
+  brief + the FORMAT of similar real slides; the slide can be a case study in the
+  existing format OR another client-specific slide as the brief calls for; no
+  invented client names.
+  - slide_generator.default_brief(wt, industry, transcript): heuristic editable
+    starter brief, no AI call (e.g. "AI Pod slide for the Tech It industry,
+    addressing: <first ~180 chars of the notes>").
+  - slide_generator._similar_slides(wt, query, n=3): pulls the closest real
+    CASE_STUDY slides from tagged_library.json (keyword overlap + same work_type) to
+    use as format examples.
+  - draft(gap, context) rewritten: context now carries `brief`; the prompt gives the
+    brief as the instruction, the meeting notes as context, and the similar slides as
+    the FORMAT to follow; tells the model it may write a case study OR a different
+    client-specific slide and must NOT invent a real client name.
+  - UI: each gap on the Suggested page now shows an editable "What should this slide
+    cover?" textarea (name brief__<wt>) pre-filled with default_brief. genGap() sends
+    the brief to POST /generate; gaps generated later at /review read brief__<wt>.
+  Verified: brief box renders + pre-fills; /generate with a custom brief returned a
+  format-matching slide ("ACCELERATED QA TEAM SCALING — AVIATION SECTOR").
+  NOTE: during testing confirmed the self-learning loop works for real — owner had
+  ACCEPTED the Northwind AI_POD/Aviation slide in the browser, so it promoted to
+  CS134 (master now 134) and AI_POD/Aviation no longer gaps (it reuses CS134).
+
+FLOW REFINEMENTS (preview removed, ordering, client name) — DONE 23 June 2026
+  1. PREVIEW STEP REMOVED. The in-browser PPTXjs preview never rendered on the
+     owner's locked-down network, so it's gone. Review & edit button is now
+     "Build & download" (-> /finalize). PREVIEW_BODY is now a simple "Your deck is
+     ready, for <client>" page: a Download .pptx button + Build another, and it
+     AUTO-STARTS the download (JS redirect to /output/<file>?dl=1 after 700ms). All
+     the PPTXjs <script>/<link> + the unverified banner block were deleted. Both
+     /finalize and (vestigial) /download now render it with client=client (no more
+     owner/unverified args). Crumb -> "Done".
+  2. AI SLIDES SLOT BEFORE THE CLOSERS. /finalize used to append accepted AI slides
+     at the very END (after CS07 Next Steps / CS08 Let's win together). Now they are
+     inserted BEFORE the first matcher.PIN_TO_END slide, so order is
+     ...content... AI-slides, CS07, CS08. (Collect accepted -> find first pinned
+     index -> splice in.)
+  3. CLIENT NAME ON THE DECK HEADING. The /deck "Open deck" (resume) page showed
+     "Deck for " blank (resume has empty server ctx). Added <span id="deck-client">
+     and the resume init now fills it from the deck-tray localStorage ctx.client_name.
+  Verified: finalize renders the new ready page (no PPTXjs), Review button reads
+  "Build & download", insert-before-closers splices correctly. Test artifacts
+  cleaned.
+
+SKILLS SLIDES (capability + footprint, Workforce-only) — DONE 23 June 2026
+  Two data-driven slides wired in from J2W_Skills_Inventory.xlsx (copied into the
+  project from the owner's Downloads; only the two AGGREGATED sheets are read, never
+  "Consultant Detail"). Master deck has the templates at positions 13 (company_
+  footprint) and 14 (skills) — tagged J2W_TEMPLATE in notes, NO J2W_ID (they are
+  fill-on-demand templates, not library picks). NOTE: owner said "13 & 15" but the
+  skills template is #14; #15 is CS13 (WHY J2W).
+  New module skills.py:
+   - load_skills()/load_footprint() (skips the TOTAL/BENCH aggregate row).
+   - candidates(context): GATE first — only a PURE Workforce deck (work_types ==
+     {WORKFORCE}); else none. Capability: KEYWORD-FIRST (skill_area mentioned in the
+     notes) uncapped, plus INDUSTRY matches (deck industry in industries_served;
+     TECH_IT->'tech' normalised) capped at CAP_INDUSTRY=3 so a broad industry can't
+     flood the deck. Footprint: one slide if the form client matches a Client
+     Footprint row. Staleness: last_verified > 90 days -> stale flag.
+   - fill_markers(): replace {{MARKER}} tokens keeping each paragraph's 1st-run font.
+   - build_into(deck, order, cands): after the CS deck is assembled, copy each chosen
+     template from the master, fill it, and reorder the whole deck to `order`.
+  Integration:
+   - build(): inserts skills picks into the panel AFTER the standard block / BEFORE
+     the case studies; rows labeled "Capability — X" / "Footprint — Y" (teal CAP/FOOT
+     chip), removable like any slide, with a red "skills data may be stale" note when
+     applicable. Synthetic ids SK:<area> / FP:<client> ride in the deck order.
+   - /review carries the SK:/FP: ids through untouched (order hidden field).
+   - /finalize: re-derives candidates from the form context, builds the CS deck, then
+     skills.build_into() fills + slots the skills slides at their order position.
+  BUG FIXED (important, pre-existing): assembler.build_deck only dropped ID'd slides,
+  so the master's two ID-LESS template slides were LEAKING into every deck unfilled.
+  Now build_deck drops ALL slides not kept (incl. ID-less). Also fixed a reorder bug
+  in build_into (lxml elements are 'falsy' when childless -> used explicit is-None).
+  Verified end-to-end: test-fill of each slide (Test Automation / SocGen rows) shown;
+  pure-WF panel shows CAP+FOOT rows; WF+MS shows none (gate); finalize produced
+  CS01,CS02,[Test Automation],[SocGen],CS07,CS08 with both skills slides FILLED and
+  positioned before the closers; master untouched (138 = 136 ID'd + 2 templates).
+
+CHART ON THE CAPABILITY SLIDE — DONE 23 June 2026
+  Owner wanted chart visualisations on the skills slides. Decisions: capability =
+  proficiency DOUGHNUT (Expert/Intermediate/Junior); footprint = NO chart (its data
+  is single aggregates + lists, not chart-shaped); colours = J2W brand palette (auto).
+  Feasibility proven (POC: output/_POC_chart.pptx) — python-pptx makes NATIVE,
+  editable PowerPoint charts (not images), with per-slice colours.
+  Built in skills.py:
+   - BRAND palette + add_proficiency_chart(slide, data): finds a {{CHART}} placeholder
+     shape, removes it, and drops a native doughnut at that exact position/size with
+     brand-coloured slices + bottom legend. NO {{CHART}} placeholder -> no-op (never
+     overlaps).
+   - candidates() now carries chart={Expert,Intermediate,Junior} per capability row.
+   - build_into() calls add_proficiency_chart() on each capability slide after fill.
+  TEMPLATE EDIT DONE (owner approved): master slide 14 was full, so I compacted the
+  2x2 metric grid to the LEFT (uniform horizontal scale 0.60 on the ~20 tile-region
+  shapes, keeping alignment) and added a {{CHART}} text box on the right (~8.3in,
+  4.4x3.7). Backed the master up first -> WORKING_COPY_Master_Deck.BEFORE_CHART.pptx
+  (restore from there if the layout needs rework). Master still 138 slides. Footprint
+  slide 13 intentionally has no chart.
+  Verified: filled sample output/_TEST_capability_chart.pptx has the doughnut
+  (Expert 12 / Int 18 / Junior 8) in the placeholder, marker consumed, tiles on left.
+  IMAGES REMOVED (owner asked): _copy_slide copies shape XML but not image parts, so
+  the templates' pictures (icons / accent bars / dividers — 10 on skills, 5 on
+  footprint) would become broken-image boxes in generated slides. Stripped ALL
+  picture shapes from both template slides (kept text + auto-shapes/tiles, which copy
+  cleanly). Generated skills slides now have 0 pictures.
+  KEYWORD PRECISION FIX: the capability keyword match fired on generic words — e.g.
+  "performance engineering" in the notes pulled in EVERY skill area containing
+  "engineering" (9 capability slides!). Added STOPWORDS {engineering, solutions,
+  platforms, services, management, modernization, legacy} so only distinctive words
+  match. SocGen/BFSI test now yields 6 skills slides (2 keyword + 3 industry-capped +
+  footprint) instead of 9.
+  FULL END-TO-END RUN (build->review->finalize, server-side): pure-Workforce SocGen
+  deck = 21 slides, charts on all capability slides, skills slides positioned after
+  the Workforce block / before case studies / before closers, 0 broken pictures on
+  skills slides. Deck generates correctly.
+
+PENDING (queued by owner, not yet built):
+  PROMPT 2 — make deck phase influence slide selection (WAITING on owner's
+             per-phase emphasis/include/exclude rules; do NOT guess sales logic).
+  [DONE 23 Jun] explicit per-gap "Generate with AI" button ON the Suggested page:
+             new JSON route POST /generate (reuse-or-draft + stage) + genGap() JS
+             that calls it and shows the written title inline. The staged slide is
+             picked up on the Review step (staging.find reuse) for accept/reject.
+             Skipping the button still auto-writes gaps at /review as before.
+
+------------------------------------
+BROKEN / STUCK (paste EXACT errors here)
+------------------------------------
+- [none]
+
+------------------------------------
+LOADING OVERLAY + matcher AI-shape fix (23 June 2026)
+------------------------------------
+LOADER: each slow step now shows a full-screen spinner overlay on submit so the
+user isn't staring at a frozen page during AI calls. Added to NEW_FORM_BODY
+("Generating your deck…"), BUILD_BODY -> /review ("Preparing your review…"),
+REVIEW_BODY -> /finalize ("Finalizing your deck…"). Shared markup: a fixed
+#loader div + @keyframes j2wspin, shown via the form's onsubmit / submit handler.
+A window 'pageshow' listener hides it again so the browser Back button can't leave
+a stuck overlay (bfcache).
+FIX (pre-existing, surfaced during testing): matcher.plan 500'd with
+"TypeError: unhashable type: 'dict'" at `s in rows_by_id` when gpt-4o-mini returned
+its case picks as OBJECTS (e.g. {"slide_id":"CS70"}) instead of bare ID strings.
+Fixed at source: ai_matcher.refine() now normalises cases/optional to lists of ID
+STRINGS before returning, so the matcher never sees a dict. (Not caused by the
+loader; the AI output shape is non-deterministic.)
+
+------------------------------------
+FIX: corrupt-deck / 500 on download (23 June 2026)
+------------------------------------
+SYMPTOM: clicking Download/Generate sometimes gave "Internal Server Error".
+Traceback ended in zipfile.BadZipFile: "Bad magic number for central directory"
+at editor.replace_tokens -> Presentation(path). The output .pptx on disk was a
+corrupt zip.
+CAUSE: assembler.build_deck did prs.save(out) DIRECTLY onto the output path. If
+that file was already open/locked (PowerPoint) or syncing, the write was
+interrupted and left a half-written, corrupt .pptx -> the next step crashed.
+FIX:
+  - assembler._atomic_save(): write to a temp file in the same folder, then
+    os.replace() it into place. Never leaves a corrupt file; if the target is
+    locked, raises a clear PermissionError ("file is open in PowerPoint...").
+  - app.py /download + /finalize wrap build/replace/generate in try/except
+    (PermissionError, BadZipFile) -> _file_busy_page(): a friendly "Couldn't save
+    the deck — close it in PowerPoint and try again" page instead of a 500.
+  Verified: normal generate = 200 + valid 5-slide deck; locked target = friendly
+  page (not 500). NOTE for later: the in-browser PPTXjs preview is best-effort and
+  often blank on locked-down/corporate networks (CDN-blocked) — not a deck problem;
+  the real fix is a server-side renderer (LibreOffice) at deploy. Also: AI IS live
+  (verified gpt-4o-mini draft returns real content); gaps + slide-gen + verify
+  banner all confirmed working end to end.
+
+------------------------------------
+DECISIONS & NOTES (so I don't go in circles)
+------------------------------------
+- Using the NEW master deck; registry aligns 1:1 (Prompt C above).
+- Library design chosen over positional indexing.
+- Rule-based tagging first; AI only as a fallback.
+- AI PROVIDER = OpenAI (gpt-4o-mini), not Claude. I only had an OpenAI
+  key. This deviates from the original Claude plan but is my choice.
+- SECURITY: an API key was pasted into chat once. Treat it as exposed —
+  REVOKE it in the OpenAI dashboard and put a fresh one in .env. The key
+  lives ONLY in .env (git-ignored), never in code.
+- AI FALLBACK EXPERIMENT (static re-tagging): did NOT beat the rules.
+  Why: (1) the registry is itself AUTO-tagged, so "accuracy vs registry"
+  measures agreement-with-a-machine, not truth; (2) "optional-ness" isn't
+  in a slide's words. Conclusion: AI belongs at ASSEMBLY time (reading the
+  transcript to score cases + decide OPTIONAL/leaders), per the registry's
+  Transcript Parsing sheet — NOT in static re-tagging. Rolled the decision
+  to KEEP the current tagged_library.json (rules + the 23 AI edits); the
+  rules-only baseline is reproducible any time with: py tagger.py
+- MATCHER is registry-driven (include_rule). OPTIONAL slides are skipped
+  for now (no transcript); leaders (CS61/CS62) will be ASK-the-user later.
+- ASSEMBLER uses delete+reorder inside a copy => perfect formatting BUT
+  leaves orphaned media in the file (output ~2.23MB vs master 2.42MB even
+  for 25 of 68 slides). Looks/presents fine. TODO Box 4(b): strip media.
+====================================

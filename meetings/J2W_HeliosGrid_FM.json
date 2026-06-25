@@ -1,0 +1,35 @@
+{
+  "name": "J2W_HeliosGrid_FM",
+  "client": "Helios Grid",
+  "industry": "ENERGY",
+  "functions": [],
+  "work_types": [
+    "WORKFORCE",
+    "AI_POD"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "VP of Grid Operations",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-06-24 11:20:17",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS10",
+    "CS11",
+    "CS12",
+    "CS13",
+    "CS15",
+    "CS16",
+    "CS37",
+    "CS39",
+    "CS134",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_Helios_Grid.pptx"
+}

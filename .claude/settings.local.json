@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py -m pip install --quiet pywin32)",
+      "Bash(py -c ' *)",
+      "Bash(py renderer.py \"output/Tailored_Deck_Acme_Bank.pptx\")",
+      "Bash(awk '{print $5, $9}')"
+    ]
+  }
+}
