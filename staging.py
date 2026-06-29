@@ -49,22 +49,27 @@ def _save(items):
     json.dump(items, open(STAGE_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 
-def find(work_type, industry):
-    """Reuse a prior generated slide for this slot (approved first, then pending)."""
+def find(work_type, industry, topic=""):
+    """Reuse a prior generated slide for this slot (approved first, then pending).
+    A topic-specific gap (a client ask with no slide) also matches on its topic,
+    so two different asks under the same work type don't collide."""
+    topic = (topic or "").strip().lower()
     cands = [it for it in _load()
              if it["work_type"] == work_type
              and (it.get("industry") or "") == (industry or "")
+             and (it.get("topic") or "").strip().lower() == topic
              and it["status"] in ("pending", "approved")]
     cands.sort(key=lambda it: 0 if it["status"] == "approved" else 1)
     return cands[0] if cands else None
 
 
-def add(content, work_type, industry, client=""):
+def add(content, work_type, industry, client="", topic=""):
     items = _load()
     rec = {
         "id": "G%03d" % (len(items) + 1),
         "status": "pending",                                  # pending == needs expert verification
         "work_type": work_type,
+        "topic": (topic or "").strip(),                       # the client ask, if this filled one
         "industry": industry or "",
         "title": content.get("title", ""),
         "keywords": content.get("keywords", ""),

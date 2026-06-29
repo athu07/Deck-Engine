@@ -154,5 +154,77 @@
       "fix": "None"
     },
     "kind": "user_created"
+  },
+  {
+    "id": "G008",
+    "status": "pending",
+    "work_type": "AI_POD",
+    "topic": "CI/CD setup",
+    "industry": "TECH_IT",
+    "title": "CI/CD SETUP FOR TECH IT — AI POD IN DEVOPS",
+    "keywords": "CI/CD · Automation · Blockchain Traceability · Quantum Cryptography · DevOps",
+    "bullets": [
+      "Seamless CI/CD pipeline implementation, reducing deployment time by 50%.",
+      "Integrated blockchain traceability ensuring end-to-end supply chain transparency.",
+      "Enhanced data security through quantum cryptography protocols in CI/CD processes.",
+      "Continuous monitoring and analytics for ESG compliance and carbon capture reporting."
+    ],
+    "template": "case_study",
+    "for_client": "FutureCorp",
+    "created_at": "2026-06-29 11:27"
+  },
+  {
+    "id": "G009",
+    "status": "pending",
+    "work_type": "AI_POD",
+    "topic": "blockchain traceability",
+    "industry": "TECH_IT",
+    "title": "BLOCKCHAIN TRACEABILITY SOLUTION — SUPPLY CHAIN IN TECH IT",
+    "keywords": "Blockchain Traceability · Supply Chain · Quantum Cryptography · ESG Reporting",
+    "bullets": [
+      "Enhanced supply chain transparency through immutable blockchain records.",
+      "Real-time tracking of product provenance, ensuring authenticity and compliance.",
+      "Integration with quantum cryptography for secure data transactions.",
+      "Support for ESG initiatives with verifiable carbon capture analytics."
+    ],
+    "template": "case_study",
+    "for_client": "FutureCorp",
+    "created_at": "2026-06-29 11:27"
+  },
+  {
+    "id": "G010",
+    "status": "pending",
+    "work_type": "AI_POD",
+    "topic": "quantum cryptography",
+    "industry": "TECH_IT",
+    "title": "QUANTUM CRYPTOGRAPHY SOLUTIONS — TECH IT INDUSTRY",
+    "keywords": "Quantum Security · Data Integrity · Blockchain Traceability · Supply Chain",
+    "bullets": [
+      "Enhanced data security through quantum key distribution, ensuring unbreakable encryption.",
+      "Seamless integration with blockchain for immutable supply chain traceability.",
+      "Real-time monitoring and threat detection leveraging quantum algorithms.",
+      "Compliance with industry standards for data protection and privacy."
+    ],
+    "template": "case_study",
+    "for_client": "FutureCorp",
+    "created_at": "2026-06-29 11:27"
+  },
+  {
+    "id": "G011",
+    "status": "pending",
+    "work_type": "AI_POD",
+    "topic": "carbon capture analytics",
+    "industry": "TECH_IT",
+    "title": "CARBON CAPTURE ANALYTICS — TECH IT SOLUTIONS",
+    "keywords": "Carbon Capture · ESG Reporting · AI Analytics · Blockchain Traceability",
+    "bullets": [
+      "Advanced AI algorithms for real-time carbon capture data analysis and reporting.",
+      "Seamless integration with blockchain for transparent supply chain traceability.",
+      "Enhanced ESG compliance through automated analytics and reporting tools.",
+      "Scalable solutions tailored for Tech IT, ensuring robust CI/CD pipelines."
+    ],
+    "template": "case_study",
+    "for_client": "FutureCorp",
+    "created_at": "2026-06-29 11:27"
   }
 ]

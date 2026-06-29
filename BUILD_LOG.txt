@@ -2,7 +2,7 @@
 J2W DECK ENGINE — BUILD LOG
 ====================================
 Owner: Athithia
-Last updated: 23 June 2026
+Last updated: 29 June 2026
 
 ------------------------------------
 THE GOAL (never changes — for context)
@@ -573,14 +573,119 @@ CHART ON THE CAPABILITY SLIDE — DONE 23 June 2026
   (today: edit via regenerate, or drag/remove; review-page edits are title/subtitle
   for library slides only).
 
+TWO BUG FIXES — 25 June 2026
+  1. AUTO-DOWNLOAD REMOVED (app.py PREVIEW_BODY).
+     The done/download page had a JS setTimeout that auto-redirected to
+     /output/<file>?dl=1 after 700ms, triggering a download the moment the page
+     loaded. Owner asked it to only download when explicitly clicking the button.
+     Fix: removed the entire <script> block from PREVIEW_BODY. Also updated the
+     lede text (was "The download starts automatically" -- now "Click the button
+     below to download your deck"). Download button still works unchanged.
+  2. RESPONSIVENESS FIX (static/app.css .page rule).
+     On wide screens or at low browser zoom levels, page content stuck to the
+     left edge (no centering) and left a large blank area to the right. Fix:
+     added `width:100%;margin:0 auto` to the .page rule. Content now centres
+     properly within the main area at all zoom levels.
+
+UI + NAMING CHANGES — 26 June 2026
+  1. TOOL RENAMED: "J2W Deck Engine" -> "J2W Pre-sales Engine".
+     Owner confirmed the primary operator is the pre-sales team (not sales).
+     Changed in: shell() default title, DASHBOARD_BODY eyebrow, FORM_HTML (dead code),
+     browser <title> tags. No functional change.
+  2. "PAST MEETINGS" -> "DECK REPOSITORY".
+     Sidebar nav-tip, MEETINGS_BODY heading/eyebrow/lede, /meetings route crumb,
+     empty-state message. Page at /meetings still works identically.
+  3. "CREATE WITH AI" — STRUCTURED FORM (BUILD_BODY).
+     Replaced the single free-text textarea with a 4-field structured form:
+       - Topic / Use case (required)
+       - Industry (optional, pre-filled from deck context on page load)
+       - Problem / Challenge (required)
+       - Solution (optional)
+       - Results (optional)
+     JS assembles these into a brief string before POSTing to /create_ai —
+     backend unchanged. Fields marked with red asterisk / greyed optional label.
+     Old `ca-brief` id is gone; JS now reads ca-topic, ca-problem, ca-solution,
+     ca-results, ca-industry.
+  4. LOADING PROGRESS BAR on "Create with AI" generate.
+     When Generate is clicked: a teal bar (#ca-bar inside #ca-loader) animates
+     below the button (random increments to ~88%, snaps to 100% on response,
+     hidden after 350ms). Replaces the plain button-text spinner with a visible
+     animated bar. Loader div hidden again once preview card renders.
+
+SKILLS DATA REBUILD + BRANDED TEMPLATES — 26 June 2026
+  SKILLS DATA SOURCE REPLACED:
+  skills.py completely rewritten to read from J2W_Delivery_Footprint_Organized_Latest.xlsx
+  (sheet "Clean - Co x Func x Skill", 635 rows: Industry|Company|Function Delivered|
+  Normalized Skill|Count). The old J2W_Skills_Inventory.xlsx dummy data (expert/intermediate/
+  junior/ramp-up columns) is no longer used. 3,457 consultants, 83 companies, 16 industries,
+  7 functions in the real data.
+  File copied from Downloads into the project folder (needed for relative import).
+
+  NEW GATE — RFI TRIGGER:
+  Skills slides now require BOTH: (a) Workforce-only work type, AND (b) the notes mention
+  "RFI" or "request for information". Two-step gate:
+    _is_rfi(transcript) = re.search(r'\brfi\b|request\s+for\s+information', transcript.lower())
+  If either gate fails, skills.candidates() returns [].
+
+  THREE NEW SLIDE TYPES (all triggered together when the gate passes):
+    SK:industry  — "Our Delivery Footprint in <INDUSTRY>"
+                   Metrics: total consultants, companies, functions, skills in this industry.
+                   Top 3 "frequently hired" skills = skills appearing across the most distinct
+                   companies (tiebroken by total headcount). Chart: doughnut by function.
+    SK:skills    — "Where J2W Has Delivered — <topic>" (ONE combined slide for ALL skills
+                   mentioned in the notes, not one slide per skill).
+                   Headcount + company count per matched skill; combined summary text.
+                   Chart: horizontal bar, one bar per skill.
+    FP:<company> — "Our Partnership with <CLIENT>" (only if client name fuzzy-matches a company
+                   in the data). Fuzzy match: normalise (lowercase, strip pvt/ltd/ops/etc,
+                   strip non-alphanumeric), then substring check both directions.
+                   Chart: horizontal bar, function breakdown.
+  Company matching confirmed: "SocGen" matches "SocGen" and "Soc gen Ops" rows correctly.
+
+  CHIP LABELS in the Suggested panel:
+    SK:industry -> IND chip (teal), SK:skills -> SKL chip, FP:<co> -> FOOT chip.
+
+  BRANDED TEMPLATE SLIDES:
+  Owner designed three slides in "Slides for skills.pptx". These were fixed and saved as
+  skills_templates.pptx (3 slides) for use by the engine:
+    - Slide order: skill_deepdive (1st), industry_strength (2nd), company_footprint (3rd).
+  Fixes applied by import_skills_templates.py (run once):
+    - Slide 1 (skill_deepdive): removed hardcoded "45%/30%/25%" circles + percentages,
+      "Skill Distribution Overview" text, footer stats ({{TOTAL_CONSULTANTS}} etc.),
+      designer notes ("Horizontal bar chart showing..." / "Y-axis..."), body J2W_TEMPLATE
+      text, footer icons. Resized {{CHART}} placeholder to fill the right panel
+      (left=6.15" top=2.10" w=6.20" h=4.10"). Notes set to "J2W_TEMPLATE: skill_deepdive".
+    - Slide 2 (industry_strength): no {{CHART}} existed — added one in the bottom-right
+      panel below the "Function Distribution" label (left=6.92" top=4.38" w=5.73" h=2.38").
+      Notes set to "J2W_TEMPLATE: industry_strength".
+    - Slide 3 (company_footprint): removed chart-mockup picture shape (wide image mid-page);
+      added {{CHART}} text box at same position. Removed "Account snapshot as of" footer.
+      Notes set to "J2W_TEMPLATE: company_footprint".
+
+  IMAGE COPYING FIX (_copy_slide in slide_generator.py):
+  The old _copy_slide() deep-copied shape XML only — picture shapes (logos, backgrounds,
+  icons) referenced rIds that didn't exist in the destination, producing broken images.
+  Fixed to also copy image part relationships:
+    For each rel in src_slide._part.rels where reltype contains '/image':
+      new_rId = dest_part.relate_to(rel._target, rel.reltype)
+      if new_rId != rId: rId_map[old] = new
+    Then remap r:embed / r:link attributes in deep-copied shape XML before appending.
+  Branded templates (logos, backgrounds, icons) now copy correctly into assembled decks.
+
+  skills.py: constant SKILLS_TEMPLATES = "skills_templates.pptx" added; build_into() reads
+  from SKILLS_TEMPLATES instead of slide_generator.TEMPLATES_FILE (keeps case_study
+  templates separate). File: skills_templates.pptx (new, 3 slides).
+
+  REMOVED RAMP-UP TIME: the old skills inventory had expert/intermediate/junior columns
+  and a ramp-up metric. The new data has none of this — removed entirely.
+
+  Verified end-to-end: candidates() returns ['SK:industry','SK:skills','FP:SocGen'] for a
+  Workforce+RFI+SocGen context; skills.build_into() built 3 slides into a 7-slide test deck
+  (output/_TEST_branded_skills.pptx) with all J2W_TEMPLATE notes tags confirmed.
+
 PENDING (queued by owner, not yet built):
   PROMPT 2 — make deck phase influence slide selection (WAITING on owner's
              per-phase emphasis/include/exclude rules; do NOT guess sales logic).
-  [DONE 23 Jun] explicit per-gap "Generate with AI" button ON the Suggested page:
-             new JSON route POST /generate (reuse-or-draft + stage) + genGap() JS
-             that calls it and shows the written title inline. The staged slide is
-             picked up on the Review step (staging.find reuse) for accept/reject.
-             Skipping the button still auto-writes gaps at /review as before.
 
 ------------------------------------
 BROKEN / STUCK (paste EXACT errors here)
@@ -627,6 +732,113 @@ FIX:
   the real fix is a server-side renderer (LibreOffice) at deploy. Also: AI IS live
   (verified gpt-4o-mini draft returns real content); gaps + slide-gen + verify
   banner all confirmed working end to end.
+
+------------------------------------
+FEATURE: stronger matching fuel + PERSONA matcher (26 June 2026)
+------------------------------------
+GOAL (two asks):
+  1. Strengthen the tags so the right slide surfaces even when the meeting
+     notes use different words than the slide's keywords.
+  2. Add PERSONA (the buyer-role we're meeting) as a tag + matcher, so a deck
+     for a QA Lead looks different from one for a CFO.
+
+WHAT I BUILT (non-destructive — your 105 curated keyword strings were NOT
+rewritten; these are smart layers on top that also auto-apply to new slides):
+
+  * synonyms.py — equivalence GROUPS of words that mean the same thing
+    (e.g. "test automation" = "automated QA" = "quality engineering";
+    "ci/cd" = "deployment pipeline"). The matcher now counts a slide keyword
+    as a hit if the notes contain the keyword OR any of its synonyms.
+    To extend: open synonyms.py, add your word to the right list (lowercase),
+    or add a new [ ... ] list for a new concept.
+
+  * personas.py — the 8 personas you picked (Engineering/Delivery Head,
+    CIO/CTO, QA/Test Lead, Data/AI Lead, Finance/CFO, HR/Talent Head,
+    Procurement/Supply Chain, CEO/Founder). Each persona lists job-title
+    "aliases", the functions/work-types it cares about, and topic words.
+    - detect(): reads the "Who are we meeting" (recipient) field AND the
+      "More information" notes, and figures out the persona(s) in play.
+    - score_boost(): nudges persona-relevant case studies UP the ranking
+      (capped at +4 so it never overrides a strong notes match).
+    To extend: open personas.py, add job titles to a persona's "aliases",
+    or change which functions/topics it cares about.
+
+  * matcher.py — wired both in: transcript matching now uses synonyms; case
+    scoring adds the persona boost; the pick "reason" now shows e.g.
+    "for QA / Test Lead"; plan() returns persona_codes + persona_labels.
+
+  * tagger.py — every slide now also gets a "persona" tag (which roles it
+    speaks to), DERIVED from its function/keywords — so new slides get it
+    automatically, no manual tagging. Regenerated tagged_library.json
+    (backed up first to tagged_library.backup.json; no HUMAN tags existed).
+
+  * app.py — the Suggested-deck page now shows a "Persona" context chip and
+    a "Tuned for <persona>" note when a persona is detected.
+
+HOW PERSONA INPUT WORKS (your choice): no new form field. It reads the
+existing "Who are we meeting" box and the "More information" notes. Type a
+role there (e.g. "Head of QA", "CFO", "CHRO") and the engine tailors the deck.
+
+VERIFIED: QA notes saying "automated QA" matched a slide tagged "test
+automation"; "CFO" surfaced the invoice/cost case studies; "CHRO" named only
+in the notes (recipient blank) was still detected. /build route = 200 with
+the persona chip + tuned-for note showing.
+
+------------------------------------
+FEATURE: gap handling — transcript-first, then suggest (29 June 2026)
+------------------------------------
+THE LOOPHOLE (what was wrong): gaps were only flagged at the WORK-TYPE level
+("No strong AI_POD case study"). If a client specifically asked for something
+(e.g. "ADAS", "blockchain traceability") and we had no slide on it, NOTHING
+told the salesperson — the ask silently went unanswered.
+
+WHAT IT DOES NOW: for every specific skill/capability the client mentions, the
+engine follows a transcript-first chain:
+  1. Already in a slide we PICKED        -> answered, nothing to do.
+  2. In a slide that exists but wasn't picked -> shows it under "You might also
+     include" flagged "<topic> was asked — this slide covers it" (+ Add button).
+  3. In NO slide at all                  -> a clear gap card "Asked but not in
+     the deck: '<topic>' …" with a "+ Create slide with AI" button.
+
+HOW IT FINDS THE ASKS (hybrid, your choice):
+  * Keyword/synonym scan of the transcript against every slide's keywords
+    (free, instant) — handles cases 1 & 2.
+  * PLUS one cheap AI call (ai_matcher.extract_asks) that pulls explicit client
+    asks — including brand-new ones absent from EVERY slide (the ADAS case).
+    Conservative: concrete asks only, generic words dropped, capped, synonym-
+    deduped. Fails safe to keyword-only if the AI call errors.
+
+FILES TOUCHED:
+  * ai_matcher.py  — new extract_asks(transcript) -> short list of client asks.
+  * matcher.py     — new helpers (_known_topics, _slides_covering,
+    _is_confident_ask, _capability_gaps, slugify); plan() now emits
+    type="missing_capability" gaps + "asked, add existing" suggestions.
+  * slide_generator.py — default_brief()/draft() take a `topic` so the generated
+    slide is ABOUT that exact ask (not a generic work-type slide).
+  * staging.py     — add()/find() take an optional `topic` so two different asks
+    under the same work type don't collide on reuse. (Promote still writes a
+    real work type to the registry — topic is just extra metadata.)
+  * app.py         — gap card renders topic gaps with a "+ Create slide" button
+    (parallel gen_topic channel: genGapTopic JS -> /generate -> staged ->
+    Accept/Reject on Review, same as work-type gaps). Brief pre-filled per topic.
+
+VERIFIED end-to-end: automotive deck mentioning ADAS (which we DO have) -> no
+false gap; workforce deck mentioning pentesting/perf-testing (AI_POD slides not
+picked) -> surfaced as "asked, add existing" (CS28/CS32); tech deck mentioning
+blockchain/quantum/carbon-capture (in NO slide) -> three "Asked but not in the
+deck" cards with Create-slide buttons. /build route = 200.
+
+REFINEMENT (same day, after first screenshots):
+  * Layout: the "Asked in the meeting, but not in the deck" card now sits ABOVE
+    the manual "Create a slide with AI" card, and each gap reads top->down
+    (problem -> brief -> a down-arrow -> a full-width "Create slide with AI"
+    button) so it's obvious what to do.
+  * Bug fixed: the AI sometimes returns an ask with an extra word (e.g. "CI/CD
+    setup"), which slipped past coverage and showed a FALSE "not in the deck"
+    gap even though we have many CI/CD slides. matcher._slides_covering now also
+    resolves a known concept embedded inside a longer ask (synonyms.known_terms),
+    so "CI/CD setup"/"DevOps pipeline support" correctly match existing slides;
+    genuinely novel asks (blockchain, quantum, fraud detection) still flag.
 
 ------------------------------------
 DECISIONS & NOTES (so I don't go in circles)

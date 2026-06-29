@@ -13,6 +13,8 @@ works on a brand-new slide dropped in later (Step 3) -- no manual indexing.
 
 import re
 
+import personas  # derive which buyer-role(s) a slide speaks to
+
 MIDDOT = "·"  # the "keyword string" separator used on the slides
 
 # --- keyword maps: lowercase needle -> the tag it votes for -----------------
@@ -133,12 +135,22 @@ def tag_record(rec):
     def cell(value):
         return {"value": value, "confidence": "AUTO"}
 
+    # Persona is derived from the function/work_type/keywords this slide carries,
+    # so it stays correct for brand-new slides without manual tagging.
+    persona_codes = personas.tag_slide({
+        "primary_function": function or "",
+        "work_types": work_type or "",
+        "keywords": MIDDOT.join(keywords) if keywords else "",
+        "title": title,
+    })
+
     rec["keywords"] = keywords
     rec["tags"] = {
         "kind": cell(kind),
         "work_type": cell(work_type),
         "industry": cell(industry),
         "function": cell(function),
+        "persona": {"value": persona_codes, "confidence": "AUTO"},
     }
     return rec
 

@@ -25,6 +25,9 @@ import sys
 
 import openpyxl
 
+import synonyms   # equivalence groups so paraphrased topics still match
+import personas   # buyer-role detection + persona-relevance scoring
+
 MIDDOT = "·"   # the keyword-string separator on the slides
 
 REGISTRY_XLSX = "J2W_CaseStudy_Portfolio_Metadata.xlsx"
@@ -75,16 +78,130 @@ def _kw_tags(keyword_string):
 
 def _transcript_hits(tags, transcript):
     """Which of this slide's keyword tags actually appear in the transcript.
-    Whole-word match; tags under 3 chars skipped to avoid false hits (AI, ML, QA)."""
+    A tag 'hits' if the tag OR any of its synonyms shows up as a whole word —
+    so "automated QA" in the notes still matches a slide tagged "test automation".
+    Tags under 3 chars are skipped to avoid false hits (AI, ML, QA)."""
     if not transcript:
         return []
     hits = []
     for t in tags:
         if len(t) < 3:
             continue
-        if re.search(r"\b" + re.escape(t) + r"\b", transcript):
+        if synonyms.hits_in(t, transcript):   # tag + all its synonyms
             hits.append(t)
     return hits
+
+
+# Generic words that are never a real "capability ask" even if they appear.
+_ASK_STOPWORDS = {
+    "software", "team", "teams", "quality", "support", "project", "projects",
+    "solution", "solutions", "technology", "tech", "help", "service", "services",
+    "platform", "system", "systems", "tool", "tools", "data", "people", "process",
+    "delivery", "engineering", "development", "work", "business", "company",
+    "client", "customer", "product", "experience", "capability", "capabilities",
+}
+
+
+def slugify(text):
+    """ADAS / fraud detection -> a safe form-field id (adas / fraud-detection)."""
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return s or "topic"
+
+
+def _known_topics(reg):
+    """Every distinct keyword tag across the registry (lowercased, >=3 chars).
+    This is the controlled capability vocabulary the transcript is scanned against."""
+    topics = set()
+    for row in reg:
+        for t in _kw_tags(row.get("keywords")):
+            if len(t) >= 3 and t not in _ASK_STOPWORDS:
+                topics.add(t)
+    return topics
+
+
+def _coverage_terms(topic):
+    """Terms to search slides for when deciding if an ask is covered:
+    the ask itself (+ its synonyms) PLUS any known concept that appears INSIDE
+    the ask (+ its synonyms). This is what lets 'CI/CD setup' resolve to the
+    'ci/cd' concept (the AI often appends words like setup/support/migration).
+    Generic stopwords are never used as a coverage term."""
+    low = (topic or "").strip().lower()
+    terms = set(synonyms.expand(low))
+    for kt in synonyms.known_terms():
+        if len(kt) >= 4 and kt not in _ASK_STOPWORDS and \
+                re.search(r"\b" + re.escape(kt) + r"\b", low):
+            terms |= synonyms.expand(kt)
+    return {t for t in terms if len(t) >= 3 and t not in _ASK_STOPWORDS}
+
+
+def _slides_covering(topic, reg):
+    """Slide IDs whose keywords OR title cover this topic (synonym-aware, and
+    aware of a known concept embedded in a longer ask), excluding dividers/brand
+    slides we never put in a deck."""
+    terms = _coverage_terms(topic)
+    out = []
+    for row in reg:
+        sid = row["slide_id"]
+        if sid in EXCLUDE:
+            continue
+        text = ((row.get("keywords") or "") + " " + (row.get("title") or "")).lower()
+        if any(re.search(r"\b" + re.escape(t) + r"\b", text) for t in terms):
+            out.append(sid)
+    return out
+
+
+def _is_confident_ask(ask):
+    """Conservative filter: keep multi-word asks or specific single terms; drop
+    generic words and noise. Acronyms (ADAS, SAP) are kept."""
+    a = (ask or "").strip()
+    if len(a) < 3:
+        return False
+    low = a.lower()
+    if low in _ASK_STOPWORDS:
+        return False
+    if " " in a:                       # multi-word phrase -> specific enough
+        return True
+    if a.isupper() and len(a) <= 6:    # acronym like ADAS, SAP, ETL
+        return True
+    return len(low) >= 4               # a single concrete word
+
+
+def _dedupe_asks(asks):
+    """Collapse asks that are the same concept (synonym-equivalent) or duplicates.
+    Keeps the first-seen surface form."""
+    out, seen_groups = [], []
+    for a in asks:
+        forms = synonyms.expand(a.lower())
+        if any(forms & g for g in seen_groups):
+            continue
+        seen_groups.append(set(forms))
+        out.append(a)
+    return out
+
+
+def _capability_gaps(asks, reg, chosen, max_missing=5, max_suggest=6):
+    """Classify each client ask (transcript-first):
+       - covered by a PICKED slide  -> answered, ignore
+       - covered by an UNPICKED slide -> 'asked, add this existing slide'
+       - covered by NO slide        -> a real gap ('asked but not in the deck')
+    Returns (missing_topics, asked_existing) where asked_existing is
+    [{'slide_id','topic','reason'}]."""
+    picked = set(chosen)
+    missing, asked_existing, used_slides = [], [], set()
+    for ask in asks:
+        slides = _slides_covering(ask, reg)
+        if not slides:
+            missing.append(ask)
+        elif any(s in picked for s in slides):
+            continue                                  # already answered in the deck
+        else:
+            sid = next((s for s in slides if s not in used_slides), slides[0])
+            used_slides.add(sid)
+            asked_existing.append({
+                "slide_id": sid, "topic": ask,
+                "reason": f"“{ask}” was asked — this slide covers it",
+            })
+    return missing[:max_missing], asked_existing[:max_suggest]
 
 
 def plan(context, top_n=3, use_ai=False):
@@ -95,6 +212,10 @@ def plan(context, top_n=3, use_ai=False):
     wanted = {w.strip().upper() for w in (context.get("work_types") or []) if w.strip()}
     transcript_raw = context.get("transcript") or ""
     transcript = transcript_raw.lower()
+
+    # Persona = WHO we're meeting (recipient field) + anyone named in the notes.
+    # Used to nudge persona-relevant case studies up the ranking.
+    persona_codes = personas.detect(context.get("recipient", ""), transcript_raw)
 
     reg = load_registry()
     chosen = {}                 # slide_id -> reason
@@ -151,7 +272,9 @@ def plan(context, top_n=3, use_ai=False):
                 score += 1
             if functions and (row["primary_function"] or "").upper() in functions:
                 score += 1
-            scored.append((score, hits, row))
+            p_boost, p_why = personas.score_boost(persona_codes, row)
+            score += p_boost                      # persona relevance (capped)
+            scored.append((score, hits, row, p_why))
         scored.sort(key=lambda x: -x[0])
         best_by_wt[wt] = scored[0][0] if scored else 0
         all_scored.extend(scored)
@@ -163,16 +286,21 @@ def plan(context, top_n=3, use_ai=False):
         if ai_pick_ids:                      # AI made usable picks for this work type
             for sid in ai_pick_ids:
                 hits = _transcript_hits(_kw_tags(rows_by_id[sid]["keywords"]), transcript)
+                _, p_why = personas.score_boost(persona_codes, rows_by_id[sid])
                 why = ("transcript: " + ", ".join(hits[:4])) if hits else "AI-selected"
+                if p_why:
+                    why += " · for " + "/".join(sorted(set(p_why)))
                 chosen[sid] = f"case [{wt}] · {why} (AI)"
                 selected_case_wts.add(wt)
         else:                                # keyword fallback (also if AI returned none)
-            for score, hits, row in scored[:top_n]:
+            for score, hits, row, p_why in scored[:top_n]:
                 why = []
                 if hits:
                     why.append("transcript: " + ", ".join(hits[:4]))
                 if industry and (row["primary_industry"] or "").upper() == industry:
                     why.append(industry)
+                if p_why:
+                    why.append("for " + "/".join(sorted(set(p_why))))
                 note = " · ".join(why) if why else "WEAK match — review"
                 chosen[row["slide_id"]] = f"case [{wt}] · {note} (score {score})"
                 selected_case_wts.add(wt)
@@ -219,6 +347,33 @@ def plan(context, top_n=3, use_ai=False):
                           f"found in the deck — needs to be created.",
             })
 
+    # ---- capability gaps: per-TOPIC asks (transcript-first, then suggest) ----
+    # Closes the loophole where a client ask (e.g. "ADAS") silently goes
+    # unanswered. Hybrid detection: known keyword/synonym hits + a conservative
+    # AI extraction that can surface a brand-new ask absent from every slide.
+    asked_existing = []
+    if transcript.strip():
+        det = sorted(t for t in _known_topics(reg) if synonyms.hits_in(t, transcript))
+        ai_asks = []
+        if use_ai:
+            try:
+                import ai_matcher
+                ai_asks = ai_matcher.extract_asks(transcript_raw)
+            except Exception:
+                ai_asks = []
+        # AI asks first (these can be genuinely novel/missing), then known hits.
+        asks = _dedupe_asks([a for a in (ai_asks + det) if _is_confident_ask(a)])
+        missing_topics, asked_existing = _capability_gaps(asks, reg, chosen)
+        default_wt = (sorted(wanted)[0] if wanted else "AI_POD")
+        for topic in missing_topics:
+            gaps.append({
+                "type": "missing_capability",
+                "topic": topic,
+                "slug": slugify(topic),
+                "work_type": default_wt,
+                "detail": f"“{topic}” was asked in the meeting but isn’t in the deck.",
+            })
+
     # ---- order: natural deck order, except PIN_TO_END slides go last ----
     def order_key(sid):
         if sid in PIN_TO_END:
@@ -228,8 +383,17 @@ def plan(context, top_n=3, use_ai=False):
     picks = [{"slide_id": sid, "reason": reason} for sid, reason in ordered]
 
     # ---- "you might also include": next-best related slides, ranked lower ----
+    # Asks that an EXISTING-but-unpicked slide already answers go FIRST and are
+    # flagged as "asked in the meeting" so the salesperson pulls them in.
     suggested, seen = [], set()
-    for score, hits, row in sorted(all_scored, key=lambda x: -x[0]):
+    for item in asked_existing:
+        sid = item["slide_id"]
+        if sid in chosen or sid in seen or sid in EXCLUDE:
+            continue
+        seen.add(sid)
+        suggested.append({"slide_id": sid, "reason": item["reason"], "asked": True})
+
+    for score, hits, row, p_why in sorted(all_scored, key=lambda x: -x[0]):
         sid = row["slide_id"]
         if score <= 0 or sid in chosen or sid in seen or sid in EXCLUDE:
             continue
@@ -241,6 +405,8 @@ def plan(context, top_n=3, use_ai=False):
             why.append("same industry")
         if functions and (row["primary_function"] or "").upper() in functions:
             why.append("same function")
+        if p_why:
+            why.append("for " + "/".join(sorted(set(p_why))))
         suggested.append({"slide_id": sid, "reason": " · ".join(why) or "related"})
         if len(suggested) >= 6:
             break
@@ -249,8 +415,14 @@ def plan(context, top_n=3, use_ai=False):
         "Leader slides (CS61 Architects, CS62 The J2W Squad) are never "
         "auto-added — add them in the panel if you want to show people."
     ]
+    if persona_codes:
+        suggestions.insert(0,
+            "Tuned for " + ", ".join(personas.labels(persona_codes)) +
+            " — persona-relevant case studies were ranked higher.")
     return {"picks": picks, "gaps": gaps, "suggestions": suggestions,
-            "suggested": suggested, "ai_used": ai_used}
+            "suggested": suggested, "ai_used": ai_used,
+            "persona_codes": persona_codes,
+            "persona_labels": personas.labels(persona_codes)}
 
 
 def match(context, top_n=3):

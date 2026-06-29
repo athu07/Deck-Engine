@@ -107,7 +107,7 @@ SHELL = """
     <a class="nav-btn {{ 'active' if active=='library' else '' }}" href="/library"><i class="ti ti-books"></i><span class="nav-tip">Slide library</span></a>
     <a class="nav-btn {{ 'active' if active=='templates' else '' }}" href="/templates"><i class="ti ti-template"></i><span class="nav-tip">Templates</span></a>
     <a class="nav-btn {{ 'active' if active=='staging' else '' }}" href="/staging"><i class="ti ti-checkup-list"></i><span class="nav-tip">AI history</span></a>
-    <a class="nav-btn {{ 'active' if active=='meetings' else '' }}" href="/meetings"><i class="ti ti-history"></i><span class="nav-tip">Past meetings</span></a>
+    <a class="nav-btn {{ 'active' if active=='meetings' else '' }}" href="/meetings"><i class="ti ti-history"></i><span class="nav-tip">Deck repository</span></a>
     <div class="nav-sp"></div>
     <a class="nav-btn {{ 'active' if active=='home' else '' }}" href="/dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-tip">Dashboard</span></a>
     <a class="nav-btn" href="#"><i class="ti ti-settings"></i><span class="nav-tip">Settings</span></a>
@@ -128,7 +128,7 @@ SHELL = """
 """
 
 
-def shell(body, active="home", crumb="<b>Home</b> / Overview", title="J2W Deck Engine", tabs=None):
+def shell(body, active="home", crumb="<b>Home</b> / Overview", title="J2W Pre-sales Engine", tabs=None):
     return render_template_string(SHELL, body=body, active=active, crumb=crumb, title=title, tabs=tabs)
 
 
@@ -167,7 +167,7 @@ def _dash_stats():
 DASHBOARD_BODY = """
 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:14px 0 26px">
   <div>
-    <div class="eyebrow">Deck engine</div>
+    <div class="eyebrow">Pre-sales engine</div>
     <h1 class="display">Welcome back, Athithia</h1>
     <p class="lede">Turn client context into a tailored, on-brand deck in seconds — pick the right slides, fill the gaps, ship.</p>
   </div>
@@ -346,7 +346,7 @@ window.addEventListener('pageshow',function(){var l=document.getElementById('loa
 
 
 FORM_HTML = """
-<!doctype html><html><head><meta charset="utf-8"><title>J2W Deck Engine</title>
+<!doctype html><html><head><meta charset="utf-8"><title>J2W Pre-sales Engine</title>
 <style>
  body{font-family:Segoe UI,Arial,sans-serif;max-width:680px;margin:40px auto;color:#222}
  h1{font-size:22px} label{display:block;margin:14px 0 4px;font-weight:600}
@@ -355,7 +355,7 @@ FORM_HTML = """
  button{margin-top:22px;padding:10px 22px;font-size:16px;background:#1a5;color:#fff;border:0;border-radius:5px;cursor:pointer}
  .hint{color:#777;font-size:13px;font-weight:400}
 </style></head><body>
-<h1>J2W Deck Engine</h1>
+<h1>J2W Pre-sales Engine</h1>
 <p class="hint">Fill in the client context. The tool picks the right slides; you can reorder them before download.</p>
 <form method="post" action="/build">
   <label>Client name</label>
@@ -588,6 +588,7 @@ BUILD_BODY = """
     {% if ctx.industry %}<span class="ctx-chip">Industry <b>{{ ctx.industry }}</b></span>{% endif %}
     {% if ctx.work_types %}<span class="ctx-chip">Work <b>{{ ', '.join(ctx.work_types) }}</b></span>{% endif %}
     {% if ctx.functions %}<span class="ctx-chip">Function <b>{{ ', '.join(ctx.functions) }}</b></span>{% endif %}
+    {% if persona_labels %}<span class="ctx-chip">Persona <b>{{ ', '.join(persona_labels) }}</b></span>{% endif %}
     {% if ai_used %}<span class="ai-badge"><i class="ti ti-sparkles"></i> AI-refined from your info</span>{% endif %}
   </div>
 </div>
@@ -622,18 +623,25 @@ BUILD_BODY = """
       </div>
     </div>
 
-    <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
-      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
-      <p class="hint" style="font-size:13px;margin:0 0 10px">Describe a case study you know about — the AI writes it in J2W's format (problem · solution · 6 capabilities · 3 results), self-checks it, and shows it here to review before you add it.</p>
-      <textarea id="ca-brief" style="width:100%;min-height:64px;font-size:13px" placeholder="e.g. We helped a large retail bank cut fraud false positives with a real-time transaction scoring model — false positives dropped about 40% and the review team's load fell sharply."></textarea>
-      <div style="margin-top:8px"><button type="button" id="ca-genbtn" class="btn btn-primary" onclick="createAI(this)"><i class="ti ti-wand"></i> Generate</button></div>
-      <div id="ca-preview" style="display:none;margin-top:14px"></div>
-    </div>
-
     {% if gaps %}
-    <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
-      <h2 class="sec-title">AI will write these <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27">
+      <h2 class="sec-title">Asked in the meeting, but not in the deck <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">These were raised by the client and we have no slide for them. Review the brief, then <b>Create the slide with AI</b> — or skip and the AI writes any you leave when you reach <b>Review &amp; edit</b>.</p>
       {% for g in gaps %}
+      {% if g.type == 'missing_capability' %}
+      <div class="gap-row" id="gaptopic-{{ g.slug }}" style="display:block;background:#fff8f0;border:1px solid #f0d9bf;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <i class="ti ti-alert-triangle" style="color:#c47d27"></i>
+          <span class="gap-text"><b>Asked but not in the deck:</b> {{ g.detail }}</span>
+        </div>
+        <input type="hidden" name="gen_topic" value="{{ g.topic }}">
+        <input type="hidden" name="twt__{{ g.slug }}" value="{{ g.work_type }}">
+        <label class="hint" style="font-size:12px;display:block;margin:10px 0 4px">What should this slide cover? <span style="font-weight:400">(edit to guide the AI)</span></label>
+        <textarea name="tbrief__{{ g.slug }}" id="tbrief-{{ g.slug }}" style="width:100%;min-height:58px;font-size:13px">{{ g.brief }}</textarea>
+        <div style="text-align:center;color:#c47d27;font-size:16px;line-height:1;margin:8px 0 4px"><i class="ti ti-chevron-down"></i></div>
+        <button type="button" class="btn btn-primary btn-block" onclick="genGapTopic('{{ g.slug }}', this)"><i class="ti ti-plus"></i> Create slide with AI</button>
+      </div>
+      {% else %}
       <div class="gap-row" id="gap-{{ g.work_type }}" style="display:block">
         <div style="display:flex;align-items:center;gap:8px">
           <i class="ti ti-sparkles"></i>
@@ -648,10 +656,47 @@ BUILD_BODY = """
         <textarea name="brief__{{ g.work_type }}" id="brief-{{ g.work_type }}" style="width:100%;min-height:58px;font-size:13px">{{ g.brief }}</textarea>
         {% endif %}
       </div>
+      {% endif %}
       {% endfor %}
-      <p class="hint" style="font-size:12px;margin:12px 0 0">Edit the brief, then <b>Generate with AI</b> to write one now, or just continue — the AI writes any you skip when you reach <b>Review &amp; edit</b>, where you <b>Accept</b> or <b>Reject</b> each one.</p>
     </div>
     {% endif %}
+
+    <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Fill in what you know — the AI writes it in J2W's strict format (6 capabilities · 3 results), self-checks it, and shows it here before you add it.</p>
+      <div class="fgrid" style="gap:12px;margin-bottom:10px">
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Topic / Use case <span style="color:#C2503C">*</span></label>
+          <input class="input" id="ca-topic" placeholder="e.g. Fraud detection for a retail bank" style="font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Industry <span style="color:#9C9C97;font-weight:400">(pre-filled)</span></label>
+          <input class="input" id="ca-industry" placeholder="e.g. Banking" style="font-size:13px">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Problem / Challenge <span style="color:#C2503C">*</span></label>
+        <textarea id="ca-problem" style="width:100%;min-height:54px;font-size:13px" placeholder="What was the client's core challenge?"></textarea>
+      </div>
+      <div class="fgrid" style="gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Solution <span style="color:#9C9C97;font-weight:400">(optional)</span></label>
+          <textarea id="ca-solution" style="width:100%;min-height:54px;font-size:13px" placeholder="What did J2W deploy or deliver?"></textarea>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Results <span style="color:#9C9C97;font-weight:400">(optional)</span></label>
+          <textarea id="ca-results" style="width:100%;min-height:54px;font-size:13px" placeholder="Key outcomes — numbers if you have them."></textarea>
+        </div>
+      </div>
+      <button type="button" id="ca-genbtn" class="btn btn-primary" onclick="createAI(this)"><i class="ti ti-wand"></i> Generate</button>
+      <div id="ca-loader" style="display:none;margin-top:12px">
+        <div style="height:4px;background:#e0ece9;border-radius:99px;overflow:hidden">
+          <div id="ca-bar" style="height:100%;width:0%;background:#2C6E66;border-radius:99px;transition:width 0.4s ease"></div>
+        </div>
+        <p style="font-size:12px;color:#6E6E69;margin:6px 0 0"><i class="ti ti-sparkles" style="font-size:13px"></i> Writing your case study…</p>
+      </div>
+      <div id="ca-preview" style="display:none;margin-top:14px"></div>
+    </div>
 
     {% if suggested %}
     <div class="card" style="margin-top:18px">
@@ -738,7 +783,7 @@ BUILD_BODY = """
    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-check"></i> Added';}}
  function makeRow(id,title,reason){const li=document.createElement('li');
    li.className='slide-item';li.draggable=true;li.dataset.id=id;
-   var tg=id; if(id.indexOf('NEW:')===0)tg='AI'; else if(id.indexOf('SK:')===0)tg='CAP'; else if(id.indexOf('FP:')===0)tg='FOOT';
+   var tg=id; if(id.indexOf('NEW:')===0)tg='AI'; else if(id==='SK:industry')tg='IND'; else if(id==='SK:skills')tg='SKL'; else if(id.indexOf('SK:')===0)tg='CAP'; else if(id.indexOf('FP:')===0)tg='FOOT';
    li.innerHTML='<span class="grip"><i class="ti ti-grip-vertical"></i></span><span class="pos"></span>'+
     '<span class="sid">'+tg+'</span><div class="s-main"><div class="s-title"></div>'+
     '<div class="s-reason">'+reason+'</div></div><div class="s-actions">'+
@@ -772,19 +817,63 @@ BUILD_BODY = """
      } else { btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; }
    }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; });
  }
+ function genGapTopic(slug, btn){
+   var row=document.getElementById('gaptopic-'+slug);
+   var topicInput=row?row.querySelector('input[name="gen_topic"]'):null;
+   var twtInput=row?row.querySelector('input[name="twt__'+slug+'"]'):null;
+   var brief=document.getElementById('tbrief-'+slug);
+   var topic=topicInput?topicInput.value:'';
+   var twt=twtInput?twtInput.value:'';
+   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
+   var fd=new FormData();
+   fd.append('gen_topic', topic);
+   fd.append('gen_wt', twt);
+   fd.append('brief', brief?brief.value:'');
+   fd.append('industry', (SERVER_CTX&&SERVER_CTX.industry)||'');
+   fd.append('transcript', (SERVER_CTX&&SERVER_CTX.transcript)||'');
+   fd.append('client_name', (SERVER_CTX&&SERVER_CTX.client_name)||'');
+   fetch('/generate',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+     if(d.ok&&row){
+       // keep the hidden fields so /review reuses this draft (no double charge)
+       row.innerHTML='<div style="display:flex;align-items:center;gap:8px">'+
+         '<i class="ti ti-check" style="color:#2C6E66"></i>'+
+         '<span class="gap-text"><b>AI slide ready:</b> '+caEsc(d.title)+
+         ' <span class="hint">— accept it on the Review step</span></span></div>'+
+         '<input type="hidden" name="gen_topic" value="'+caEsc(topic)+'">'+
+         '<input type="hidden" name="twt__'+slug+'" value="'+caEsc(twt)+'">'+
+         '<input type="hidden" name="tbrief__'+slug+'" value="'+caEsc(brief?brief.value:'')+'">';
+     } else { btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; }
+   }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; });
+ }
  function caEsc(s){var e=document.createElement('div');e.textContent=(s==null?'':s);return e.innerHTML;}
  function createAI(btn){
-   var brief=document.getElementById('ca-brief').value.trim();
-   if(!brief){alert('Describe the slide you want.');return;}
+   var topic=(document.getElementById('ca-topic')||{}).value||'';
+   var problem=(document.getElementById('ca-problem')||{}).value||'';
+   topic=topic.trim(); problem=problem.trim();
+   if(!topic||!problem){alert('Please fill in Topic / use case and Problem — both are required.');return;}
+   var solution=((document.getElementById('ca-solution')||{}).value||'').trim();
+   var results=((document.getElementById('ca-results')||{}).value||'').trim();
+   var ind=((document.getElementById('ca-industry')||{}).value||'').trim()||(SERVER_CTX&&SERVER_CTX.industry)||'';
+   var brief=topic+'. Problem: '+problem;
+   if(solution) brief+=' Solution: '+solution;
+   if(results) brief+=' Results: '+results;
    btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
+   var loader=document.getElementById('ca-loader');
+   var bar=document.getElementById('ca-bar');
+   if(loader) loader.style.display='block';
+   var pct=0; var ticker=setInterval(function(){pct=Math.min(pct+Math.random()*7+3,88);if(bar)bar.style.width=pct+'%';},500);
    var fd=new FormData(); fd.append('brief',brief);
-   fd.append('industry',(SERVER_CTX&&SERVER_CTX.industry)||'');
+   fd.append('industry',ind);
    fd.append('client_name',(SERVER_CTX&&SERVER_CTX.client_name)||'');
    fetch('/create_ai',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
-     btn.disabled=false; btn.innerHTML=old;
-     if(!d.ok){alert(d.error||'Could not generate');return;}
-     window._ca=d; caRender(d);
-   }).catch(function(){btn.disabled=false;btn.innerHTML=old;alert('Could not generate');});
+     clearInterval(ticker); if(bar)bar.style.width='100%';
+     setTimeout(function(){
+       btn.disabled=false; btn.innerHTML=old;
+       if(loader)loader.style.display='none'; if(bar)bar.style.width='0%';
+       if(!d.ok){alert(d.error||'Could not generate');return;}
+       window._ca=d; caRender(d);
+     },350);
+   }).catch(function(){clearInterval(ticker);btn.disabled=false;btn.innerHTML=old;if(loader)loader.style.display='none';alert('Could not generate');});
  }
  function caRegen(){createAI(document.getElementById('ca-genbtn'));}
  function caRender(d){
@@ -812,7 +901,7 @@ BUILD_BODY = """
    var d=window._ca; if(!d) return;
    if([...list.children].some(li=>li.dataset.id===d.id)){alert('Already added');return;}
    list.appendChild(makeRow(d.id, d.title, 'created with AI')); renumber();
-   caDiscard(); document.getElementById('ca-brief').value='';
+   caDiscard(); ['ca-topic','ca-problem','ca-solution','ca-results'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
  }
  function caDiscard(){var p=document.getElementById('ca-preview');if(p)p.style.display='none'; window._ca=null;}
  (function init(){
@@ -827,6 +916,8 @@ BUILD_BODY = """
      rebuild(d.order);
    } // else: brand-new build — keep the server-rendered picks (persist() below seeds the deck).
    renumber();
+   var caInd=document.getElementById('ca-industry');
+   if(caInd&&SERVER_CTX&&SERVER_CTX.industry) caInd.value=SERVER_CTX.industry;
  })();
  window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});
 </script>
@@ -1065,9 +1156,9 @@ STAGING_BODY = """
 
 MEETINGS_BODY = """
 <div style="margin:14px 0 22px">
-  <div class="eyebrow">History</div>
-  <h1 class="display" style="font-size:38px">Search past meetings</h1>
-  <p class="lede">Check whether a similar meeting happened before. Filter by industry, work type and phase — newest first. Everyone on the team sees every meeting.</p>
+  <div class="eyebrow">Deck repository</div>
+  <h1 class="display" style="font-size:38px">All created decks</h1>
+  <p class="lede">Find a previously generated deck. Filter by industry, work type and phase — newest first. Everyone on the team sees all decks.</p>
 </div>
 
 <form method="get" action="/meetings" class="card" style="margin-bottom:20px">
@@ -1116,7 +1207,7 @@ MEETINGS_BODY = """
     </tbody>
   </table>
   {% else %}
-  <p class="muted" style="margin:0">No matching meetings yet. Generate a deck and it'll be logged here automatically.</p>
+  <p class="muted" style="margin:0">No matching decks yet. Generate a deck and it will appear here automatically.</p>
   {% endif %}
 </div>
 """
@@ -1129,14 +1220,11 @@ PREVIEW_BODY = """
   </div>
   <div class="eyebrow">Done</div>
   <h1 class="display" style="font-size:34px">Your deck is ready{% if client %}, for {{ client }}{% endif %}</h1>
-  <p class="lede" style="margin:8px 0 22px">{{ count }} slides assembled. The download starts automatically — open it in PowerPoint.</p>
+  <p class="lede" style="margin:8px 0 22px">{{ count }} slides assembled. Click the button below to download your deck.</p>
   <a class="btn btn-primary btn-lg" href="/output/{{ filename }}?dl=1"><i class="ti ti-download"></i> Download .pptx</a>
   <a class="btn btn-lg" href="/new" style="margin-left:8px"><i class="ti ti-plus"></i> Build another</a>
   <p class="hint" style="font-size:12px;margin-top:18px">If a file of the same name is open in PowerPoint, close it first, then click Download.</p>
 </div>
-<script>
- setTimeout(function(){ window.location.href = "/output/{{ filename }}?dl=1"; }, 700);
-</script>
 """
 
 
@@ -1241,7 +1329,7 @@ def meetings():
                                   industries=INDUSTRIES, work_types=WORK_TYPES,
                                   phases=PHASES, wt_labels=WT_LABELS,
                                   f_ind=f_ind, f_wt=f_wt, f_phase=f_phase)
-    return shell(body, active="meetings", crumb="<b>Past meetings</b> / Search")
+    return shell(body, active="meetings", crumb="<b>Deck repository</b> / All created decks")
 
 
 @app.route("/deck")
@@ -1287,21 +1375,27 @@ def generate():
     page). Reuses a pending draft for the slot if one exists, else drafts a fresh one
     and stages it. Returns JSON; the slide is picked up on the Review step for
     accept/reject (staging.find reuse). No deck change here."""
+    topic = request.form.get("gen_topic", "").strip()
     wt = request.form.get("gen_wt", "").strip()
-    if not wt:
-        return {"ok": False, "error": "no work type"}, 400
     industry = request.form.get("industry", "")
     transcript = request.form.get("transcript", "")
     client = request.form.get("client_name", "")
     brief = request.form.get("brief", "")
-    existing = staging.find(wt, industry)
+    if not wt and not topic:
+        return {"ok": False, "error": "no work type"}, 400
+    if topic and not wt:
+        wt = "AI_POD"                                   # topic asks default to a real work type
+    existing = staging.find(wt, industry, topic=topic)
     if existing and existing["status"] == "pending":
         rec = existing
     else:
-        content = slide_generator.draft({"type": "needs_case_study", "work_type": wt},
-                                        {"industry": industry, "transcript": transcript, "brief": brief})
-        rec = staging.add(content, wt, industry, client)
-    return {"ok": True, "id": rec["id"], "title": rec["title"], "work_type": wt}
+        gap = {"type": "missing_capability" if topic else "needs_case_study",
+               "work_type": wt, "topic": topic}
+        content = slide_generator.draft(gap, {"industry": industry, "transcript": transcript,
+                                              "brief": brief, "topic": topic})
+        rec = staging.add(content, wt, industry, client, topic=topic)
+    return {"ok": True, "id": rec["id"], "title": rec["title"],
+            "work_type": wt, "topic": topic}
 
 
 @app.route("/build", methods=["POST"])
@@ -1330,6 +1424,9 @@ def build():
     for g in result["gaps"]:                  # pre-fill an editable brief for each gap
         if g.get("type") == "needs_case_study":
             g["brief"] = slide_generator.default_brief(g["work_type"], ctx["industry"], ctx["transcript"])
+        elif g.get("type") == "missing_capability":
+            g["brief"] = slide_generator.default_brief(g["work_type"], ctx["industry"],
+                                                       ctx["transcript"], topic=g["topic"])
     titles = matcher._title_lookup()
 
     # --- skills slides (PURE Workforce only): auto-add after the standard block,
@@ -1342,13 +1439,17 @@ def build():
             insert_at = next((i for i, p in enumerate(picks) if p["slide_id"] in matcher.PIN_TO_END),
                              len(picks))
         sk_picks = []
+        _chip = {"industry_strength": "IND", "skill_deepdive": "SKL",
+                 "company_footprint": "FOOT"}
         for c in sk:
             titles[c["id"]] = c["label"]
-            reason = "auto-added — skills inventory"
-            if c["stale"]:
-                reason += " · ⚠ skills data may be stale, verify before sending"
+            reason = {
+                "industry_strength": "auto-added — RFI: industry strength slide",
+                "skill_deepdive":    "auto-added — RFI: skills deployed slide",
+                "company_footprint": "auto-added — RFI: existing client relationship",
+            }.get(c["kind"], "auto-added — RFI data slide")
             sk_picks.append({"slide_id": c["id"], "reason": reason, "skill": True,
-                             "tag": "CAP" if c["kind"] == "capability" else "FOOT",
+                             "tag": _chip.get(c["kind"], "SKL"),
                              "label": c["label"]})
         picks[insert_at:insert_at] = sk_picks
     all_slides = sorted(titles.items(), key=lambda kv: matcher._num(kv[0]))
@@ -1357,6 +1458,7 @@ def build():
                                   suggestions=result.get("suggestions", []),
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
+                                  persona_labels=result.get("persona_labels", []),
                                   resume=False, build_id=uuid.uuid4().hex)
     return shell(body, active="new", crumb="<b>New deck</b> / Suggested slides")
 
@@ -1461,6 +1563,27 @@ def review():
             rec = staging.add(content, wt, industry, client)
         ai_ids.append(rec["id"])
         ai_cards.append({"id": rec["id"], "work_type": wt,
+                         "title": rec["title"], "keywords": rec.get("keywords", ""),
+                         "bullets": "\n".join(rec.get("bullets", []))})
+
+    # ---- topic gaps: a client ask with no slide -> write one now ----
+    for topic in request.form.getlist("gen_topic"):
+        topic = topic.strip()
+        if not topic:
+            continue
+        slug = matcher.slugify(topic)
+        wt = request.form.get("twt__" + slug, "") or "AI_POD"
+        brief = request.form.get("tbrief__" + slug, "")
+        existing = staging.find(wt, industry, topic=topic)
+        if existing and existing["status"] == "pending":
+            rec = existing
+        else:
+            content = slide_generator.draft(
+                {"type": "missing_capability", "work_type": wt, "topic": topic},
+                {"industry": industry, "transcript": transcript, "brief": brief, "topic": topic})
+            rec = staging.add(content, wt, industry, client, topic=topic)
+        ai_ids.append(rec["id"])
+        ai_cards.append({"id": rec["id"], "work_type": topic,
                          "title": rec["title"], "keywords": rec.get("keywords", ""),
                          "bullets": "\n".join(rec.get("bullets", []))})
 

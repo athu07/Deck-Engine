@@ -34,10 +34,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -85,12 +81,6 @@
       "function": {
         "value": "GCC_SETUP",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -131,13 +121,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -183,10 +166,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -238,10 +217,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -286,12 +261,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -365,13 +334,6 @@
       "function": {
         "value": "QUALITY_ENG_TESTING",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -402,10 +364,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -446,12 +404,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -525,12 +477,6 @@
       "function": {
         "value": "TALENT_ACQUISITION",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -582,13 +528,6 @@
       "function": {
         "value": "TALENT_ACQUISITION",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -632,12 +571,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -706,13 +639,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -752,10 +678,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -816,14 +738,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -867,13 +781,6 @@
       "function": {
         "value": "QUALITY_ENG_TESTING",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -913,10 +820,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -979,14 +882,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1051,13 +946,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1094,10 +982,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1131,13 +1015,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1203,13 +1080,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1273,13 +1143,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1345,12 +1208,6 @@
       "function": {
         "value": "GCC_SETUP",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1414,13 +1271,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1486,13 +1336,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1556,14 +1399,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1629,14 +1464,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1700,13 +1527,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1772,13 +1592,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1842,14 +1655,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -1915,13 +1720,6 @@
       "function": {
         "value": "QUALITY_ENG_TESTING",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -1985,13 +1783,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2057,13 +1848,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2097,13 +1881,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2169,13 +1946,6 @@
       "function": {
         "value": "GCC_SETUP",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2239,12 +2009,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2310,12 +2074,6 @@
       "function": {
         "value": "GCC_SETUP",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2379,12 +2137,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2450,13 +2202,6 @@
       "function": {
         "value": "TALENT_ACQUISITION",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2520,13 +2265,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2592,14 +2330,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2663,13 +2393,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -2735,13 +2458,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2775,10 +2491,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -2844,14 +2556,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2916,13 +2620,6 @@
       "function": {
         "value": "SUPPLY_CHAIN_OPS",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -2985,13 +2682,6 @@
       },
       "function": {
         "value": "ENGINEERING_DESIGN",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "FINANCE_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3057,13 +2747,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3127,13 +2810,6 @@
       },
       "function": {
         "value": "ENGINEERING_DESIGN",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3199,13 +2875,6 @@
       "function": {
         "value": "ENGINEERING_DESIGN",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3269,13 +2938,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3341,14 +3003,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3412,14 +3066,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3485,14 +3131,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3556,13 +3194,6 @@
       },
       "function": {
         "value": "FINANCE_OPS",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3628,14 +3259,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3699,14 +3322,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3772,13 +3387,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3842,13 +3450,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -3914,13 +3515,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -3984,13 +3578,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4056,14 +3643,6 @@
       "function": {
         "value": "QUALITY_ENG_TESTING",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4127,14 +3706,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4200,13 +3771,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4270,13 +3834,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4342,13 +3899,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4412,10 +3962,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -4481,15 +4027,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4553,12 +4090,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4624,14 +4155,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4695,13 +4218,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4767,13 +4283,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4837,14 +4346,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -4910,14 +4411,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -4981,13 +4474,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5053,13 +4539,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5123,13 +4602,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5195,13 +4667,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5265,13 +4730,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5337,13 +4795,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5407,13 +4858,6 @@
       },
       "function": {
         "value": "DEVOPS_CLOUD",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5479,15 +4923,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD",
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5551,14 +4986,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5624,14 +5051,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5695,14 +5114,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5768,13 +5179,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5838,15 +5242,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -5912,14 +5307,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -5983,13 +5370,6 @@
       },
       "function": {
         "value": "QUALITY_ENG_TESTING",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "QA_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6055,10 +5435,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6122,12 +5498,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6193,10 +5563,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6260,13 +5626,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6332,13 +5691,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6402,14 +5754,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6475,13 +5819,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6545,13 +5882,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6617,10 +5947,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6684,13 +6010,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6756,13 +6075,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6826,14 +6138,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -6899,12 +6203,6 @@
       "function": {
         "value": "ENGINEERING_DESIGN",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -6968,10 +6266,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -7037,10 +6331,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7104,14 +6394,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -7177,12 +6459,6 @@
       "function": {
         "value": "SUPPLY_CHAIN_OPS",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "PROCUREMENT_OPS"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7246,13 +6522,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -7318,14 +6587,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7389,13 +6650,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -7461,13 +6715,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7531,13 +6778,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -7603,13 +6843,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7673,10 +6906,6 @@
       },
       "function": {
         "value": null,
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
         "confidence": "AUTO"
       }
     }
@@ -7742,12 +6971,6 @@
       "function": {
         "value": "TALENT_ACQUISITION",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7811,13 +7034,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -7883,13 +7099,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -7953,12 +7162,6 @@
       },
       "function": {
         "value": "SUPPLY_CHAIN_OPS",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8024,13 +7227,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8094,13 +7290,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8166,14 +7355,6 @@
       "function": {
         "value": "QUALITY_ENG_TESTING",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "QA_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8237,14 +7418,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "PROCUREMENT_OPS"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8310,10 +7483,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8378,14 +7547,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8438,13 +7599,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8495,12 +7649,6 @@
       },
       "function": {
         "value": "GCC_SETUP",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8566,14 +7714,6 @@
       "function": {
         "value": "DEVOPS_CLOUD",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8625,13 +7765,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8689,13 +7822,6 @@
       "function": {
         "value": "TALENT_ACQUISITION",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "TALENT_HR_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8746,12 +7872,6 @@
       },
       "function": {
         "value": "TALENT_ACQUISITION",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "TALENT_HR_HEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -8820,13 +7940,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8881,12 +7994,6 @@
       "function": {
         "value": null,
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8927,14 +8034,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD",
-          "FINANCE_HEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -8974,13 +8073,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }
@@ -9024,14 +8116,6 @@
       "function": {
         "value": "DATA_AI_PLATFORM",
         "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
-        "confidence": "AUTO"
       }
     }
   },
@@ -9073,14 +8157,6 @@
       },
       "function": {
         "value": "DATA_AI_PLATFORM",
-        "confidence": "AUTO"
-      },
-      "persona": {
-        "value": [
-          "ENGINEERING_HEAD",
-          "CIO_CTO",
-          "DATA_AI_LEAD"
-        ],
         "confidence": "AUTO"
       }
     }

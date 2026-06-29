@@ -82,12 +82,22 @@ def list_templates(path=TEMPLATES_FILE):
 # --------------------------------------------------------------------------- #
 # AI content
 # --------------------------------------------------------------------------- #
-def default_brief(work_type, industry, transcript):
+def default_brief(work_type, industry, transcript, topic=""):
     """A starting 'what should this slide cover' brief, pre-filled from the notes.
-    The salesperson edits it before generating. No AI call."""
+    The salesperson edits it before generating. No AI call.
+    If `topic` is given (a specific client ask with no slide, e.g. 'ADAS'), the
+    brief is centred on demonstrating J2W's capability in that exact topic."""
     labels = {"WORKFORCE": "Workforce", "AI_POD": "AI Pod", "MS": "Managed Services"}
     t = (transcript or "").strip()
     snippet = (t[:180].rstrip() + "…") if len(t) > 180 else t
+    topic = (topic or "").strip()
+    if topic:
+        base = "Slide demonstrating J2W's capability in %s" % topic
+        if industry:
+            base += " for the %s industry" % industry.replace("_", " ").title()
+        base += " — the client specifically asked about this"
+        base += (", in context: " + snippet) if snippet else ""
+        return base.strip() + "."
     base = "%s slide" % labels.get(work_type, (work_type or "").replace("_", " ").title())
     if industry:
         base += " for the %s industry" % industry.replace("_", " ").title()
@@ -124,14 +134,19 @@ def draft(gap, context):
     the format of similar real J2W slides. Returns {title, keywords, bullets:[...]}.
     Falls back to a stub on any error."""
     wt = gap.get("work_type", "")
+    topic = (gap.get("topic") or context.get("topic") or "").strip()
     industry = context.get("industry", "")
     transcript = (context.get("transcript") or "")[:3000]
     brief = (context.get("brief") or "").strip()
-    examples = _similar_slides(wt, brief or transcript)
+    examples = _similar_slides(wt, topic or brief or transcript)
     ex_text = "\n".join("  - %s (keywords: %s)" % (e["title"], e["keywords"]) for e in examples) or "  (none found)"
+    focus = (f"The CLIENT specifically asked about \"{topic}\" and the deck has no "
+             f"slide on it. Write a slide that demonstrates J2W's capability in "
+             f"\"{topic}\".\n\n") if topic else ""
     prompt = (
         f"You are writing ONE slide for a J2W sales deck. Work type: {wt}; "
         f"industry: {industry or 'the client'}.\n\n"
+        f"{focus}"
         f"WHAT THIS SLIDE SHOULD COVER (follow this brief):\n"
         f"{brief or '(no brief given — infer it from the meeting notes below)'}\n\n"
         f"MEETING NOTES (context):\n\"\"\"\n{transcript}\n\"\"\"\n\n"
@@ -293,12 +308,41 @@ def _blank_layout(prs):
 
 
 def _copy_slide(dest_prs, src_slide):
-    """Copy a (text-only) template slide into dest_prs as a new slide."""
+    """Copy a template slide into dest_prs as a new slide, including image parts
+    so branded picture shapes (logos, backgrounds, icons) render correctly."""
     new = dest_prs.slides.add_slide(_blank_layout(dest_prs))
-    for shp in list(new.shapes):                  # strip the layout's placeholders
+    for shp in list(new.shapes):
         shp._element.getparent().remove(shp._element)
-    for shp in src_slide.shapes:                  # deep-copy template shapes in
-        new.shapes._spTree.append(copy.deepcopy(shp._element))
+
+    # Copy image relationships: for each image part in the source slide,
+    # relate it to the new slide so r:embed rIds resolve in the destination.
+    src_part  = src_slide._part
+    dest_part = new._part
+    rId_map   = {}
+    _R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    for rId, rel in list(src_part.rels.items()):
+        if rel.is_external:
+            continue
+        if '/image' in (rel.reltype or ''):
+            new_rId = dest_part.relate_to(rel._target, rel.reltype)
+            if new_rId != rId:
+                rId_map[rId] = new_rId
+
+    _REMAP = {f'{{{_R}}}embed', f'{{{_R}}}link'}
+
+    def _remap(elem):
+        for attr, val in list(elem.attrib.items()):
+            if attr in _REMAP and val in rId_map:
+                elem.attrib[attr] = rId_map[val]
+        for child in elem:
+            _remap(child)
+
+    for shp in src_slide.shapes:
+        elem = copy.deepcopy(shp._element)
+        if rId_map:
+            _remap(elem)
+        new.shapes._spTree.append(elem)
+
     return new
 
 

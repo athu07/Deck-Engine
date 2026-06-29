@@ -88,3 +88,53 @@ def refine(transcript, candidates_by_wt, optional_slides, top_n=3):
     raw_cases = data.get("cases") if isinstance(data.get("cases"), dict) else {}
     cases = {wt: _ids(v) for wt, v in raw_cases.items()}
     return {"cases": cases, "optional": _ids(data.get("optional"))}
+
+
+def extract_asks(transcript):
+    """Pull the SPECIFIC capability / skill / technology asks the CLIENT made.
+
+    Returns a short list of concise phrases, e.g. ['ADAS', 'fraud detection'].
+    This is what lets the engine flag "X was asked but isn't in the deck" even
+    for a topic that exists in NO slide yet (the whole point of the gap fix).
+    Conservative by design — concrete asks only, capped, never generic words.
+    Fails safe to [] on any error (the caller still has keyword detection)."""
+    if not (transcript or "").strip():
+        return []
+    prompt = (
+        "A salesperson pasted this client meeting transcript:\n"
+        '"""\n' + transcript[:6000] + '\n"""\n\n'
+        "List the SPECIFIC capabilities, skills, technologies, or solutions the "
+        "CLIENT asked for or said they need. Rules:\n"
+        "- Only concrete asks (e.g. 'ADAS', 'fraud detection', 'test automation', "
+        "'Kafka migration', 'pentesting'). 1-4 words each.\n"
+        "- Keep acronyms/proper nouns as written (ADAS, Kafka, SAP); otherwise lowercase.\n"
+        "- Do NOT include generic words (software, team, quality, support, project, "
+        "solution, technology, help, service).\n"
+        "- Only things the client wants delivered — not background chit-chat.\n"
+        "- At most 8 items. If none, return an empty list.\n"
+        'Return ONLY this JSON: {"asks": ["...", "..."]}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL,
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You extract concrete client asks from "
+                                              "a sales meeting. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return []
+    asks = data.get("asks") if isinstance(data, dict) else None
+    out = []
+    for a in (asks or []):
+        if isinstance(a, str) and a.strip():
+            out.append(a.strip())
+        elif isinstance(a, dict):
+            v = a.get("ask") or a.get("topic") or a.get("name")
+            if v:
+                out.append(str(v).strip())
+    return out[:8]
