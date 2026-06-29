@@ -625,36 +625,18 @@ BUILD_BODY = """
 
     {% if gaps %}
     <div class="card" style="margin-top:18px;border-left:4px solid #c47d27">
-      <h2 class="sec-title">Asked in the meeting, but not in the deck <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
-      <p class="hint" style="font-size:13px;margin:0 0 14px">These were raised by the client and we have no slide for them. Review the brief, then <b>Create the slide with AI</b> — or skip and the AI writes any you leave when you reach <b>Review &amp; edit</b>.</p>
+      <h2 class="sec-title">Heads-up — not in this deck <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Flagged so you're aware. If you want a slide for any of these, use <b>Create a slide with AI</b> below, or add one from the panel.</p>
       {% for g in gaps %}
       {% if g.type == 'missing_capability' %}
-      <div class="gap-row" id="gaptopic-{{ g.slug }}" style="display:block;background:#fff8f0;border:1px solid #f0d9bf;border-radius:8px;padding:12px 14px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <i class="ti ti-alert-triangle" style="color:#c47d27"></i>
-          <span class="gap-text"><b>Asked but not in the deck:</b> {{ g.detail }}</span>
-        </div>
-        <input type="hidden" name="gen_topic" value="{{ g.topic }}">
-        <input type="hidden" name="twt__{{ g.slug }}" value="{{ g.work_type }}">
-        <label class="hint" style="font-size:12px;display:block;margin:10px 0 4px">What should this slide cover? <span style="font-weight:400">(edit to guide the AI)</span></label>
-        <textarea name="tbrief__{{ g.slug }}" id="tbrief-{{ g.slug }}" style="width:100%;min-height:58px;font-size:13px">{{ g.brief }}</textarea>
-        <div style="text-align:center;color:#c47d27;font-size:16px;line-height:1;margin:8px 0 4px"><i class="ti ti-chevron-down"></i></div>
-        <button type="button" class="btn btn-primary btn-block" onclick="genGapTopic('{{ g.slug }}', this)"><i class="ti ti-plus"></i> Create slide with AI</button>
+      <div class="gap-row" style="display:flex;align-items:flex-start;gap:8px;background:#fff8f0;border:1px solid #f0d9bf;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <i class="ti ti-alert-triangle" style="color:#c47d27;margin-top:2px"></i>
+        <span class="gap-text"><b>Asked but not in the deck:</b> {{ g.detail }}</span>
       </div>
       {% else %}
-      <div class="gap-row" id="gap-{{ g.work_type }}" style="display:block">
-        <div style="display:flex;align-items:center;gap:8px">
-          <i class="ti ti-sparkles"></i>
-          <span class="gap-text">{{ g.detail }}</span>
-          {% if g.type == 'needs_case_study' %}
-          <button type="button" class="btn" style="margin-left:auto" onclick="genGap('{{ g.work_type }}', this)"><i class="ti ti-wand"></i> Generate with AI</button>
-          {% endif %}
-        </div>
-        {% if g.type == 'needs_case_study' %}
-        <input type="hidden" name="gen" value="{{ g.work_type }}">
-        <label class="hint" style="font-size:12px;display:block;margin:8px 0 4px">What should this slide cover? <span style="font-weight:400">(edit to guide the AI)</span></label>
-        <textarea name="brief__{{ g.work_type }}" id="brief-{{ g.work_type }}" style="width:100%;min-height:58px;font-size:13px">{{ g.brief }}</textarea>
-        {% endif %}
+      <div class="gap-row" style="display:flex;align-items:flex-start;gap:8px;padding:6px 2px;margin-bottom:4px">
+        <i class="ti ti-info-circle" style="color:#6E6E69;margin-top:2px"></i>
+        <span class="gap-text">{{ g.detail }}</span>
       </div>
       {% endif %}
       {% endfor %}
@@ -798,53 +780,6 @@ BUILD_BODY = """
    const r=li.getBoundingClientRect();const after=(e.clientY-r.top)/r.height>0.5;
    list.insertBefore(dragEl,after?li.nextElementSibling:li);});
  function syncOrder(){document.getElementById('order').value=[...list.children].map(li=>li.dataset.id).join(',');}
- function genGap(wt, btn){
-   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
-   var brief=document.getElementById('brief-'+wt);
-   var fd=new FormData();
-   fd.append('gen_wt', wt);
-   fd.append('brief', brief?brief.value:'');
-   fd.append('industry', (SERVER_CTX&&SERVER_CTX.industry)||'');
-   fd.append('transcript', (SERVER_CTX&&SERVER_CTX.transcript)||'');
-   fd.append('client_name', (SERVER_CTX&&SERVER_CTX.client_name)||'');
-   fetch('/generate',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
-     var row=document.getElementById('gap-'+wt);
-     if(d.ok&&row){
-       row.innerHTML='<i class="ti ti-check" style="color:#2C6E66"></i> '+
-         '<span class="gap-text"><b>AI slide ready:</b> '+d.title+
-         ' <span class="hint">— accept it on the Review step</span></span>'+
-         '<input type="hidden" name="gen" value="'+wt+'">';
-     } else { btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; }
-   }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; });
- }
- function genGapTopic(slug, btn){
-   var row=document.getElementById('gaptopic-'+slug);
-   var topicInput=row?row.querySelector('input[name="gen_topic"]'):null;
-   var twtInput=row?row.querySelector('input[name="twt__'+slug+'"]'):null;
-   var brief=document.getElementById('tbrief-'+slug);
-   var topic=topicInput?topicInput.value:'';
-   var twt=twtInput?twtInput.value:'';
-   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
-   var fd=new FormData();
-   fd.append('gen_topic', topic);
-   fd.append('gen_wt', twt);
-   fd.append('brief', brief?brief.value:'');
-   fd.append('industry', (SERVER_CTX&&SERVER_CTX.industry)||'');
-   fd.append('transcript', (SERVER_CTX&&SERVER_CTX.transcript)||'');
-   fd.append('client_name', (SERVER_CTX&&SERVER_CTX.client_name)||'');
-   fetch('/generate',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
-     if(d.ok&&row){
-       // keep the hidden fields so /review reuses this draft (no double charge)
-       row.innerHTML='<div style="display:flex;align-items:center;gap:8px">'+
-         '<i class="ti ti-check" style="color:#2C6E66"></i>'+
-         '<span class="gap-text"><b>AI slide ready:</b> '+caEsc(d.title)+
-         ' <span class="hint">— accept it on the Review step</span></span></div>'+
-         '<input type="hidden" name="gen_topic" value="'+caEsc(topic)+'">'+
-         '<input type="hidden" name="twt__'+slug+'" value="'+caEsc(twt)+'">'+
-         '<input type="hidden" name="tbrief__'+slug+'" value="'+caEsc(brief?brief.value:'')+'">';
-     } else { btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; }
-   }).catch(function(){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Retry'; });
- }
  function caEsc(s){var e=document.createElement('div');e.textContent=(s==null?'':s);return e.innerHTML;}
  function createAI(btn){
    var topic=(document.getElementById('ca-topic')||{}).value||'';
@@ -1369,35 +1304,6 @@ def create_ai():
             "review": content["review"]}
 
 
-@app.route("/generate", methods=["POST"])
-def generate():
-    """Write ONE gap slide on demand (the 'Generate with AI' button on the Suggested
-    page). Reuses a pending draft for the slot if one exists, else drafts a fresh one
-    and stages it. Returns JSON; the slide is picked up on the Review step for
-    accept/reject (staging.find reuse). No deck change here."""
-    topic = request.form.get("gen_topic", "").strip()
-    wt = request.form.get("gen_wt", "").strip()
-    industry = request.form.get("industry", "")
-    transcript = request.form.get("transcript", "")
-    client = request.form.get("client_name", "")
-    brief = request.form.get("brief", "")
-    if not wt and not topic:
-        return {"ok": False, "error": "no work type"}, 400
-    if topic and not wt:
-        wt = "AI_POD"                                   # topic asks default to a real work type
-    existing = staging.find(wt, industry, topic=topic)
-    if existing and existing["status"] == "pending":
-        rec = existing
-    else:
-        gap = {"type": "missing_capability" if topic else "needs_case_study",
-               "work_type": wt, "topic": topic}
-        content = slide_generator.draft(gap, {"industry": industry, "transcript": transcript,
-                                              "brief": brief, "topic": topic})
-        rec = staging.add(content, wt, industry, client, topic=topic)
-    return {"ok": True, "id": rec["id"], "title": rec["title"],
-            "work_type": wt, "topic": topic}
-
-
 @app.route("/build", methods=["POST"])
 def build():
     ctx = {
@@ -1421,12 +1327,7 @@ def build():
                                       error="Please select at least one work type.")
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
     result = matcher.plan(ctx, use_ai=True)   # AI is always on now
-    for g in result["gaps"]:                  # pre-fill an editable brief for each gap
-        if g.get("type") == "needs_case_study":
-            g["brief"] = slide_generator.default_brief(g["work_type"], ctx["industry"], ctx["transcript"])
-        elif g.get("type") == "missing_capability":
-            g["brief"] = slide_generator.default_brief(g["work_type"], ctx["industry"],
-                                                       ctx["transcript"], topic=g["topic"])
+    # Gaps are FLAGS only now (no inline generation) — nothing to pre-fill here.
     titles = matcher._title_lookup()
 
     # --- skills slides (PURE Workforce only): auto-add after the standard block,
@@ -1549,43 +1450,9 @@ def review():
                             for t in editor.full_text(slide) if t not in shown)
         cards.append({"id": sid, "fields": fields, "context": context[:400]})
 
-    # ---- gaps: WRITE the AI slide now, surface it for Accept/Reject ----
+    # Gaps are FLAGS only now — they are never auto-written here. AI slides come
+    # solely from the deliberate "Create a slide with AI" tool (NEW:<id> items).
     ai_cards, ai_ids = [], []
-    for wt in request.form.getlist("gen"):
-        existing = staging.find(wt, industry)           # reuse a pending draft if any
-        if existing and existing["status"] == "pending":
-            rec = existing
-        else:
-            content = slide_generator.draft(
-                {"type": "needs_case_study", "work_type": wt},
-                {"industry": industry, "transcript": transcript,
-                 "brief": request.form.get("brief__" + wt, "")})
-            rec = staging.add(content, wt, industry, client)
-        ai_ids.append(rec["id"])
-        ai_cards.append({"id": rec["id"], "work_type": wt,
-                         "title": rec["title"], "keywords": rec.get("keywords", ""),
-                         "bullets": "\n".join(rec.get("bullets", []))})
-
-    # ---- topic gaps: a client ask with no slide -> write one now ----
-    for topic in request.form.getlist("gen_topic"):
-        topic = topic.strip()
-        if not topic:
-            continue
-        slug = matcher.slugify(topic)
-        wt = request.form.get("twt__" + slug, "") or "AI_POD"
-        brief = request.form.get("tbrief__" + slug, "")
-        existing = staging.find(wt, industry, topic=topic)
-        if existing and existing["status"] == "pending":
-            rec = existing
-        else:
-            content = slide_generator.draft(
-                {"type": "missing_capability", "work_type": wt, "topic": topic},
-                {"industry": industry, "transcript": transcript, "brief": brief, "topic": topic})
-            rec = staging.add(content, wt, industry, client, topic=topic)
-        ai_ids.append(rec["id"])
-        ai_cards.append({"id": rec["id"], "work_type": topic,
-                         "title": rec["title"], "keywords": rec.get("keywords", ""),
-                         "bullets": "\n".join(rec.get("bullets", []))})
 
     body = render_template_string(REVIEW_BODY, client=client, order=",".join(ids),
                                   cards=cards, ai_cards=ai_cards, ai_ids=",".join(ai_ids),

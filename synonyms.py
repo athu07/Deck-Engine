@@ -38,9 +38,15 @@ SYNONYM_GROUPS = [
     ["aws", "amazon web services", "azure", "gcp", "google cloud", "cloud"],
 
     # ---- Quality Engineering / Testing ----
+    # NOTE: individual testing TOOLS live in this group on purpose, so an ask
+    # that only names a tool (e.g. "Cucumber") resolves to the capability we
+    # already cover (test automation) and is never flagged as "missing".
     ["test automation", "automated testing", "automation testing", "qa automation",
      "quality engineering", "test engineering", "automated qa", "test suite",
-     "regression automation", "qe"],
+     "regression automation", "regression testing", "manual testing", "qe",
+     "cucumber", "selenium", "junit", "testng", "cypress", "playwright", "appium",
+     "pytest", "katalon", "soapui", "specflow", "rest assured", "robot framework",
+     "bdd", "tdd"],
     ["performance testing", "load testing", "loadrunner", "jmeter",
      "stress testing", "scalability testing"],
     ["pentesting", "penetration testing", "security testing", "vapt",

@@ -841,6 +841,52 @@ REFINEMENT (same day, after first screenshots):
     genuinely novel asks (blockchain, quantum, fraud detection) still flag.
 
 ------------------------------------
+CHANGE: gaps are now FLAGS ONLY + higher bar for flagging (29 Jun)
+------------------------------------
+Two asks from the owner after seeing the gap cards:
+  1. "I don't need Generate-with-AI on these cards — just FLAG that they're not
+     in the deck."
+  2. "When matching the transcript, only flag things WORTH a deck slide — don't
+     suggest tools like Cucumber/Selenium as missing."
+
+DONE:
+  * The gap card ("AI will write these") is now a read-only notice titled
+    "Heads-up - not in this deck". Removed the Generate-with-AI / Create-slide
+    buttons, the per-gap brief boxes, and the hidden fields that used to
+    auto-write these at the Review step. Gaps NO LONGER generate anything.
+    (Deliberate creation still lives in the separate "Create a slide with AI"
+    tool, which is unchanged.)
+  * Removed the now-dead code that backed those buttons: the /generate route,
+    the genGap/genGapTopic JS, and the two generation loops in /review. AI
+    slides now come ONLY from the "Create a slide with AI" tool (NEW:<id>).
+  * Higher bar for capability flags (so "Cucumber" never shows as missing):
+    - synonyms.py: common testing TOOLS (cucumber, selenium, junit, cypress,
+      playwright, appium, pytest, ...) now resolve to the "test automation"
+      capability, so an ask that names a tool counts as already covered.
+    - ai_matcher.extract_asks: prompt rewritten to return only substantial
+      capability THEMES worth a dedicated slide, and to explicitly skip tools/
+      libraries/frameworks/languages (cap lowered 8 -> 6).
+    - matcher.py: added _ASK_TOOLS stoplist (tools + languages + frameworks)
+      that _is_confident_ask rejects, as a deterministic backstop.
+  VERIFIED: TECH_IT/AI_POD deck mentioning DevOps + CI/CD + blockchain +
+  quantum + "Cucumber and Selenium" -> flags ONLY blockchain & quantum;
+  Cucumber/Selenium/CI-CD/ADAS not flagged; no Generate buttons on the page.
+
+------------------------------------
+BUGFIX: form industry codes BFSI / AVIATION didn't map to skills data (29 Jun)
+------------------------------------
+The skills slides read the footprint Excel, whose industry labels are spelled
+out ("Banking & Financial Services"). skills._IND_MAP translates the FORM's
+industry code to that label — but it was MISSING "BFSI" and "AVIATION", which
+are exactly the codes the form dropdown sends. Result: picking BFSI (banking)
+or AVIATION produced NO industry-strength skills slide (silent). Added:
+  BFSI     -> Banking & Financial Services
+  AVIATION -> Aerospace & Defense
+Verified: BFSI + Workforce + RFI + client "SocGen" now yields all three skills
+slides (industry / skills / footprint). (The footprint data has no "aviation"
+industry; Aerospace & Defense is the closest, hence that mapping.)
+
+------------------------------------
 DECISIONS & NOTES (so I don't go in circles)
 ------------------------------------
 - Using the NEW master deck; registry aligns 1:1 (Prompt C above).

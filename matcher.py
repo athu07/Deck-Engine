@@ -101,6 +101,25 @@ _ASK_STOPWORDS = {
     "client", "customer", "product", "experience", "capability", "capabilities",
 }
 
+# Individual tools / libraries / frameworks / languages are DETAILS, not deck
+# themes — never flag them as a missing capability (they belong to a capability
+# we already cover, e.g. Selenium -> test automation). Belt-and-suspenders behind
+# the AI extractor, which is also told to skip these.
+_ASK_TOOLS = {
+    # testing tools
+    "cucumber", "selenium", "junit", "testng", "cypress", "playwright", "appium",
+    "pytest", "katalon", "soapui", "specflow", "rest assured", "robot framework",
+    "jmeter", "loadrunner", "postman", "mocha", "jasmine", "karate", "bdd", "tdd",
+    # languages
+    "java", "python", "javascript", "typescript", "c#", ".net", "c++", "golang",
+    "go", "ruby", "php", "scala", "kotlin", "swift", "rust",
+    # frameworks / libraries / dev tools
+    "react", "angular", "vue", "svelte", "spring", "spring boot", "django",
+    "flask", "node", "nodejs", "express", "rails", "hibernate", "maven", "gradle",
+    "jenkins", "docker", "kubernetes", "ansible", "terraform", "git", "github",
+    "gitlab", "jira",
+}
+
 
 def slugify(text):
     """ADAS / fraud detection -> a safe form-field id (adas / fraud-detection)."""
@@ -157,7 +176,7 @@ def _is_confident_ask(ask):
     if len(a) < 3:
         return False
     low = a.lower()
-    if low in _ASK_STOPWORDS:
+    if low in _ASK_STOPWORDS or low in _ASK_TOOLS:   # generic word or a bare tool
         return False
     if " " in a:                       # multi-word phrase -> specific enough
         return True
@@ -336,7 +355,7 @@ def plan(context, top_n=3, use_ai=False):
                 "type": "needs_case_study",
                 "work_type": wt,
                 "detail": f"No strong {wt} case study for "
-                          f"{industry or 'this client'} — needs to be created.",
+                          f"{industry or 'this client'} in the library yet.",
             })
     for sid in chosen:                         # selected but not actually in the deck
         if sid not in lib_ids:

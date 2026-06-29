@@ -103,15 +103,19 @@ def extract_asks(transcript):
     prompt = (
         "A salesperson pasted this client meeting transcript:\n"
         '"""\n' + transcript[:6000] + '\n"""\n\n'
-        "List the SPECIFIC capabilities, skills, technologies, or solutions the "
-        "CLIENT asked for or said they need. Rules:\n"
-        "- Only concrete asks (e.g. 'ADAS', 'fraud detection', 'test automation', "
-        "'Kafka migration', 'pentesting'). 1-4 words each.\n"
-        "- Keep acronyms/proper nouns as written (ADAS, Kafka, SAP); otherwise lowercase.\n"
+        "List the SUBSTANTIAL capabilities, solutions, or domains the CLIENT asked "
+        "for that would each justify a DEDICATED sales slide. Rules:\n"
+        "- Capability/solution THEMES only (e.g. 'ADAS', 'fraud detection', "
+        "'predictive maintenance', 'blockchain traceability', 'test automation').\n"
+        "- Do NOT list individual tools, libraries, frameworks, or programming "
+        "languages (e.g. Cucumber, Selenium, JUnit, React, Python, Docker, Jenkins). "
+        "These are details, not deck themes. If the client only named tools, infer "
+        "the capability they belong to (Selenium/Cucumber -> test automation) or skip.\n"
         "- Do NOT include generic words (software, team, quality, support, project, "
         "solution, technology, help, service).\n"
         "- Only things the client wants delivered — not background chit-chat.\n"
-        "- At most 8 items. If none, return an empty list.\n"
+        "- At most 6 items. If none clearly merit their own slide, return an empty list.\n"
+        "- Keep acronyms/proper nouns as written (ADAS, SAP); otherwise lowercase.\n"
         'Return ONLY this JSON: {"asks": ["...", "..."]}'
     )
     try:
@@ -137,4 +141,4 @@ def extract_asks(transcript):
             v = a.get("ask") or a.get("topic") or a.get("name")
             if v:
                 out.append(str(v).strip())
-    return out[:8]
+    return out[:6]

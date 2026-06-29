@@ -60,6 +60,7 @@ _CO_STRIP = re.compile(
 
 # Form industry codes -> Excel Industry column values
 _IND_MAP = {
+    "BFSI":             "Banking & Financial Services",   # the code the FORM sends
     "BANKING":          "Banking & Financial Services",
     "BANKING_FINANCE":  "Banking & Financial Services",
     "FINANCE":          "Banking & Financial Services",
@@ -79,6 +80,7 @@ _IND_MAP = {
     "AUTOMOTIVE":       "Automotive & Industrial",
     "INDUSTRIAL":       "Automotive & Industrial",
     "AEROSPACE":        "Aerospace & Defense",
+    "AVIATION":         "Aerospace & Defense",   # the code the FORM sends
     "DEFENSE":          "Aerospace & Defense",
     "REALESTATE":       "Real Estate & Professional Services",
     "REAL_ESTATE":      "Real Estate & Professional Services",
