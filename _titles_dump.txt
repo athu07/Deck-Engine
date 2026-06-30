@@ -1,0 +1,160 @@
+  1 | AI Pods                | Healthcare Technology        | AI-FIRST POD DELIVERY — the client HEALTHCARE ENGINEERING
+  2 | AI Pods                | Retail Technology            | AI-FIRST POD CONVERSION
+  3 | AI Pods                | Automotive Engineering       | CAAS GLOBAL AUTOMOTIVE OEM ENGINEERING
+  4 | AI Pods                | Healthcare Technology        | CAAS GLOBAL MEDTECH ENGINEERING
+  5 | AI Pods                | Healthcare Technology        | The client HEALTHCARE POD GOVERNANCE IN PRACTICE
+  6 | AI Pods                | Healthcare Technology        | GCC ENABLEMENT FOR GLOBAL MEDTECH — HANDHELD ULTRASOUND
+  7 | AI Pods                | Healthcare Technology        | MAMMOGRAPHY EXCELLENCE — AI-ENHANCED DIAGNOSTICS
+  8 | AI Pods                | Healthcare Technology        | PATIENT CARE SOLUTIONS — MOBILE APP AND DEVSECOPS
+  9 | AI Pods                | Media                        | NEXT-GENERATION GAMING CONSOLE ENGINEERING
+ 10 | AI Pods                | Banking                      | CYBERSECURITY CAPABILITY — PENTESTING TO COMPLIANCE
+ 11 | AI Pods                | Technology                   | CUSTOM HRMS MOBILE APPLICATION FOR GLOBAL IT SERVICES LEADER
+ 12 | AI Pods                | Banking                      | DEVSECOPS PIPELINE FOR OPEN BANKING DIGITAL TRANSFORMATION
+ 13 | AI Pods                | Media                        | REAL-TIME TEST VISUALIZATION PLATFORM FOR OTT TAAS PROVIDER
+ 14 | AI Pods                | Healthcare Technology        | TURNKEY PRODUCT DEVELOPMENT FOR B2C HEALTHCARE BRAND
+ 15 | AI Pods                | Telecom                      | MANAGED TESTING FOR OTT PLATFORM LAUNCH — US TELECOM
+ 16 | AI Pods                | Telecom                      | PARTNER INTEGRATION TESTING FOR TELECOM MVNO ECOSYSTEM
+ 17 | AI Pods                | Telecom                      | NETWORK PROVISIONING ENGINE MIGRATION TESTING
+ 18 | AI Pods                | Insurance                    | SAP PERFORMANCE TESTING FOR HIGH-LOAD HEALTH INSURANCE
+ 19 | AI Pods                | Retail Technology            | MICROSOFT DYNAMICS 365 QA FOR RETAIL ENTERPRISE
+ 20 | AI Pods                | Insurance                    | SALESFORCE QA FOR HEALTH INSURANCE COMPANY
+ 21 | AI Pods                | Banking                      | APP STORE RATING RECOVERY FOR DIGITAL BANK
+ 22 | AI Pods                | Banking                      | CAPEX TO OPEX TESTING TRANSFORMATION FOR SOUTHEAST ASIAN FINTECH
+ 23 | AI Pods                | Banking                      | CHATBOT AI/ML ENHANCEMENT FOR DIGITAL FINTECH
+ 24 | AI Pods                | Banking                      | CYBERSECURITY TESTING FOR FINANCIAL SERVICES FIRM
+ 25 | AI Pods                | Banking                      | END-TO-END FINTECH TESTING TRANSFORMATION
+ 26 | AI Pods                | Banking                      | REGRESSION TESTING ACCELERATION FOR INSTANT CREDIT PLATFORM
+ 27 | AI Pods                | Healthcare Technology        | FDA 21 CFR PART 11 COMPLIANCE FOR CLINICAL TRIALS MANAGEMENT
+ 28 | AI Pods                | Healthcare Technology        | MULTILINGUAL DISEASE MANAGEMENT PROTOCOL VALIDATION
+ 29 | AI Pods                | Healthcare Technology        | REMOTE PATIENT MONITORING IOT TESTING
+ 30 | AI Pods                | Healthcare Technology        | RPA REPORT VALIDATION FOR REMOTE PATIENT MONITORING
+ 31 | AI Pods                | Insurance                    | INSURANCE POLICY ADMINISTRATION TESTING — ORACLE OIPA
+ 32 | AI Pods                | Insurance                    | CRM UPGRADE FOR LEADING INSURANCE PROVIDER
+ 33 | AI Pods                | Insurance                    | INSURANCE APP PERFORMANCE ENGINEERING
+ 34 | AI Pods                | Education Technology         | E-LEARNING AUTOMATION FOR LEADING EDTECH PROVIDER
+ 35 | AI Pods                | Education Technology         | QA FOR SMART SCHOOL SYSTEM — EDTECH
+ 36 | AI Pods                | Education Technology         | GLOBAL E-LEARNING PLATFORM QUALITY ASSURANCE
+ 37 | AI Pods                | Education Technology         | SCALABLE E-LEARNING PERFORMANCE TESTING FOR GLOBAL PLATFORM
+ 38 | Workforce Solutions    | Technology                   | RAPID SECURE ODC DEPLOYMENT
+ 39 | Workforce Solutions    | Healthcare                   | ZERO-DISRUPTION WORKFORCE SCALING FOR HEALTHCARE IT
+ 40 | Workforce Solutions    | Banking                      | CORE BANKING TRANSFORMATION AND SUPPORT OPTIMIZATION
+ 41 | Workforce Solutions    | Healthcare Technology        | CLOUD MIGRATION AND 24x7 INFRASTRUCTURE SUPPORT
+ 42 | Workforce Solutions    | Retail                       | PEAK-SEASON APP SUPPORT MODERNIZATION
+ 43 | Workforce Solutions    | Manufacturing                | NETWORK AND INFRASTRUCTURE MODERNIZATION
+ 44 | Workforce Solutions    | Telecom                      | CUSTOMER SUPPORT DIGITAL TRANSFORMATION
+ 45 | Workforce Solutions    | Education Technology         | RAPID ENGINEERING RAMP-UP FOR EDTECH PLATFORM
+ 46 | Workforce Solutions    | Pharmaceuticals              | GLOBAL PHARMACEUTICAL PROCESS EXCELLENCE
+ 47 | Workforce Solutions    | Pharmaceuticals              | AI-ENHANCED PROCESS MINING FOR PHARMACEUTICAL MANUFACTURING
+ 48 | Workforce Solutions    | Banking                      | CA AND FINANCE TALENT PIPELINE FOR GLOBAL ALTERNATIVE ASSET MANAGER
+ 49 | Workforce Solutions    | Pharmaceuticals              | LIFE SCIENCES ANALYTICS TALENT ONBOARDING
+ 50 | Workforce Solutions    | Industrial Engineering       | FINANCE AND TECHNOLOGY COE BUILD
+ 51 | Workforce Solutions    | Professional Services        | SERVICENOW TALENT SPRINT AND ODC BUILD
+ 52 | Workforce Solutions    | Aviation                     | GREENFIELD AI-READY GCC BUILD FOR MAJOR US AIRLINE
+ 53 | Workforce Solutions    | Banking                      | GREENFIELD-TO-INNOVATION HUB — GLOBAL BANKING GCC
+ 54 | Workforce Solutions    | Banking                      | MAINFRAME COST OPTIMIZATION WITH SPLUNK
+ 55 | Workforce Solutions    | Banking                      | BUILDING AN AGILE KYC COMPLIANCE TEAM FOR A EUROPEAN BANK
+ 56 | Workforce Solutions    | Technology                   | RPO FOR GLOBAL E-COMMERCE AND CLOUD COMPUTING LEADER
+ 57 | Workforce Solutions    | Retail                       | TALENT-ON-DEMAND FOR INDIA'S LARGEST ONLINE SALES EVENT
+ 58 | Workforce Solutions    | Retail                       | 24/7 TECHNICAL SUPPORT FOR BIG BILLION DAYS
+ 59 | Workforce Solutions    | Healthcare Technology        | DIVERSITY HIRING FOR MEDICAL EQUIPMENT MANUFACTURING
+ 60 | Workforce Solutions    | Healthcare Technology        | STRATEGIC TALENT PARTNERSHIP FOR GLOBAL HEALTHTECH
+ 61 | Workforce Solutions    | Healthcare Technology        | PATIENT HEALTH OUTCOMES — MEDICAL DEVICES BORT MODEL
+ 62 | Workforce Solutions    | Healthcare                   | CONTRACT-TO-HIRE WORKFORCE MANAGEMENT FOR HEALTHCARE GROUP
+ 63 | Workforce Solutions    | Manufacturing                | DATA AND ANALYTICS TEAM BUILD FOR MANUFACTURING CONGLOMERATE
+ 64 | Workforce Solutions    | Automotive Engineering       | AUTOSAR TEAM ESTABLISHMENT FOR AUTOMOTIVE TECHNOLOGY
+ 65 | Workforce Solutions    | Automotive Engineering       | SAP AND SUPPLY CHAIN CAPABILITY BUILD FOR LUXURY VEHICLE MANUFACTURER
+ 66 | Workforce Solutions    | Energy                       | DIVERSITY HIRING IN ENERGY MANAGEMENT
+ 67 | Workforce Solutions    | Energy                       | CYBERSECURITY CAPABILITY BUILD FOR OIL AND GAS ODC
+ 68 | Workforce Solutions    | Energy                       | GREEN ENERGY PYTHON ENGINEERING TEAM BUILD
+ 69 | Workforce Solutions    | Technology                   | HTD WORKFORCE TRANSFORMATION FOR GLOBAL ITES ENTERPRISE
+ 70 | Workforce Solutions    | Technology                   | A leading global technology company TECHNICAL SUPPORT — 36-MONTH MANAGED SERVICES
+ 71 | Workforce Solutions    | Media                        | QA TEST HOUSE FOR AAA GAME SEQUEL LAUNCH
+ 72 | Workforce Solutions    | Media                        | MULTIPLAYER TESTING FOR AAA GAME TITLE
+ 73 | Workforce Solutions    | Technology                   | A leading global technology hardware company CAIRO CUSTOMER ENGAGEMENT CENTER EXPANSION
+ 74 | Workforce Solutions    | Professional Services        | A leading Japanese multinational BPO GCC INDIA
+ 75 | Workforce Solutions    | Professional Services        | A leading Japanese multinational GCC STRATEGY AND DISCOVERY FRAMEWORK
+ 76 | Workforce Solutions    | Professional Services        | A leading Japanese multinational GCC BENCHMARKING AND EXCELLENCE FRAMEWORK
+ 77 | Workforce Solutions    | Media                        | CAPTIVE-AS-A-SERVICE MULTI-HUB BUILD FOR MEDIA AND ENTERTAINMENT
+ 78 | Workforce Solutions    | Banking                      | GREENFIELD TO APAC INNOVATION HUB — 15-YEAR BFSI EVOLUTION
+ 79 | Workforce Solutions    | Healthcare Technology        | HYBRID BOT-CAAS R&D HUB FOR GLOBAL MEDTECH LEADER
+ 80 | Workforce Solutions    | Technology                   | FULL-CYCLE ACCELERATED HIRING — 350 RESOURCES IN 6 MONTHS
+ 81 | MS Solution            | Manufacturing                | PROCUREMENT CYCLE COMPRESSION
+ 82 | MS Solution            | Manufacturing                | DEMAND-DRIVEN MATERIAL PLANNING
+ 83 | MS Solution            | Manufacturing                | AI-DRIVEN PRODUCTION SCHEDULING ACROSS 60+ PLANTS
+ 84 | MS Solution            | Process Manufacturing        | INDUSTRY 4.0 INTELLIGENCE
+ 85 | MS Solution            | Energy                       | OPERATIONAL DIGITAL TWIN
+ 86 | MS Solution            | Construction                 | CARBON TRACKING AND EMISSION INTELLIGENCE
+ 87 | MS Solution            | Construction                 | PRE & POST CONTRACT INTELLIGENCE
+ 88 | MS Solution            | Manufacturing                | AGENTIC QUALITY ROOT CAUSE INTELLIGENCE
+ 89 | MS Solution            | Manufacturing                | 8D, FMEA AND DOCUMENT INTELLIGENCE
+ 90 | MS Solution            | Manufacturing                | WELD VISION AND JOINT INTEGRITY ANALYTICS
+ 91 | MS Solution            | Manufacturing                | AI-FIRST QUALITY GATES AT INBOUND
+ 92 | MS Solution            | Manufacturing                | PREDICTIVE MAINTENANCE INTELLIGENCE
+ 93 | MS Solution            | Process Manufacturing        | REAL-TIME PROCESS OPTIMIZATION
+ 94 | MS Solution            | Manufacturing                | ORDER-TO-DELIVERY ENGINE
+ 95 | MS Solution            | Manufacturing                | TOUCHLESS INVOICE PROCESSING
+ 96 | MS Solution            | Manufacturing                | IT-OT CONVERGENCE SECURITY
+ 97 | MS Solution            | Software                     | INTELLIGENT QUALITY ENGINEERING
+ 98 | MS Solution            | Manufacturing                | GENERATIVE AI FOR PRODUCT DESIGN
+ 99 | MS Solution            | Manufacturing                | AUTOMATED DMU ANALYSIS AND CHANGE MANAGEMENT
+100 | MS Solution            | Manufacturing                | NX CAD TOOLKIT AND MACRO CONSOLIDATION
+101 | MS Solution            | Manufacturing                | SHEET METAL FORMING INTELLIGENCE
+102 | MS Solution            | Manufacturing                | AERODYNAMIC SIMULATION INTELLIGENCE
+103 | MS Solution            | Manufacturing                | AI-ASSISTED NVH VALIDATION
+104 | MS Solution            | Manufacturing                | PLM BUDGET CONTROL AND TESTBED INTELLIGENCE
+105 | MS Solution            | Manufacturing                | BOM SYNCHRONIZATION AND VARIANT INTELLIGENCE
+106 | MS Solution            | Manufacturing                | ENGINEERING ANALYST AUGMENTATION
+107 | MS Solution            | Software                     | AGENTIC SDLC TRANSFORMATION
+108 | MS Solution            | Manufacturing                | PLM COST ESTIMATION AND BUDGET GOVERNANCE INTELLIGENCE
+109 | MS Solution            | Manufacturing                | WARRANTY AND AMC PREDICTIVE COST MODELLING
+110 | MS Solution            | Manufacturing                | AI-ASSISTED WARRANTY CLAIM TRIAGE
+111 | MS Solution            | Manufacturing                | VISION AI FOR WARRANTY CLAIMS
+112 | MS Solution            | Manufacturing                | INTELLIGENT INVENTORY CONTROL
+113 | MS Solution            | Manufacturing                | PREDICTIVE MATERIAL GOVERNANCE
+114 | MS Solution            | Manufacturing                | CONNECTED VEHICLE DATA PLATFORM
+115 | MS Solution            | Manufacturing                | TELEMETRY INTELLIGENCE
+116 | MS Solution            | Manufacturing                | RANGE PREDICTION AND RANGE POLYGON
+117 | MS Solution            | Manufacturing                | BATTERY ON CLOUD
+118 | MS Solution            | Manufacturing                | AI-ENABLED DATA EXPLORATION AND REPORTING
+119 | MS Solution            | Private Equity               | DEAL SOURCING INTELLIGENCE
+120 | MS Solution            | Private Equity               | DUE DILIGENCE ACCELERATION
+121 | MS Solution            | Private Equity               | INVESTMENT ANALYSIS AND MEMO INTELLIGENCE
+122 | MS Solution            | Private Equity               | PORTFOLIO COMPANY MONITORING
+123 | MS Solution            | Private Equity               | COMPLIANCE AND REPORTING AUTOMATION
+124 | MS Solution            | Banking                      | AI ASSISTANT FOR SELL-SIDE EQUITY RESEARCH
+125 | MS Solution            | Banking                      | MAINFRAME COST OPTIMIZATION
+126 | MS Solution            | Banking                      | DEVSECOPS PIPELINE FOR OPEN BANKING
+127 | MS Solution            | Logistics                    | AGENTIC ORDER-TO-CASH TRANSFORMATION
+128 | MS Solution            | Banking                      | CLOSE AND CONTROL COPILOT
+129 | MS Solution            | Banking                      | AI/ML AND INTELLIGENT AUTOMATION FOR FINANCIAL INSTITUTIONS
+130 | MS Solution            | Finance Operations           | AGENTIC INVOICE AND CASH MANAGEMENT
+131 | MS Solution            | Finance Operations           | AI-POWERED FINANCIAL RECONCILIATION
+132 | MS Solution            | Banking                      | MARKET DATA COST OPTIMIZATION AND CONVERSATIONAL ANALYTICS
+133 | MS Solution            | Energy                       | LOAD BALANCING AND DEMAND RESPONSE
+134 | MS Solution            | Energy                       | PREDICTIVE O&M INTELLIGENCE FOR RENEWABLE ASSETS
+135 | MS Solution            | Energy                       | GENERATION AND GRID FORECASTING INTELLIGENCE
+136 | MS Solution            | Process Manufacturing        | PREDICTIVE ASSET INTELLIGENCE
+137 | MS Solution            | Process Manufacturing        | INDUSTRIAL KNOWLEDGE COPILOT
+138 | MS Solution            | Process Manufacturing        | EDGE AI FOR INDUSTRIAL OPERATIONS
+139 | MS Solution            | Software                     | AIOPS CONTROL TOWER
+140 | MS Solution            | Software                     | AUTONOMOUS INCIDENT REMEDIATION
+141 | MS Solution            | Software                     | APPLICATION PERFORMANCE MANAGEMENT
+142 | MS Solution            | Software                     | COMMAND CENTER AND NETWORK OPERATIONS SECURITY SYSTEM
+143 | MS Solution            | Software                     | MULTI-CLOUD GOVERNANCE AND INTEGRATION FRAMEWORK
+144 | MS Solution            | Software                     | INTELLIGENT ENTERPRISE ORCHESTRATION
+145 | MS Solution            | Software                     | AGENTIC AI GOVERNANCE IMPLEMENTATION
+146 | MS Solution            | Software                     | LLMOPS AND GENAI OBSERVABILITY
+147 | MS Solution            | Software                     | AI GOVERNANCE AND GUARDRAILS
+148 | MS Solution            | Life Sciences                | MULTI-JURISDICTIONAL REGULATORY CHANGE INTELLIGENCE
+149 | MS Solution            | Manufacturing                | BATTERY SOH ANALYTICS AND DEGRADATION INTELLIGENCE
+150 | MS Solution            | Healthcare Technology        | HYBRID TEST AUTOMATION FOR CLINICAL VALIDATION
+151 | MS Solution            | Banking                      | CLEARSIGHT — CHEQUE CLEARING AUTOMATION
+152 | MS Solution            | Banking                      | CONTACTFLOW AI — CONTACT CENTER INTELLIGENCE
+153 | MS Solution            | Private Equity               | DEALIQ — AGENTIC DEAL INTELLIGENCE
+154 | MS Solution            | Private Equity               | OPSIQ — INVESTMENT OPERATIONS CONSOLE
+155 | MS Solution            | Manufacturing                | PLANFORGE AI — AGENTIC PRODUCTION PLANNING
+156 | MS Solution            | Manufacturing                | PLANTPULSE — MANUFACTURING OPERATIONS INTELLIGENCE
+157 | MS Solution            | Private Equity               | PORTFOLIO INTELLIGENCE AI — CONTINUOUS PORTFOLIO MONITORING
+158 | MS Solution            | Software                     | SAM AND HAM — IT ASSET MANAGEMENT
+159 | MS Solution            | Insurance                    | SERVEIQ — AGENTIC POLICY SERVICING
+160 | MS Solution            | Banking                      | VOICEVISTA — CALL INTELLIGENCE AND QA AUTOMATION

@@ -27,9 +27,10 @@ from pptx.dml.color import RGBColor
 EXCEL            = "J2W_Delivery_Footprint_Organized_Latest.xlsx"
 SHEET            = "Clean - Co x Func x Skill"
 SKILLS_TEMPLATES = "skills_templates.pptx"   # branded template slides (from import_skills_templates.py)
+CASE_TEMPLATE    = "case_study_v2.pptx"      # one shared template for content-store case studies
 
 BRAND = [
-    RGBColor(0x2C, 0x6E, 0x66),
+    RGBColor(0x3A, 0x8B, 0x82),   # DEEP TEAL — matches the case-study / skills template
     RGBColor(0x7F, 0xB2, 0xA9),
     RGBColor(0xCF, 0xE7, 0xE2),
     RGBColor(0x11, 0x11, 0x10),
@@ -310,7 +311,7 @@ def candidates(context):
         out.append({
             "id":       "SK:industry",
             "kind":     "industry_strength",
-            "label":    f"Industry strength — {industry_lbl}",
+            "label":    f"Industry strength - {industry_lbl}",
             "template": "industry_strength",
             "data":     ind_data,
             "stale":    False,
@@ -323,7 +324,7 @@ def candidates(context):
         sk_data = _skill_slide_data(rows, matched)
         if sk_data:
             names = [s["skill"] for s in sk_data[:3]]
-            label = "Skills deployed — " + "  ·  ".join(names)
+            label = "Skills deployed - " + "  ·  ".join(names)
             if len(sk_data) > 3:
                 label += f"  +{len(sk_data)-3} more"
             out.append({
@@ -342,7 +343,7 @@ def candidates(context):
             out.append({
                 "id":       f"FP:{co_data['company']}",
                 "kind":     "company_footprint",
-                "label":    f"Client relationship — {co_data['company']}",
+                "label":    f"Client relationship - {co_data['company']}",
                 "template": "company_footprint",
                 "data":     co_data,
                 "stale":    False,
@@ -381,7 +382,7 @@ def _mapping_industry(data):
     def _sk(i):
         if i < len(top3):
             return f"{top3[i]}  ({top3_cos[i]} {'company' if top3_cos[i]==1 else 'companies'})"
-        return "—"
+        return "-"
     return {
         "INDUSTRY_NAME":     data["industry"],
         "TOTAL_CONSULTANTS": f"{data['total']:,}",
@@ -401,7 +402,7 @@ def _mapping_skills(sk_list):
         if len(s["companies"]) > 4:
             top_cos += f"  +{len(s['companies'])-4} more"
         lines.append(
-            f"▸ {s['skill']}  —  {s['total']:,} consultants  ·  "
+            f"▸ {s['skill']}  -  {s['total']:,} consultants  ·  "
             f"{len(s['companies'])} {'company' if len(s['companies'])==1 else 'companies'}\n"
             f"   {top_cos}"
         )
@@ -537,9 +538,24 @@ def build_into(deck_path, order, cands, master_path="WORKING_COPY_Master_Deck.pp
     prs        = Presentation(deck_path)
     sld_id_lst = prs.slides._sldIdLst
     tfile      = Presentation(SKILLS_TEMPLATES)
+    case_tpl   = {"slide": None, "loaded": False}   # lazy: only opened if needed
 
     skill_elem = {}
     for sid, c in cand_by_id.items():
+        # ── content-store case study: render from the shared case_study_v2 template ──
+        if c.get("template") == "case_study_v2":
+            if not case_tpl["loaded"]:
+                case_tpl["slide"] = find_template(Presentation(CASE_TEMPLATE), "case_study_v2")
+                case_tpl["loaded"] = True
+            if case_tpl["slide"] is None:
+                print(f"  WARNING: case_study_v2 template not found in {CASE_TEMPLATE}")
+                continue
+            import fill_case_study as _fcs
+            new = slide_generator._copy_slide(prs, case_tpl["slide"])
+            fill_markers(new, _fcs.build_mapping(c["record"]))
+            skill_elem[sid] = list(sld_id_lst)[-1]
+            continue
+
         t = find_template(tfile, c["template"])
         if t is None:
             print(f"  WARNING: template '{c['template']}' not found — run create_skills_templates.py")

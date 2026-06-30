@@ -1,0 +1,30 @@
+{
+  "name": "J2W_MeridianBank_FM",
+  "client": "Meridian Bank",
+  "industry": "BFSI",
+  "functions": [],
+  "work_types": [
+    "AI_POD"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "CTO, Head of Engineering",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-06-30 11:20:41",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS15",
+    "CS16",
+    "AIP001",
+    "AIP004",
+    "AIP012",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_Meridian_Bank.pptx"
+}

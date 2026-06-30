@@ -30,6 +30,7 @@ import slide_generator
 import staging
 import meeting_log
 import skills
+import case_library
 from build_library import read_id
 
 
@@ -92,6 +93,23 @@ def current_salesperson():
     """Who generated the deck. No login exists yet, so return a clearly-marked
     placeholder. At deploy time, wire this to the logged-in user."""
     return "[NOT LOGGED IN - wire to login at deploy]"
+
+
+CONTENT_STORE = "case_study_content_store.json"
+_content_store_cache = None
+
+
+def _content_store():
+    """{id -> record} for the content-store case studies (AIP/WFS/MSS). Cached;
+    falls back to an empty dict if the store file is missing."""
+    global _content_store_cache
+    if _content_store_cache is None:
+        try:
+            with open(CONTENT_STORE, encoding="utf-8") as f:
+                _content_store_cache = {r["id"]: r for r in json.load(f)}
+        except (OSError, ValueError):
+            _content_store_cache = {}
+    return _content_store_cache
 
 SHELL = """
 <!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -618,7 +636,14 @@ BUILD_BODY = """
       </ul>
       <div id="resume-empty" style="display:none;color:#6b7280;padding:6px 2px">No deck in progress yet. <a href="/new">Start a new deck</a>, or browse the <a href="/library">library</a> and add slides.</div>
       <div class="addbar">
-        <select id="addsel">{% for sid, t in all_slides %}<option value="{{ sid }}">{{ sid }} — {{ t }}</option>{% endfor %}</select>
+        <select id="addsel">
+          <optgroup label="Master deck slides">
+          {% for sid, t in all_slides %}<option value="{{ sid }}">{{ sid }} — {{ t }}</option>{% endfor %}
+          </optgroup>
+          {% if case_lib %}<optgroup label="Case library — new branded case studies">
+          {% for c in case_lib %}<option value="{{ c.id }}">{{ c.id }} · {{ c.title }}{% if c.domain %} ({{ c.domain }}){% endif %}</option>{% endfor %}
+          </optgroup>{% endif %}
+        </select>
         <button type="button" class="btn" onclick="addSlide()"><i class="ti ti-plus"></i> Add slide</button>
       </div>
     </div>
@@ -1274,11 +1299,14 @@ def deck_resume():
     the slide catalogue."""
     titles = matcher._title_lookup()
     all_slides = sorted(titles.items(), key=lambda kv: matcher._num(kv[0]))
+    titles.update(case_library.title_map())   # so resumed store cases show their title
+    case_lib = sorted(case_library.all_cases(), key=lambda c: (c["work_type"], c["title"]))
     empty_ctx = {"client_name": "", "industry": "", "transcript": "",
                  "phase": "", "recipient": "", "functions": [], "work_types": []}
     body = render_template_string(BUILD_BODY, ctx=empty_ctx, picks=[], gaps=[],
-                                  titles=titles, all_slides=all_slides,
+                                  titles=titles, all_slides=all_slides, case_lib=case_lib,
                                   suggestions=[], suggested=[], ai_used=False,
+                                  persona_labels=[],
                                   resume=True, build_id="")
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
 
@@ -1354,8 +1382,13 @@ def build():
                              "label": c["label"]})
         picks[insert_at:insert_at] = sk_picks
     all_slides = sorted(titles.items(), key=lambda kv: matcher._num(kv[0]))
+    # store-case titles power the picks/suggested display AND the JS title lookup
+    # (so a manually-added or auto-picked AIP/WFS/MSS case shows its real title)
+    titles.update(case_library.title_map())
+    case_lib = sorted(case_library.all_cases(), key=lambda c: (c["work_type"], c["title"]))
     body = render_template_string(BUILD_BODY, ctx=ctx, picks=result["picks"],
                                   gaps=result["gaps"], titles=titles, all_slides=all_slides,
+                                  case_lib=case_lib,
                                   suggestions=result.get("suggestions", []),
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
@@ -1512,6 +1545,11 @@ def finalize():
             rec = staging.get(oid[4:])
             if rec:
                 create_items.append({"id": oid, "template": "case_study_full", "content": rec})
+    # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
+    # case_study_v2 template, anonymised + dash-clean, into THIS deck.
+    store_recs = _content_store()
+    store_items = [{"id": oid, "template": "case_study_v2", "record": store_recs[oid]}
+                   for oid in final_ids if oid in store_recs]
     try:
         assembler.build_deck(final_ids, out=path)     # builds the CS slides (skills/NEW ids ignored)
         edits = {}
@@ -1523,7 +1561,7 @@ def finalize():
             editor.apply_edits(path, edits)
         if client:
             editor.replace_tokens(path, {"[CLIENT]": client, "[Client]": client, "[client]": client})
-        skills.build_into(path, final_ids, skills_cands + create_items)   # fill + slot extras
+        skills.build_into(path, final_ids, skills_cands + create_items + store_items)   # fill + slot extras
     except (PermissionError, BadZipFile) as e:
         return _file_busy_page(e)
     meeting_log.save(                          # auto-log this meeting (no extra step)

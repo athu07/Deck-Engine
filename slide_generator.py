@@ -60,7 +60,7 @@ def create_temp_template(path=TEMPLATES_FILE):
     textbox(0.6, 0.5, 12.0, 1.1, "{{TITLE}}", 28, RGBColor(0x14, 0x28, 0x50), bold=True)
     textbox(0.6, 1.6, 12.0, 0.5, "{{KEYWORDS}}", 13, RGBColor(0x0F, 0x6E, 0x56), italic=True)
     textbox(0.6, 2.3, 12.0, 4.0, "{{BULLETS}}", 16, RGBColor(0x33, 0x33, 0x33))
-    textbox(0.6, 6.9, 12.0, 0.4, "Generated slide — replace with the real J2W template",
+    textbox(0.6, 6.9, 12.0, 0.4, "Generated slide - replace with the real J2W template",
             10, RGBColor(0xAA, 0xAA, 0xAA), italic=True)
     tp.save(path)
     return path
@@ -180,9 +180,9 @@ def draft(gap, context):
         }
     except Exception:
         return {
-            "title": f"{wt} CASE STUDY — {industry or 'CLIENT'} (TO BE CREATED)",
+            "title": f"{wt} CASE STUDY - {industry or 'CLIENT'} (TO BE CREATED)",
             "keywords": "Draft · placeholder · replace",
-            "bullets": ["Content could not be generated — add details manually."],
+            "bullets": ["Content could not be generated - add details manually."],
             "template": "case_study",
         }
 

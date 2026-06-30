@@ -911,3 +911,267 @@ DECISIONS & NOTES (so I don't go in circles)
   leaves orphaned media in the file (output ~2.23MB vs master 2.42MB even
   for 25 of 68 slides). Looks/presents fine. TODO Box 4(b): strip media.
 ====================================
+
+
+==================== 2026-06-29  CASE-STUDY CONTENT STORE ====================
+Content-referencing groundwork: case studies become DATA records built on
+demand from one template (case_study_v2.pptx) instead of living as slides.
+
+- NEW  create_case_study_template.py -> case_study_v2.pptx : the J2W branded
+  case-study template (top split bar red+teal, Challenge/Solution cards,
+  6 capability cards, 3-stat results bar). Markers: TITLE/CLIENT/DOMAIN,
+  CHALLENGE/SOLUTION, CAP_1..6 TITLE+BODY, RESULT_1..3 PCT+TEXT.
+- NEW  build_case_study_store.py : parses Case_Studies_Master.xlsx (160 rows)
+  and emits case_study_content_store.json + Case_Studies_Master_IDed.xlsx.
+  * IDs: AIP001-037 (AI Pods), WFS001-043 (Workforce), MSS001-080 (MS) -
+    collision-free with the legacy master deck CS01-CS136.
+  * Strong tags reuse the live engine brains: work_type, industry (extended
+    taxonomy: +RETAIL/MEDIA/PHARMA/PRIVATE_EQUITY/EDTECH/CONSTRUCTION/etc),
+    function (tagger), persona (personas.tag_slide), and a synonym-expanded
+    keyword set (~41 search terms/case).
+  * AI Generated flag (col 9) carried as ai_generated bool for Create AI Slide.
+  * Coverage: industry 160/160, function 143/160, persona 153/160 (None is
+    acceptable - secondary boost signals; infra/ops cases simply map to none).
+- DATA NOTE: MSS080 (VOICEVISTA) has a stray 4th result cell = "TAXONOMY";
+  the 3 real stats are fine, template uses first 3 so it self-corrects. Worth
+  cleaning in the source Excel.
+- Originals untouched: Case_Studies_Master.xlsx and master deck unchanged;
+  all outputs are NEW files. Engine not yet wired to read the store (next:
+  a fill script template+row -> filled slide, then route integration).
+============================================================================
+
+
+==================== 2026-06-29  FILL SCRIPT + DECK<->EXCEL AUDIT ===========
+- NEW  fill_case_study.py : content-referencing fill engine. fill_row(row, out,
+  client_name) / fill_by_id(id) pours ONE content-store row into
+  case_study_v2.pptx and saves a finished single-slide .pptx. Replaces every
+  {{MARKER}}; unfilled markers are blanked (never shown as {{...}}).
+  * split_result(): turns a narrative result sentence into headline metric +
+    caption (e.g. "13 engineers added..." -> "13" / "engineers added...").
+    No number -> check-mark + full sentence. Validated on all 160: 354 real
+    metrics, 126 check-mark fallbacks, 0 leftover markers.
+  * 4-result outlier MSS080 self-corrects (template takes first 3 -> drops the
+    stray TAXONOMY cell).
+  * NOTE: Excel capabilities are TITLE-ONLY, so all 960 capability cards render
+    title with an empty body line. Deck cases (e.g. CS46) DO carry cap bodies;
+    future option = enrich cap bodies for cases that also exist on the deck.
+  * gotcha: create_case_study_template.py has a #!/usr/bin/env python3 shebang
+    -> bare 'py file.py' hits the Windows Store alias; run 'py -3 file.py'.
+- NEW  sync_deck_to_excel.py : re-runnable deck->Excel completeness check.
+  Reads WORKING_COPY_Master_Deck.pptx (NOT the stale original), matches each
+  case-study slide to Case_Studies_Master_IDed.xlsx by title token-overlap.
+  AUDIT RESULT: deck has 105 real cases, ALL already in the Excel (94 strong +
+  7 weak = same case with client name appended). The only 4 unmatched are the
+  AI-generated placeholders CS133-136 ("Generated slide - replace..."), which
+  are NOT real case studies and were deliberately NOT added. Excel is a
+  SUPERSET (160 vs 105) - nothing real is missing. Run with --write to append
+  genuinely-new real cases when future slides are added (skips generated ones).
+============================================================================
+
+============================================================================
+2026-06-29  Confidentiality + richer capability cards (owner asks)
+============================================================================
+Two owner requests applied to the content-store -> slide pipeline:
+
+(1) NO real client/company names on any slide -- only J2W / JoulesToWatts.
+    - fill_case_study.py: removed the client-name parameter entirely. The
+      CLIENT line is now ALWAYS a generic anonymised descriptor derived from
+      the domain (anon_client()), e.g. "Leading Manufacturing Enterprise",
+      matching J2W's own deck convention ("Leading Manufacturing Institution").
+      A real name can no longer be injected by design.
+    - Scanned all 160 store titles + narrative fields: no client COMPANY names
+      (only J2W's own product brands -- Qualizen, Axone, CLEARSIGHT, VOICEVISTA
+      etc. -- and tech jargon, all allowed). A couple of brand-event mentions
+      exist (e.g. "Big Billion Days"); left as-is to avoid altering facts.
+
+(2) Every capability card now has a DESCRIPTION under its heading, and the
+    result metric on top is the most relevant short bit (number OR phrase).
+    - NEW enrich_capabilities.py: one gpt-4o-mini call per case writes a short,
+      factual one-line body per capability, grounded ONLY in that case's own
+      challenge/solution, with a hard rule never to name a company but J2W.
+      Capabilities changed from ["title",...] to [{"title","body"},...].
+      Backs up the store (case_study_content_store.backup.json), saves after
+      every case (resumable), idempotent (re-run only fills missing bodies).
+      RESULT: all 160 cases enriched -> 960/960 capability cards have bodies.
+    - fill_case_study.py split_result(): the big top highlight is now a number
+      when present (70%, 24x7, $4M) ELSE the leading key phrase ("Automated",
+      "Single platform"), with the rest as the caption below. Replaces the old
+      bare check-mark fallback. Validated: 354 numeric + 126 phrase highlights,
+      0 leftover markers across all 160.
+    - split_capability() now accepts the new {title,body} dicts (and still the
+      old plain strings, for safety).
+
+============================================================================
+2026-06-29  Owner hand-curated capability descriptions in the Excel
+============================================================================
+Owner edited C:\Users\E36250417\Downloads\Case_Studies_Master_IDed.xlsx so the
+Capabilities column now holds, for ALL 160 rows, exactly 6 capabilities as
+"Title: description" (one per LINE), with real metrics and already anonymised
+("client-internal", "billed to client" -- no real company names).
+
+These human descriptions are AUTHORITATIVE and REPLACE the AI-generated bodies
+from enrich_capabilities.py (that script is now SUPERSEDED -- harmless to keep;
+it only fills MISSING bodies, and every case now has one from the Excel).
+
+build_case_study_store.py changes:
+  - SRC_XLSX now points at the owner's IDed master in Downloads (read-only;
+    we never write to it -- OUT_XLSX is the engine-side mirror in the project).
+  - NEW _split_caps(): parses the Capabilities cell by LINE, splitting each on
+    the first ':' into {title, body}. capabilities are now stored as
+    [{title, body}, ...] (was plain title strings).
+  - Existing IDs in column 1 are now PRESERVED (only blank rows get a new ID).
+  - capability text (titles + bodies) now feeds keyword/function/persona tagging
+    -> avg search keywords/case rose 40.6 -> 43.7.
+  Rebuilt: 160 cases (AI Pods 37, Workforce 43, MS 80), 960/960 capability
+  cards now carry a description; fills validate with 0 leftover markers and
+  0 real client names (CLIENT line stays the anonymised domain descriptor).
+
+  NOTE: MSS080 still lists 4 results (template uses first 3 -- self-corrects).
+  NOTE: some capability descriptions are long (a full sentence); if they clip
+  on the 4.19in x 1.0in card, enable shrink-to-fit on the body box or trim.
+
+----------------------------------------------------------------------------
+2026-06-29  Shrink-to-fit on variable-length boxes (overflow safety)
+----------------------------------------------------------------------------
+create_case_study_template.py: the Challenge, Solution and 6 capability BODY
+boxes now have "Shrink text on overflow" (MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE).
+With the owner's full-sentence capability descriptions, the longest content
+(a ~400-char challenge) still fits at the normal 11pt; shrink-to-fit is the
+safety net for any longer outlier so text never clips off the card. Template
+regenerated (py -3 create_case_study_template.py) and re-filled AIP001 to
+verify: 8 boxes carry normAutofit, 0 leftover markers.
+
+--- 2026-06-29  Title de-duplication (domain no longer repeated in heading) ---
+Owner note: "if the domain is already in the subheading (CLIENT | DOMAIN), why
+should it be in the first line of the main heading too? Only the capability
+name is needed."
+
+Fix in build_case_study_store.py (_clean_title now takes the domain):
+  - A trailing dash-segment is dropped ONLY when, after removing generic +
+    descriptor + domain words, nothing meaningful is left. So pure descriptors
+    go but real tails stay.
+  - Also removes an embedded "A LEADING ... COMPANY/INSTITUTION/..." phrase
+    wherever it sits (it could be at the front of the title).
+6 titles cleaned, e.g.:
+  AI-FIRST POD DELIVERY — A LEADING HEALTHCARE TECHNOLOGY COMPANY ENGINEERING
+      -> AI-FIRST POD DELIVERY
+  MANAGED TESTING FOR OTT PLATFORM LAUNCH — US TELECOM  -> (tail dropped)
+  QA FOR SMART SCHOOL SYSTEM — EDTECH                   -> (tail dropped)
+  GREENFIELD-TO-INNOVATION HUB — GLOBAL BANKING GCC     -> (tail dropped)
+  A leading global technology company TECHNICAL SUPPORT — 36-MONTH MANAGED
+      SERVICES  -> TECHNICAL SUPPORT — 36-MONTH MANAGED SERVICES
+The 17 genuinely-descriptive tails (CLEARSIGHT — CHEQUE CLEARING AUTOMATION,
+INSURANCE POLICY ADMINISTRATION TESTING — ORACLE OIPA, etc.) are untouched.
+
+Also tidied anon_client() in fill_case_study.py so the CLIENT descriptor never
+doubles a word the domain already carries: "Leading Healthcare Technology
+Leader" -> "Leading Healthcare Technology Enterprise"; "Leading Retail Retailer"
+-> "Leading Retail Enterprise". Kept the well-reading suffixes (Banking ->
+Institution, Private Equity -> Firm, Aviation -> Operator, Energy -> Utility,
+Telecom -> Operator); everything else is "Enterprise". Still 100% name-free.
+
+Rebuilt the store (py build_case_study_store.py): 160 cases, IDs preserved.
+Re-filled AIP001/WFS001/MSS001/MSS080/AIP037 -> 0 leftover markers.
+
+--- 2026-06-29  No em-dashes in content (always a plain hyphen "-") ---
+Owner rule: never use an em-dash (—) in slide content; replace with "-".
+  - build_case_study_store.py: new _dash() normalises em/en dashes to "-" on
+    every text cell read from Excel (title, keywords, challenge, solution,
+    capabilities, results), so the whole store is hyphen-only. Also fixed
+    _clean_title to re-join title parts with " - " instead of " — ".
+  - fill_case_study.py: DOMAIN empty-fallback changed "—" -> "-", and
+    build_mapping() now normalises every value before it reaches the slide
+    (defensive net for any future source, e.g. a salesperson edit).
+  - slide_generator.py: cleaned the 3 static em-dashes in the legacy gap-slide
+    placeholder text. (The "Create with AI" structured path already sanitised.)
+Rebuilt store: 0 em/en dashes in the JSON; re-filled 7 sample slides across all
+three work types -> 0 em/en dashes rendered.
+
+=== 2026-06-30  Wiring the content store into the live deck (Phase 1: render) ===
+Goal: the live web flow should build case-study slides from the new content
+store (case_study_content_store.json + the shared case_study_v2.pptx template)
+instead of copying legacy slides from the master deck.
+
+Phase 1 (DONE, additive, no change to current behaviour):
+  - skills.build_into() now also renders CONTENT-STORE case studies. If a
+    candidate has template "case_study_v2", it copies the shared template slide
+    (via slide_generator._copy_slide, which deep-copies shapes), fills it with
+    fill_case_study.build_mapping(record) through skills.fill_markers, and slots
+    it into the deck by the same reorder that already orders skills slides.
+    Safe because case_study_v2 is text + auto-shapes only (no images) and all
+    three decks are 13.33 x 7.50, so copied shapes land correctly.
+  - app.py /finalize builds `store_items` for any AIP/WFS/MSS id present in the
+    final id list (from a cached _content_store() loader) and passes them to
+    skills.build_into alongside skills + "Create with AI" items.
+  - No behaviour change yet: nothing emits AIP/WFS/MSS ids into a deck, so this
+    path only fires once a content-store id is in the deck (Phase 2 wires that).
+
+Verified end-to-end (not in the web UI): assembled ['CS01','AIP001','CS07'] ->
+master CS01/CS07 from the deck + AIP001 rendered fresh between them, final order
+exactly as requested, 0 leftover {{markers}}, 0 em-dashes, no real client name.
+Demo saved at output/_wire_demo.pptx.
+
+Phase 2 (NEXT, needs owner OK - it changes which case studies decks get):
+  make the matcher pick case studies from the 160-case store (emit AIP/WFS/MSS
+  ids) and show their titles on the build/review pages.
+
+=== 2026-06-30  Content store wired into the live deck (Phase 2: pick + add) ===
+Owner chose "Both": the engine auto-picks case studies from the 160-case store
+AND the salesperson can browse/add any of them by hand.
+
+New file case_library.py — the single seam between the store and the engine.
+It serves store records in the matcher's own "row" shape (slide_id / keywords /
+primary_industry / primary_function / work_types), so matcher's existing scoring,
+persona boost, and AI refinement work UNCHANGED — only the SOURCE of candidate
+case studies moved off the legacy master slides onto the store.
+
+matcher.py:
+  - cases_by_wt now comes from case_library.candidate_rows(wanted) instead of the
+    registry CASE_STUDY rows. Everything downstream (transcript/industry/function/
+    persona scoring, AI refine, gaps) is the same code.
+  - Ordering: core + standard blocks first (natural deck order), then the
+    case-study section (each work type's divider + its chosen cases), then the
+    pinned closing slides last. (Store ids have no deck position, so they get an
+    explicit band instead of being sorted by their number.)
+  - Store ids are skipped in the "missing_slide" gap check (they are rendered, not
+    library slides, so they must not be flagged as needing creation).
+
+app.py:
+  - /build and /deck merge case_library.title_map() into `titles` so auto-picked
+    OR manually-added store cases show their real title (server-rendered AND in the
+    JS SLIDE_TITLES lookup used by the deck tray / manual add).
+  - The "Add slide" dropdown now has two optgroups: "Master deck slides" and
+    "Case library — new branded case studies" (the browsable add). case_lib =
+    case_library.all_cases(), sorted by work type then title.
+  - /finalize already renders any store id in the order via skills.build_into
+    (Phase 1). /review skips store ids the same way it skips skills ids; the order
+    field carries them through to finalize.
+
+Verified end-to-end through Flask test_client (/build -> /review -> /finalize):
+  context AI_POD + BFSI -> deck = CS01, CS02, AIP001, AIP004, AIP010, CS07, with
+  the three case studies rendered as full branded slides in the requested order,
+  0 leftover markers, 0 em-dashes, no real client names. The build page shows the
+  store titles, the Case library optgroup, and all 160 titles in the JS lookup.
+
+Net effect: a salesperson's deck now gets the NEW branded, confidential,
+dash-clean case-study slides (auto-picked by relevance, plus any they add by hand)
+instead of the legacy master case slides.
+
+=== 2026-06-30  Skills/capability templates redesigned to match case studies ===
+Recreated the 3-slide skills_templates.pptx (create_skills_templates.py rewritten)
+in the case-study design language:
+  - red + teal split bar across the very top (+ slim teal footer)
+  - red accent bar beside a 24pt black title; teal subtitle carrying the dynamic
+    name (INDUSTRY / CLIENT / skills list — like the case study's CLIENT|DOMAIN line)
+  - white hairline-bordered cards with red or teal accents; teal-accent stat tiles
+    with big teal numbers; red rank badges on the top-3 skill cards
+  - full J2W palette (red C02026, teal 3A8B82, card F5F5F5, line DEDEDE, body 3E3E3E)
+  - plain hyphens only — no em-dashes anywhere
+ALL {{markers}} and the 3 J2W_TEMPLATE notes tags are unchanged, so skills.py
+fills them exactly as before. Also:
+  - skills.py BRAND[0] -> deep teal 3A8B82 so the bar charts match the new template.
+  - removed em-dashes from skills.py fill text + panel labels (skill summary line,
+    missing-skill fallback, the 3 build-page labels).
+Verified: built all 3 slides via skills.build_into with sample data -> each renders
+its native chart, 0 leftover markers, 0 em-dashes. Sample saved at
+output/Sample_Capability_Slides.pptx.

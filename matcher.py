@@ -25,8 +25,9 @@ import sys
 
 import openpyxl
 
-import synonyms   # equivalence groups so paraphrased topics still match
-import personas   # buyer-role detection + persona-relevance scoring
+import synonyms      # equivalence groups so paraphrased topics still match
+import personas      # buyer-role detection + persona-relevance scoring
+import case_library  # content-store case studies (the new source of case picks)
 
 MIDDOT = "·"   # the keyword-string separator on the slides
 
@@ -252,9 +253,13 @@ def plan(context, top_n=3, use_ai=False):
         elif rule.startswith("IF work_type includes"):
             if row_wts & wanted:
                 chosen[sid] = f"standard block ({'/'.join(sorted(row_wts & wanted))})"
-        elif kind == "CASE_STUDY":
-            for wt in (row_wts & wanted):
-                cases_by_wt.setdefault(wt, []).append(row)
+        # NOTE: registry CASE_STUDY rows (legacy master slides) are no longer the
+        # source of case studies — they now come from the content store (below).
+
+    # Case studies come from the content store, rendered fresh at build time.
+    # They arrive in the matcher-row shape, so all scoring below is unchanged —
+    # only the SOURCE of candidate cases moved off the legacy master deck.
+    cases_by_wt = case_library.candidate_rows(wanted)
 
     # ---- optional AI refinement from the transcript (opt-in, fails safe) ----
     ai_used, ai_cases, ai_optional = False, {}, []
@@ -279,6 +284,7 @@ def plan(context, top_n=3, use_ai=False):
     selected_case_wts = set()
     best_by_wt = {}                      # work_type -> best case-study score seen
     all_scored = []                      # every scored candidate, for suggestions
+    case_order = {}                      # work_type -> [chosen case id, ...] in order
     for wt, rows_ in cases_by_wt.items():
         scored = []
         for row in rows_:
@@ -311,6 +317,7 @@ def plan(context, top_n=3, use_ai=False):
                     why += " · for " + "/".join(sorted(set(p_why)))
                 chosen[sid] = f"case [{wt}] · {why} (AI)"
                 selected_case_wts.add(wt)
+                case_order.setdefault(wt, []).append(sid)
         else:                                # keyword fallback (also if AI returned none)
             for score, hits, row, p_why in scored[:top_n]:
                 why = []
@@ -323,13 +330,18 @@ def plan(context, top_n=3, use_ai=False):
                 note = " · ".join(why) if why else "WEAK match — review"
                 chosen[row["slide_id"]] = f"case [{wt}] · {note} (score {score})"
                 selected_case_wts.add(wt)
+                case_order.setdefault(wt, []).append(row["slide_id"])
 
     # ---- pass 3: case-section dividers (only if a child case was chosen) ----
+    divider_of_wt = {}                   # work_type -> its case-section divider id
     for row in reg:
         rule = (row["include_rule"] or "").strip()
         if rule.startswith("IF >=1"):
-            if _wts_of(row) & selected_case_wts:
+            hit_wts = _wts_of(row) & selected_case_wts
+            if hit_wts:
                 chosen[row["slide_id"]] = "case-section divider"
+                for wt in hit_wts:
+                    divider_of_wt.setdefault(wt, row["slide_id"])
 
     # ---- AI-chosen OPTIONAL slides (transcript-relevant, non-leader) ----
     if ai_used and ai_optional:
@@ -357,7 +369,10 @@ def plan(context, top_n=3, use_ai=False):
                 "detail": f"No strong {wt} case study for "
                           f"{industry or 'this client'} in the library yet.",
             })
-    for sid in chosen:                         # selected but not actually in the deck
+    store_ids = set(case_library.title_map())   # store cases are rendered, not in the lib
+    for sid in chosen:                          # selected but not actually in the deck
+        if sid in store_ids:
+            continue
         if sid not in lib_ids:
             gaps.append({
                 "type": "missing_slide",
@@ -393,11 +408,23 @@ def plan(context, top_n=3, use_ai=False):
                 "detail": f"“{topic}” was asked in the meeting but isn’t in the deck.",
             })
 
-    # ---- order: natural deck order, except PIN_TO_END slides go last ----
+    # ---- order: core/standard blocks first (natural deck order), then the
+    #      case-study section (each work type's divider + its chosen cases),
+    #      then the pinned closing slides last. ----
+    band1 = []                                  # the case-study section, in order
+    for wt in sorted(selected_case_wts):
+        d = divider_of_wt.get(wt)
+        if d and d in chosen:
+            band1.append(d)
+        band1.extend(case_order.get(wt, []))
+    band1_pos = {sid: i for i, sid in enumerate(band1)}
+
     def order_key(sid):
         if sid in PIN_TO_END:
-            return (1, PIN_TO_END.index(sid))   # pinned: after everything, in list order
-        return (0, _num(sid))                   # normal: natural deck order
+            return (2, PIN_TO_END.index(sid))   # pinned closing: dead last, in list order
+        if sid in band1_pos:
+            return (1, band1_pos[sid])          # case-study section, grouped by work type
+        return (0, _num(sid))                   # core / standard blocks: natural deck order
     ordered = sorted(chosen.items(), key=lambda kv: order_key(kv[0]))
     picks = [{"slide_id": sid, "reason": reason} for sid, reason in ordered]
 
