@@ -31,7 +31,41 @@ import staging
 import meeting_log
 import skills
 import case_library
+import research
+import ai_matcher
+import relevance
 from build_library import read_id
+
+# A need is "already covered" if a case matches it this semantically (cosine),
+# OR our cases already use its words (lexical). We only flag a TRUE gap — clearly
+# absent on BOTH — because a false gap (rebuild what we have) is the worst outcome,
+# and broad capability areas naturally score ~0.5 against any one specific case.
+COVERAGE_THRESHOLD = 0.50
+
+# generic management labels that aren't a case-study TOPIC — never pick or flag them
+_GENERIC_NEEDS = {
+    "project management", "program management", "budget management", "risk management",
+    "stakeholder management", "change management", "general management", "people management",
+    "team management", "operations management", "performance management", "cost management",
+    "vendor management", "process improvement", "data analytics", "cost optimization",
+}
+
+_LEGACY_CASE_IDS = None
+
+
+def _legacy_case_ids():
+    """The 105 legacy CASE_STUDY slides in the master deck (old template). They're
+    superseded by the content-store cases (which render from the new branded
+    template), so they must NOT appear in the add-slide picker — otherwise a manual
+    add pulls the OLD-template version instead of the new branded one."""
+    global _LEGACY_CASE_IDS
+    if _LEGACY_CASE_IDS is None:
+        try:
+            _LEGACY_CASE_IDS = {r["slide_id"] for r in matcher.load_registry()
+                                if (r.get("kind") or "").strip().upper() == "CASE_STUDY"}
+        except Exception:
+            _LEGACY_CASE_IDS = set()
+    return _LEGACY_CASE_IDS
 
 
 def _maybe_generate(path):
@@ -259,7 +293,7 @@ NEW_FORM_BODY = """
   <p class="lede">Fill in the context. The engine picks the right slides, flags gaps, and you refine before download.</p>
 </div>
 {% if error %}<div class="card" style="border-left:4px solid #c0392b;margin-bottom:18px;color:#c0392b"><b>{{ error }}</b></div>{% endif %}
-<form id="deckForm" method="post" action="/build" class="form-layout">
+<form id="deckForm" method="post" action="/build" class="form-layout" enctype="multipart/form-data">
   <div>
     <div class="card" style="margin-bottom:18px">
       <h2 class="sec-title" style="margin-bottom:18px">Client &amp; focus</h2>
@@ -299,6 +333,18 @@ NEW_FORM_BODY = """
       <h2 class="sec-title" style="margin-bottom:6px">Give me more information</h2>
       <p class="hint" style="font-size:13px;margin:0 0 12px">Paste anything useful — a meeting transcript, minutes (MOM), client or company research, notes. The AI reads it to pick the most relevant slides and write any that are missing.</p>
       <textarea name="transcript" placeholder="Paste transcript, MOM, research, or notes about the client and what they need…"></textarea>
+      <div style="margin-top:14px;border-top:1px dashed #d7d7d3;padding-top:14px">
+        <label style="font-size:13px;font-weight:500;color:#3E3E3E;display:block;margin-bottom:4px">
+          <i class="ti ti-file-search"></i> Attach a deep-research file <span class="hint">— optional (PDF or text)</span></label>
+        <p class="hint" style="font-size:12px;margin:0 0 8px">Have a research brief from ChatGPT/Claude? Attach it — the engine reads it along with the notes to match capabilities and flag what we don't have a case for. Stays on your machine.</p>
+        <input type="file" name="research_file" accept=".pdf,.txt,.md" style="font-size:13px">
+      </div>
+      <div style="margin-top:14px">
+        <label style="font-size:13px;font-weight:500;color:#3E3E3E;display:block;margin-bottom:4px">
+          <i class="ti ti-user-search"></i> Attach the stakeholder's profile <span class="hint">— optional (LinkedIn PDF / bio)</span></label>
+        <p class="hint" style="font-size:12px;margin:0 0 8px">Meeting a specific person? Attach their profile — the engine reads their function, skills and current-role mandate and matches case studies to what they actually do.</p>
+        <input type="file" name="profile_file" accept=".pdf,.txt,.md" style="font-size:13px">
+      </div>
     </div>
   </div>
 
@@ -635,8 +681,11 @@ BUILD_BODY = """
         {% endfor %}
       </ul>
       <div id="resume-empty" style="display:none;color:#6b7280;padding:6px 2px">No deck in progress yet. <a href="/new">Start a new deck</a>, or browse the <a href="/library">library</a> and add slides.</div>
-      <div class="addbar">
-        <select id="addsel">
+      <div class="addbar" style="flex-wrap:wrap">
+        <input id="addsearch" type="text" oninput="filterAdd(this.value)"
+               placeholder="🔍 Search a case study by name or ID (CS…, AIP…, WFS…, MSS…)"
+               style="flex:1 1 100%;padding:8px 10px;font-size:14px;border:1px solid #d7d7d3;border-radius:8px;margin-bottom:8px">
+        <select id="addsel" style="flex:1 1 auto">
           <optgroup label="Master deck slides">
           {% for sid, t in all_slides %}<option value="{{ sid }}">{{ sid }} — {{ t }}</option>{% endfor %}
           </optgroup>
@@ -646,7 +695,46 @@ BUILD_BODY = """
         </select>
         <button type="button" class="btn" onclick="addSlide()"><i class="ti ti-plus"></i> Add slide</button>
       </div>
+      <div id="addsearch-none" class="hint" style="display:none;font-size:13px;color:#c0392b;margin-top:4px">No case study matches that search.</div>
     </div>
+
+    {% if research_failed %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
+      <b>⚠ Couldn't read text from your research file.</b> It may be a scanned/image PDF. The deck was matched on your typed notes only — paste the key points into the notes box to include them.
+    </div>
+    {% endif %}
+
+    {% if rationale %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #3A8B82">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-list-check"></i> Why this deck matches{% if research_read %} <span class="hint" style="font-size:13px;font-weight:400">· read your research file too</span>{% endif %}</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">How each case study was chosen from your notes{% if research_read %} + research{% endif %}. Tier: T1 role + industry · T2 role fit · T3 industry · T4 topic only.</p>
+      <ul style="list-style:none;padding:0;margin:0">
+        {% for r in rationale %}
+        <li style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f0efec">
+          {% if r.tier %}<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:#fff;background:#3A8B82;border-radius:4px;padding:2px 6px;margin-top:1px">{{ r.tier }}</span>{% endif %}
+          <span><b>{{ r.id }} · {{ r.title }}</b>
+            {% if r.fit %}<br><span style="font-size:13px;color:#3E3E3E">{{ r.fit }}</span>{% endif %}
+            <br><span class="hint" style="font-size:12px">{{ r.why }}</span></span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if missing %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #C02026">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-bulb"></i> Not in our library — worth building <span class="hint" style="font-size:14px;font-weight:400">— {{ missing|length }}</span></h2>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">The account needs these, but we have no case study yet. Click <b>Draft with AI</b> to pre-fill the creator below.</p>
+      {% for m in missing %}
+      <div style="background:#fdf2f2;border:1px solid #f2d2d2;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div><b>{{ m.name }}</b><br><span class="hint" style="font-size:13px">{{ m.description }}</span></div>
+          <button type="button" class="btn" style="flex:0 0 auto;white-space:nowrap" onclick="prefillAI({{ m.name|tojson }}, {{ m.description|tojson }})"><i class="ti ti-wand"></i> Draft with AI</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
     {% if gaps %}
     <div class="card" style="margin-top:18px;border-left:4px solid #c47d27">
@@ -668,7 +756,7 @@ BUILD_BODY = """
     </div>
     {% endif %}
 
-    <div class="card" style="margin-top:18px;border-left:4px solid #2C6E66">
+    <div class="card" id="ai-create" style="margin-top:18px;border-left:4px solid #2C6E66">
       <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
       <p class="hint" style="font-size:13px;margin:0 0 14px">Fill in what you know — the AI writes it in J2W's strict format (6 capabilities · 3 results), self-checks it, and shows it here before you add it.</p>
       <div class="fgrid" style="gap:12px;margin-bottom:10px">
@@ -788,6 +876,19 @@ BUILD_BODY = """
    if([...list.children].some(li=>li.dataset.id===id)){if(!btn)alert(id+' is already in the deck');return;}
    list.appendChild(makeRow(id,SLIDE_TITLES[id]||'','added manually'));renumber();
    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-check"></i> Added';}}
+ function prefillAI(name,desc){var t=document.getElementById('ca-topic');if(t)t.value=name||'';
+   var p=document.getElementById('ca-problem');if(p)p.value=desc||'';
+   var card=document.getElementById('ai-create');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+   if(t)t.focus();}
+ function filterAdd(q){q=(q||'').trim().toLowerCase();const sel=document.getElementById('addsel');
+   let first=null;
+   sel.querySelectorAll('optgroup').forEach(g=>{let vis=false;
+     g.querySelectorAll('option').forEach(o=>{
+       const m=!q||o.textContent.toLowerCase().includes(q)||o.value.toLowerCase().includes(q);
+       o.hidden=!m; if(m){vis=true; if(!first)first=o;}});
+     g.hidden=!vis;});
+   if(first)sel.value=first.value;
+   const none=document.getElementById('addsearch-none'); if(none)none.style.display=first?'none':'block';}
  function makeRow(id,title,reason){const li=document.createElement('li');
    li.className='slide-item';li.draggable=true;li.dataset.id=id;
    var tg=id; if(id.indexOf('NEW:')===0)tg='AI'; else if(id==='SK:industry')tg='IND'; else if(id==='SK:skills')tg='SKL'; else if(id.indexOf('SK:')===0)tg='CAP'; else if(id.indexOf('FP:')===0)tg='FOOT';
@@ -825,6 +926,9 @@ BUILD_BODY = """
    var fd=new FormData(); fd.append('brief',brief);
    fd.append('industry',ind);
    fd.append('client_name',(SERVER_CTX&&SERVER_CTX.client_name)||'');
+   fd.append('recipient',(SERVER_CTX&&SERVER_CTX.recipient)||'');
+   fd.append('functions',(((SERVER_CTX&&SERVER_CTX.functions)||[]).join(', ')));
+   fd.append('context',(((SERVER_CTX&&SERVER_CTX.transcript)||'')).slice(0,2000));
    fetch('/create_ai',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
      clearInterval(ticker); if(bar)bar.style.width='100%';
      setTimeout(function(){
@@ -1298,7 +1402,9 @@ def deck_resume():
     context are hydrated client-side from localStorage; the server just supplies
     the slide catalogue."""
     titles = matcher._title_lookup()
-    all_slides = sorted(titles.items(), key=lambda kv: matcher._num(kv[0]))
+    all_slides = sorted(((sid, t) for sid, t in titles.items()
+                         if sid not in _legacy_case_ids()),
+                        key=lambda kv: matcher._num(kv[0]))
     titles.update(case_library.title_map())   # so resumed store cases show their title
     case_lib = sorted(case_library.all_cases(), key=lambda c: (c["work_type"], c["title"]))
     empty_ctx = {"client_name": "", "industry": "", "transcript": "",
@@ -1306,7 +1412,8 @@ def deck_resume():
     body = render_template_string(BUILD_BODY, ctx=empty_ctx, picks=[], gaps=[],
                                   titles=titles, all_slides=all_slides, case_lib=case_lib,
                                   suggestions=[], suggested=[], ai_used=False,
-                                  persona_labels=[],
+                                  persona_labels=[], rationale=[], missing=[],
+                                  research_read=False, research_failed=False,
                                   resume=True, build_id="")
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
 
@@ -1322,7 +1429,12 @@ def create_ai():
         return {"ok": False, "error": "Please describe the slide you want."}, 400
     industry = request.form.get("industry", "")
     client = request.form.get("client_name", "")
-    content = slide_generator.draft_case_study(brief, {"industry": industry})
+    content = slide_generator.draft_case_study(brief, {
+        "industry": industry,
+        "recipient": request.form.get("recipient", ""),
+        "function": request.form.get("functions", ""),
+        "notes": request.form.get("context", ""),
+    })
     content["kind"] = "user_created"
     rec = staging.add(content, "", industry, client)
     return {"ok": True, "id": "NEW:" + rec["id"],
@@ -1344,6 +1456,18 @@ def build():
         "salesperson": current_salesperson(),
         "transcript": request.form.get("transcript", "").strip(),
     }
+    # optional deep-research file (PDF/text) -> read alongside the notes for matching
+    research_text = research.extract_text(request.files.get("research_file"))
+    research_given = bool(request.files.get("research_file") and
+                          getattr(request.files.get("research_file"), "filename", ""))
+    research_read = bool(research_text)                 # actually got text out of it
+    research_failed = research_given and not research_read
+    # optional STAKEHOLDER PROFILE (LinkedIn/bio) -> drives function/skill matching
+    profile_text = research.extract_text(request.files.get("profile_file"))
+    match_notes = ctx["transcript"]
+    if research_text:
+        match_notes = (ctx["transcript"] + "\n\n[DEEP RESEARCH BRIEF]\n"
+                       + research_text).strip()
     # Backstop for the browser's at-least-one-work-type check (e.g. JS disabled).
     if not ctx["work_types"]:
         try:
@@ -1354,7 +1478,49 @@ def build():
                                       phases=PHASES, library_count=lib_count,
                                       error="Please select at least one work type.")
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
-    result = matcher.plan(ctx, use_ai=True)   # AI is always on now
+    # The DEEP RESEARCH (or the notes) names the account's real interests. Extract
+    # them, then split by coverage: each we HAVE a case for -> a PRIORITY pick
+    # (pinned ahead of generic mail-thread matches); each we DON'T -> a build gap.
+    # The account's needs come from BOTH the research brief AND the stakeholder's
+    # profile (their function / current-role mandate) — balanced. For each need,
+    # find OUR best case OF THE SELECTED WORK TYPES via a DIRECT skill->title match:
+    # covered -> that case LEADS the deck; not covered -> a gap ("want to generate").
+    priority_ids, missing = [], []
+    profile_needs = []
+    try:
+        wanted = {w.upper() for w in ctx["work_types"]}
+        wt_ids = {c["id"] for c in case_library.all_cases()
+                  if c.get("work_type", "").upper() in wanted}
+        research_needs = ai_matcher.extract_accelerators(research_text) if research_text else []
+        profile_needs = ai_matcher.extract_profile(profile_text) if profile_text else []
+        if not research_needs and not profile_needs and ctx["transcript"].strip():
+            research_needs = ai_matcher.extract_accelerators(ctx["transcript"])
+        needs = profile_needs + research_needs          # profile + research, balanced
+        acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
+        if needs:
+            # match on the skill NAME (the crisp function term), not the prose
+            # description (which adds generic words that match random cases)
+            best = relevance.best_cases([a["name"] for a in needs],
+                                        industry=ctx.get("industry", ""), functions=acct_fns,
+                                        allowed_ids=wt_ids)
+            for a, (bid, _adj, cos, thits) in zip(needs, best):
+                if a["name"].strip().lower() in _GENERIC_NEEDS:
+                    continue                                        # too generic to pick or flag
+                covered = thits >= 1 or cos >= COVERAGE_THRESHOLD   # skill in a TITLE, or strong meaning
+                if covered:
+                    if bid and bid not in priority_ids:
+                        priority_ids.append(bid)
+                else:
+                    missing.append({**a, "sim": round(cos, 2)})
+            missing = missing[:6]
+    except Exception:
+        priority_ids, missing = [], []
+
+    # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
+    lead_research = (research_text + "\n"
+                     + " ".join(f"{n['name']}. {n['description']}" for n in profile_needs)).strip()
+    result = matcher.plan({**ctx, "transcript": ctx["transcript"], "research": lead_research},
+                          use_ai=True, priority_ids=priority_ids)
     # Gaps are FLAGS only now (no inline generation) — nothing to pre-fill here.
     titles = matcher._title_lookup()
 
@@ -1381,14 +1547,53 @@ def build():
                              "tag": _chip.get(c["kind"], "SKL"),
                              "label": c["label"]})
         picks[insert_at:insert_at] = sk_picks
-    all_slides = sorted(titles.items(), key=lambda kv: matcher._num(kv[0]))
+    all_slides = sorted(((sid, t) for sid, t in titles.items()
+                         if sid not in _legacy_case_ids()),
+                        key=lambda kv: matcher._num(kv[0]))
     # store-case titles power the picks/suggested display AND the JS title lookup
     # (so a manually-added or auto-picked AIP/WFS/MSS case shows its real title)
     titles.update(case_library.title_map())
     case_lib = sorted(case_library.all_cases(), key=lambda c: (c["work_type"], c["title"]))
+
+    # --- "why this deck matches" rationale (deterministic, straight from picks) ---
+    def _why(reason):
+        r = re.sub(r"^case \[[^\]]*\] · (T\d · )?", "", reason or "")
+        r = re.sub(r"\s*\(score [^)]*\)$", "", r)
+        return r.strip() or "related to your notes"
+
+    def _tier(reason):
+        m = re.search(r"\bT(\d)\b", reason or "")
+        return "T" + m.group(1) if m else ""
+
+    rationale = [{"id": p["slide_id"], "title": titles.get(p["slide_id"], ""),
+                  "why": _why(p["reason"]), "tier": _tier(p["reason"])}
+                 for p in result["picks"] if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
+
+    # a stakeholder-specific "why this resonates with THEM" line per case (AI),
+    # grounded in WHO they are — the profile + their function/skills + the notes
+    person_ctx = "\n\n".join(x for x in [
+        ("STAKEHOLDER PROFILE:\n" + profile_text[:4000]) if profile_text else "",
+        ("THEIR FUNCTION/SKILLS: " + ", ".join(n["name"] for n in profile_needs)) if profile_needs else "",
+        ("MEETING NOTES:\n" + match_notes[:3000]) if match_notes.strip() else "",
+    ] if x)
+    if rationale and person_ctx.strip():
+        _rec = {r["id"]: r for r in case_library._load()}
+        picks_for_ai = [{"id": r["id"], "title": r["title"],
+                         "blurb": (_rec.get(r["id"], {}).get("challenge", "") or "")[:160]}
+                        for r in rationale][:12]
+        try:
+            fit = ai_matcher.explain_fit(person_ctx, ctx.get("recipient", ""), picks_for_ai)
+        except Exception:
+            fit = {}
+        for r in rationale:
+            if fit.get(r["id"]):
+                r["fit"] = fit[r["id"]]
+
+    # (priority picks + `missing` were computed before planning, above)
     body = render_template_string(BUILD_BODY, ctx=ctx, picks=result["picks"],
                                   gaps=result["gaps"], titles=titles, all_slides=all_slides,
-                                  case_lib=case_lib,
+                                  case_lib=case_lib, rationale=rationale, missing=missing,
+                                  research_read=research_read, research_failed=research_failed,
                                   suggestions=result.get("suggestions", []),
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
@@ -1497,6 +1702,28 @@ def review():
     return shell(body, active="new", crumb="<b>New deck</b> / Review &amp; edit")
 
 
+def _ai_to_store_record(content, industry_code):
+    """Reshape an AI-drafted case study into the content-store record shape so it
+    renders from the branded case_study_v2 template, identical to library cases."""
+    sub = content.get("subhead", "") or ""
+    fm = re.search(r"Function:\s*([^|]+)", sub)
+    dm = re.search(r"Domain:\s*([^|]+)", sub)
+    # the account's own industry is authoritative for the domain (the AI's subhead
+    # sometimes drops the function in the Domain slot)
+    domain = (industry_code or "").replace("_", " ").title() or (dm.group(1).strip() if dm else "")
+    return {
+        "id": content.get("id", ""),
+        "title": content.get("title", "Proposed Case Study"),
+        "domain": domain,
+        "industry": (industry_code or "").upper(),
+        "function": (fm.group(1).strip() if fm else ""),
+        "challenge": content.get("challenge", ""),
+        "solution": content.get("solution", ""),
+        "capabilities": content.get("capabilities", []),   # "Name: line" -> split_capability
+        "results": content.get("results", []),
+    }
+
+
 @app.route("/finalize", methods=["POST"])
 def finalize():
     client = request.form.get("client_name", "Client").strip()
@@ -1544,7 +1771,10 @@ def finalize():
         if oid.startswith("NEW:"):
             rec = staging.get(oid[4:])
             if rec:
-                create_items.append({"id": oid, "template": "case_study_full", "content": rec})
+                # render AI-drafted case studies from the SAME branded case_study_v2
+                # template as the library cases (not the old placeholder)
+                create_items.append({"id": oid, "template": "case_study_v2",
+                                     "record": _ai_to_store_record(rec, request.form.get("industry", ""))})
     # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
     # case_study_v2 template, anonymised + dash-clean, into THIS deck.
     store_recs = _content_store()

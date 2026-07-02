@@ -241,18 +241,31 @@ def draft_case_study(brief, context=None):
     human supplies the facts in the brief; the model just writes them up."""
     context = context or {}
     industry = context.get("industry", "")
+    recipient = context.get("recipient", "")
+    function = context.get("function", "")
+    notes = context.get("notes", "")
     prompt = (
-        "Write ONE B2B case study based on this brief from a salesperson:\n"
-        '"""\n' + (brief or "")[:1500] + '\n"""\n'
-        + (("Industry context: %s.\n" % industry) if industry else "")
-        + "\nFollow these rules exactly:\n" + CASE_STUDY_RULES
+        "Write ONE proof-point case study for a J2W sales meeting. It must feel "
+        "SPECIFIC and OPERATIONAL to THIS account — never generic, never padded.\n\n"
+        "ACCOUNT CONTEXT — tailor the case to this exact situation:\n"
+        + (f"- Industry / domain: {industry}\n" if industry else "")
+        + (f"- Stakeholder we are meeting: {recipient}\n" if recipient else "")
+        + (f"- Their function / remit: {function}\n" if function else "")
+        + (f"- Meeting notes / research:\n\"\"\"\n{notes[:1800]}\n\"\"\"\n" if notes else "")
+        + "\nThe capability / use case to prove:\n\"\"\"\n" + (brief or "")[:1500] + "\n\"\"\"\n\n"
+        "Write it as a REAL J2W engagement with an ANONYMISED client in the SAME "
+        "domain as this account, whose situation mirrors what this stakeholder "
+        "personally owns, solving exactly the capability above. Ground every claim "
+        "in that scenario — no boilerplate.\n\n"
+        "Follow these rules exactly:\n" + CASE_STUDY_RULES
         + "\nEach field:\n"
-        "- title: the case study title.\n"
-        "- subhead: 'Client: <generic descriptor e.g. Leading Retail Bank> | Domain: <industry> "
-        "| Function: <business function>'.\n"
-        "- challenge: 3-4 sentences, plain and operational; who the client is and what was breaking. "
-        "No solution language. Max 100 words.\n"
-        "- solution: 3-4 sentences; what was deployed and what the client can now do. No hype. Max 100 words.\n"
+        "- title: a specific, concrete case study title (name the capability, not a slogan).\n"
+        "- subhead: 'Client: <generic descriptor, e.g. Leading Manufacturing Enterprise> | "
+        "Domain: <this account's domain> | Function: <the stakeholder's business function>'.\n"
+        "- challenge: 3-4 sentences, plain and operational; who the client is (NEVER a real name) "
+        "and what was breaking, specific to this domain. No solution language. Max 100 words.\n"
+        "- solution: 3-4 sentences; what J2W deployed, how it works operationally, what the client "
+        "can now do. No bullets. No hype. Max 100 words.\n"
         "- capabilities: EXACTLY 6, each 'Capability Name: one line max 18 words' (name = business function).\n"
         "- results: EXACTLY 3, following the RESULTS RULES.\n"
         "Then SELF-REVIEW what you wrote (quality verdict, weakest part, fix).\n"

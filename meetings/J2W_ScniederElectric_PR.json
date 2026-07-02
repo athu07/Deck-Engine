@@ -1,0 +1,40 @@
+{
+  "name": "J2W_ScniederElectric_PR",
+  "client": "Scnieder Electric",
+  "industry": "MANUFACTURING",
+  "functions": [],
+  "work_types": [
+    "MS"
+  ],
+  "phase": "Pre-read",
+  "phase_code": "PR",
+  "recipient": "Leader - India Customer & Innovation Labs",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-07-01 17:03:07",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS18",
+    "CS19",
+    "MSS070",
+    "MSS010",
+    "MSS005",
+    "AIP024",
+    "AIP025",
+    "MSS031",
+    "MSS026",
+    "MSS027",
+    "MSS058",
+    "MSS004",
+    "MSS018",
+    "MSS008",
+    "CS07",
+    "CS08",
+    "NEW:G013"
+  ],
+  "deck_file": "Tailored_Deck_Scnieder_Electric.pptx"
+}

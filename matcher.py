@@ -28,8 +28,58 @@ import openpyxl
 import synonyms      # equivalence groups so paraphrased topics still match
 import personas      # buyer-role detection + persona-relevance scoring
 import case_library  # content-store case studies (the new source of case picks)
+import relevance     # content + semantic ranking of cases (no hard filters)
+from tagger import FUNCTION as _FUNCTION_MAP, _score as _fn_score
 
 MIDDOT = "·"   # the keyword-string separator on the slides
+
+# titles that signal a CXO / executive audience (metric-resonance nudge)
+_CXO_RE = re.compile(r"\b(c[ehimtf]o|cxo|chief|vp|vice[- ]president|head of|"
+                     r"director|president|founder|partner|owner)\b", re.I)
+
+
+def _is_cxo(recipient):
+    return bool(_CXO_RE.search(recipient or ""))
+
+
+def _account_functions(form_functions, transcript):
+    """Two-axis matching: the person's function = what the form picked PLUS what
+    the notes are actually about (so a broad title still gets a function profile)."""
+    fns = set(form_functions)
+    if (transcript or "").strip():
+        _, votes = _fn_score(" " + transcript.lower() + " ", _FUNCTION_MAP)
+        fns |= {f for f, v in (votes or {}).items() if v >= 1}
+    return fns
+
+# Case-selection knobs (the rebuilt ranker):
+MAX_CASE_PICKS = 12    # breadth cap — a multi-solution account needs many proofs
+CASE_FLOOR     = 1.2   # below this relevance a case isn't worth auto-including
+CASE_REL_FLOOR = 0.72  # ...and keep only cases within this fraction of the top score
+                       # (so a simple, single-ask meeting gets a few cases, not 12)
+DEDUP_GATE     = 0.80  # two cases this similar (cosine) are near-twins...
+DEDUP_WEIGHT   = 10.0  # ...demote the later one so the picks aren't look-alikes
+
+
+def _case_reason(wt, item):
+    """A short, human 'why this case' string from the ranking signals."""
+    bits = []
+    if item.get("research"):
+        bits.append("research match")
+    if item.get("sem", 0) >= 0.30:
+        bits.append("strong meaning match")
+    elif item.get("sem", 0) >= 0.20:
+        bits.append("meaning match")
+    if item.get("matched"):
+        top = sorted(item["matched"], key=lambda t: (-len(t)))[:4]
+        bits.append("notes: " + ", ".join(top))
+    if item.get("industry_hit"):
+        bits.append("same industry")
+    if item.get("function_hit"):
+        bits.append("role fit")
+    if item.get("persona_why"):
+        bits.append("for " + "/".join(sorted(set(item["persona_why"]))))
+    note = " · ".join(bits) if bits else "related"
+    return f"case [{wt}] · {note} (score {item['score']:.1f})"
 
 REGISTRY_XLSX = "J2W_CaseStudy_Portfolio_Metadata.xlsx"
 LIBRARY_JSON = "tagged_library.json"
@@ -224,13 +274,22 @@ def _capability_gaps(asks, reg, chosen, max_missing=5, max_suggest=6):
     return missing[:max_missing], asked_existing[:max_suggest]
 
 
-def plan(context, top_n=3, use_ai=False):
-    """Returns {'picks','gaps','suggestions','ai_used'}. Picks = slides to include;
-    gaps = slots with no good match; use_ai=True refines case picks via the LLM."""
+def plan(context, top_n=3, use_ai=False, priority_ids=None):
+    """Returns {'picks','gaps','suggestions','ai_used'}. Reads the research/notes,
+    ranks the LIBRARY case studies OF THE SELECTED WORK TYPES by how well they match,
+    prefers the account's industry, and de-dups. priority_ids = the cases that
+    matched a named research need (ordered) — they LEAD the deck."""
+    priority_list, _seen = [], set()
+    for p in (priority_ids or []):
+        pu = str(p).upper()
+        if pu not in _seen:
+            _seen.add(pu)
+            priority_list.append(pu)
     industry = (context.get("industry") or "").upper()
     functions = {f.strip().upper() for f in (context.get("functions") or []) if f.strip()}
     wanted = {w.strip().upper() for w in (context.get("work_types") or []) if w.strip()}
     transcript_raw = context.get("transcript") or ""
+    research_raw = context.get("research") or ""      # the deep-research brief (leads)
     transcript = transcript_raw.lower()
 
     # Persona = WHO we're meeting (recipient field) + anyone named in the notes.
@@ -256,81 +315,79 @@ def plan(context, top_n=3, use_ai=False):
         # NOTE: registry CASE_STUDY rows (legacy master slides) are no longer the
         # source of case studies — they now come from the content store (below).
 
-    # Case studies come from the content store, rendered fresh at build time.
-    # They arrive in the matcher-row shape, so all scoring below is unchanged —
-    # only the SOURCE of candidate cases moved off the legacy master deck.
+    # ---- Case studies: candidates come ONLY from the SELECTED work types (an MS
+    #      deck shows MS cases, never AI-Pod), ranked by how well they match the
+    #      research/notes. The account's own industry is preferred; a case from
+    #      another industry only survives if its CONTENT match is strong. ----
     cases_by_wt = case_library.candidate_rows(wanted)
+    all_case_rows = [r for rows in cases_by_wt.values() for r in rows]
+    use_semantic = bool(use_ai)          # embeddings/meaning-match run under the AI toggle
+    account_functions = _account_functions(functions, transcript_raw)
+    cxo = _is_cxo(context.get("recipient", ""))
+    ranked = relevance.rank_cases(
+        transcript_raw, all_case_rows,
+        industry=industry, functions=account_functions,
+        persona_codes=persona_codes, wanted=wanted, cxo=cxo, use_semantic=use_semantic,
+        research=research_raw)
+    ranked = [it for it in ranked if it.get("eligible")]   # drop weak cross-industry
+    ai_used = use_semantic and relevance.semantic_available()
+    ai_optional = []                     # optional-slide AI selection retired
 
-    # ---- optional AI refinement from the transcript (opt-in, fails safe) ----
-    ai_used, ai_cases, ai_optional = False, {}, []
-    if use_ai and transcript.strip():
-        try:
-            import ai_matcher
-            cand = {wt: [{"slide_id": r["slide_id"], "title": r["title"],
-                          "keywords": r["keywords"]} for r in rows]
-                    for wt, rows in cases_by_wt.items()}
-            opt_rows = [r for r in reg
-                        if (r["include_rule"] or "").strip().upper().startswith("OPTIONAL")
-                        and r["slide_id"] not in LEADER_IDS]
-            opt = [{"slide_id": r["slide_id"], "title": r["title"]} for r in opt_rows]
-            res = ai_matcher.refine(transcript_raw, cand, opt, top_n=top_n)
-            ai_cases = res.get("cases", {}) or {}
-            ai_optional = res.get("optional", []) or []
-            ai_used = True
-        except Exception:
-            ai_used = False                 # any failure -> fall back to keywords
+    best_by_wt = {}                      # work_type -> best case score seen (for gaps)
+    for item in ranked:
+        wt = (item["row"].get("work_types") or "").upper()
+        if item["score"] > best_by_wt.get(wt, 0):
+            best_by_wt[wt] = item["score"]
 
-    # ---- pass 2: choose case studies per selected work type ----
+    # ---- pass 2: keep the top cases above the relevance floor (breadth-capped) ----
     selected_case_wts = set()
-    best_by_wt = {}                      # work_type -> best case-study score seen
-    all_scored = []                      # every scored candidate, for suggestions
     case_order = {}                      # work_type -> [chosen case id, ...] in order
-    for wt, rows_ in cases_by_wt.items():
-        scored = []
-        for row in rows_:
-            kw = (row["keywords"] or "").lower()
-            hits = _transcript_hits(_kw_tags(row["keywords"]), transcript)
-            score = 3 * len(hits)                 # transcript overlap = primary signal
-            if industry and (row["primary_industry"] or "").upper() == industry:
-                score += 2
-            if industry and industry.lower() in kw:
-                score += 1
-            if functions and (row["primary_function"] or "").upper() in functions:
-                score += 1
-            p_boost, p_why = personas.score_boost(persona_codes, row)
-            score += p_boost                      # persona relevance (capped)
-            scored.append((score, hits, row, p_why))
-        scored.sort(key=lambda x: -x[0])
-        best_by_wt[wt] = scored[0][0] if scored else 0
-        all_scored.extend(scored)
+    top_score = ranked[0]["score"] if ranked else 0.0
+    keep_floor = max(CASE_FLOOR, CASE_REL_FLOOR * top_score)
+    ranked_by_id = {it["row"]["slide_id"].upper(): it for it in ranked}
+    row_by_id = {r["slide_id"].upper(): r for r in all_case_rows}
+    selected_ids = []
 
-        rows_by_id = {r["slide_id"]: r for r in rows_}
-        ai_pick_ids = ([s for s in ai_cases.get(wt, []) if s in rows_by_id][:top_n]
-                       if ai_used else [])
+    # 1) the research-matched cases LEAD the deck, in research order (guarantees the
+    #    named hooks are proven, e.g. weld-vision, digital-twin).
+    for pid in priority_list:
+        if len(selected_ids) >= MAX_CASE_PICKS:
+            break
+        it = ranked_by_id.get(pid)
+        if it is None and pid in row_by_id:            # matched a hook but ranked low
+            it = {"row": row_by_id[pid], "sem": 0.0, "matched": set(),
+                  "industry_hit": False, "function_hit": False, "persona_why": []}
+        if it is None or it["row"]["slide_id"] in selected_ids:
+            continue
+        row = it["row"]
+        sid = row["slide_id"]
+        wt = (row.get("work_types") or "").upper()
+        chosen[sid] = _case_reason(wt, {**it, "research": True})
+        selected_case_wts.add(wt)
+        case_order.setdefault(wt, []).append(sid)
+        selected_ids.append(sid)
 
-        if ai_pick_ids:                      # AI made usable picks for this work type
-            for sid in ai_pick_ids:
-                hits = _transcript_hits(_kw_tags(rows_by_id[sid]["keywords"]), transcript)
-                _, p_why = personas.score_boost(persona_codes, rows_by_id[sid])
-                why = ("transcript: " + ", ".join(hits[:4])) if hits else "AI-selected"
-                if p_why:
-                    why += " · for " + "/".join(sorted(set(p_why)))
-                chosen[sid] = f"case [{wt}] · {why} (AI)"
-                selected_case_wts.add(wt)
-                case_order.setdefault(wt, []).append(sid)
-        else:                                # keyword fallback (also if AI returned none)
-            for score, hits, row, p_why in scored[:top_n]:
-                why = []
-                if hits:
-                    why.append("transcript: " + ", ".join(hits[:4]))
-                if industry and (row["primary_industry"] or "").upper() == industry:
-                    why.append(industry)
-                if p_why:
-                    why.append("for " + "/".join(sorted(set(p_why))))
-                note = " · ".join(why) if why else "WEAK match — review"
-                chosen[row["slide_id"]] = f"case [{wt}] · {note} (score {score})"
-                selected_case_wts.add(wt)
-                case_order.setdefault(wt, []).append(row["slide_id"])
+    # 2) fill the rest with the top-ranked cases (MMR de-dup vs what's already in).
+    #    Keep the deck TIGHT around the matched needs — a person-specific pitch
+    #    shouldn't be padded with off-function cases. Only fill if we have < 3.
+    pick_cap = min(MAX_CASE_PICKS, max(len(selected_ids), 3))
+    pool = [it for it in ranked
+            if it["score"] >= keep_floor and it["row"]["slide_id"] not in selected_ids][:60]
+    while pool and len(selected_ids) < pick_cap:
+        best, best_adj = None, None
+        for it in pool:
+            sim = relevance.max_similarity(it["row"]["slide_id"], selected_ids)
+            adj = it["score"] - DEDUP_WEIGHT * max(0.0, sim - DEDUP_GATE)
+            if best is None or adj > best_adj:
+                best, best_adj = it, adj
+        row = best["row"]
+        sid = row["slide_id"]
+        wt = (row.get("work_types") or "").upper()
+        chosen[sid] = _case_reason(wt, best)
+        selected_case_wts.add(wt)
+        case_order.setdefault(wt, []).append(sid)
+        selected_ids.append(sid)
+        pool.remove(best)
 
     # ---- pass 3: case-section dividers (only if a child case was chosen) ----
     divider_of_wt = {}                   # work_type -> its case-section divider id
@@ -360,7 +417,7 @@ def plan(context, top_n=3, use_ai=False):
     titles = _title_lookup()
     lib_ids = set(titles)
     gaps = []
-    GOOD = 2   # a good proof slide has at least an industry match or one transcript hit
+    GOOD = CASE_FLOOR   # a wanted work type with no case above the relevance floor
     for wt in sorted(wanted):
         if best_by_wt.get(wt, 0) < GOOD:
             gaps.append({
@@ -381,42 +438,27 @@ def plan(context, top_n=3, use_ai=False):
                           f"found in the deck — needs to be created.",
             })
 
-    # ---- capability gaps: per-TOPIC asks (transcript-first, then suggest) ----
-    # Closes the loophole where a client ask (e.g. "ADAS") silently goes
-    # unanswered. Hybrid detection: known keyword/synonym hits + a conservative
-    # AI extraction that can surface a brand-new ask absent from every slide.
+    # ---- capability gaps: RETIRED ----
+    # This used to scan the meeting for asks and flag any not covered — but it
+    # checked coverage against the LEGACY REGISTRY only, blind to the 160 content-
+    # store cases, so it false-flagged things we clearly have (e.g. "computer-
+    # vision visual inspection" -> MSS010 Weld Vision). Coverage is now judged
+    # store-aware in app.py (the "Not in our library" section via extract_
+    # accelerators + relevance.coverage). Nothing registry-based flags gaps now.
     asked_existing = []
-    if transcript.strip():
-        det = sorted(t for t in _known_topics(reg) if synonyms.hits_in(t, transcript))
-        ai_asks = []
-        if use_ai:
-            try:
-                import ai_matcher
-                ai_asks = ai_matcher.extract_asks(transcript_raw)
-            except Exception:
-                ai_asks = []
-        # AI asks first (these can be genuinely novel/missing), then known hits.
-        asks = _dedupe_asks([a for a in (ai_asks + det) if _is_confident_ask(a)])
-        missing_topics, asked_existing = _capability_gaps(asks, reg, chosen)
-        default_wt = (sorted(wanted)[0] if wanted else "AI_POD")
-        for topic in missing_topics:
-            gaps.append({
-                "type": "missing_capability",
-                "topic": topic,
-                "slug": slugify(topic),
-                "work_type": default_wt,
-                "detail": f"“{topic}” was asked in the meeting but isn’t in the deck.",
-            })
 
     # ---- order: core/standard blocks first (natural deck order), then the
     #      case-study section (each work type's divider + its chosen cases),
     #      then the pinned closing slides last. ----
-    band1 = []                                  # the case-study section, in order
+    # research-matched cases lead (in research order), then the rest by work type
+    band1 = [pid for pid in priority_list if pid in chosen]
     for wt in sorted(selected_case_wts):
         d = divider_of_wt.get(wt)
-        if d and d in chosen:
+        if d and d in chosen and d not in band1:
             band1.append(d)
-        band1.extend(case_order.get(wt, []))
+        for sid in case_order.get(wt, []):
+            if sid not in band1:
+                band1.append(sid)
     band1_pos = {sid: i for i, sid in enumerate(band1)}
 
     def order_key(sid):
@@ -439,22 +481,24 @@ def plan(context, top_n=3, use_ai=False):
         seen.add(sid)
         suggested.append({"slide_id": sid, "reason": item["reason"], "asked": True})
 
-    for score, hits, row, p_why in sorted(all_scored, key=lambda x: -x[0]):
-        sid = row["slide_id"]
-        if score <= 0 or sid in chosen or sid in seen or sid in EXCLUDE:
+    for item in ranked:                         # next-best cases below the pick cut
+        sid = item["row"]["slide_id"]
+        if item["score"] <= 0 or sid in chosen or sid in seen or sid in EXCLUDE:
             continue
         seen.add(sid)
         why = []
-        if hits:
+        if item["sem"] >= 0.20:
+            why.append("meaning match")
+        if item["matched"]:
             why.append("matches your notes")
-        if industry and (row["primary_industry"] or "").upper() == industry:
+        if item["industry_hit"]:
             why.append("same industry")
-        if functions and (row["primary_function"] or "").upper() in functions:
+        if item["function_hit"]:
             why.append("same function")
-        if p_why:
-            why.append("for " + "/".join(sorted(set(p_why))))
+        if item["persona_why"]:
+            why.append("for " + "/".join(sorted(set(item["persona_why"]))))
         suggested.append({"slide_id": sid, "reason": " · ".join(why) or "related"})
-        if len(suggested) >= 6:
+        if len(suggested) >= 12:
             break
 
     suggestions = [

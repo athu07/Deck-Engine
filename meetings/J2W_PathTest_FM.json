@@ -1,0 +1,27 @@
+{
+  "name": "J2W_PathTest_FM",
+  "client": "Path Test",
+  "industry": "MANUFACTURING",
+  "functions": [],
+  "work_types": [
+    "AI_POD",
+    "MS"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "Mithun",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-07-01 14:35:42",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "MSS027",
+    "AIP015",
+    "MSS004",
+    "MSS010",
+    "MSS005",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_Path_Test.pptx"
+}

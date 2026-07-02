@@ -90,6 +90,132 @@ def refine(transcript, candidates_by_wt, optional_slides, top_n=3):
     return {"cases": cases, "optional": _ids(data.get("optional"))}
 
 
+def explain_fit(notes, recipient, picks):
+    """One short 'why this resonates with THIS person' line per picked case,
+    grounded in the stakeholder's role + the meeting notes.
+
+    picks : [{"id","title","blurb"}]  (blurb = a line of the case's challenge)
+    Returns {id: reason}. Fails safe to {} (caller keeps its own reasons)."""
+    if not picks or not (notes or "").strip():
+        return {}
+    lines = "\n".join(f"  {p['id']}: {p['title']} — {p.get('blurb','')}" for p in picks)
+    who = recipient.strip() or "the stakeholder"
+    prompt = (
+        f"You are prepping a J2W sales meeting with {who}.\n"
+        "Meeting notes + research brief:\n\"\"\"\n" + notes[:8000] + "\n\"\"\"\n\n"
+        "For EACH case study below, write ONE short line (max ~20 words) on why it "
+        f"would resonate with {who} specifically — tie it to THEIR role, remit, or a "
+        "priority in the notes. Do NOT invent case facts or numbers; frame in their "
+        "language.\n"
+        "CASE STUDIES:\n" + lines + "\n\n"
+        'Return ONLY JSON mapping id -> reason: {"AIP001": "...", "MSS002": "..."}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You explain why a proof point lands "
+                 "with a specific buyer. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+    return {k: str(v).strip() for k, v in data.items() if isinstance(v, (str, int))} \
+        if isinstance(data, dict) else {}
+
+
+def extract_profile(profile_text, max_items=8):
+    """From a stakeholder's profile (LinkedIn/bio), pull WHAT THIS PERSON DOES:
+    their function, key skills, and above all their CURRENT-ROLE mandate — so we
+    pitch things relevant to their day-to-day. Returns [{"name","description"}]
+    focus areas (e.g. 'Procurement', 'GCC / capability-center setup'). Fails []."""
+    if not (profile_text or "").strip():
+        return []
+    prompt = (
+        "Below is the professional profile of the person we are meeting. First read "
+        "WHO they are, and especially their CURRENT role at their current company and "
+        "what they are doing in it right now.\n"
+        "Then list their SPECIFIC FUNCTIONAL DOMAINS — the concrete areas they work "
+        "in that a case study could prove we understand. Name each by its DOMAIN, e.g. "
+        "'Procurement', 'Contract management', 'Corporate real estate & facilities', "
+        "'GCC / capability-center setup', 'Vendor management', 'Supply chain'.\n"
+        "STRICT RULES:\n"
+        "- Put the CURRENT-role domains FIRST.\n"
+        "- Do NOT return generic management/soft labels (project management, program "
+        "management, budget management, risk management, stakeholder management, "
+        "leadership, communication) — return the DOMAIN they manage instead.\n"
+        "- Each name = a specific function (1-3 words). description = 1-2 lines on what "
+        "they do in it in their CURRENT role, grounded in the profile.\n"
+        f"- At most {max_items}.\n"
+        "PROFILE:\n\"\"\"\n" + profile_text[:9000] + "\n\"\"\"\n"
+        'Return ONLY this JSON: {"items": [{"name": "...", "description": "..."}]}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You profile a buyer's real function "
+                 "and current mandate from their bio. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return []
+    out = []
+    for m in (data.get("items") if isinstance(data, dict) else []) or []:
+        if isinstance(m, dict) and (m.get("name") or "").strip():
+            out.append({"name": m["name"].strip(),
+                        "description": (m.get("description") or "").strip()})
+    return out[:max_items]
+
+
+def extract_accelerators(notes, max_items=8):
+    """From the meeting notes + deep-research brief, list the named accelerators /
+    capabilities / solution areas the ACCOUNT needs — EXTRACTION ONLY.
+
+    Whether we already have a case for each is decided separately by SEMANTIC
+    match against the store (reliable), NOT by the model eyeballing the library
+    (which mis-judges coverage). Returns [{"name","description"}]. Fails safe []."""
+    if not (notes or "").strip():
+        return []
+    prompt = (
+        "From these client meeting notes + research brief, list the named "
+        "accelerators, capabilities, or solution areas the ACCOUNT needs (named "
+        "explicitly, or a clearly implied need). For each, give a 1-2 line "
+        "description of what it is and the problem it solves, grounded ONLY in the "
+        "text (no invented metrics or facts).\n"
+        f"- At most {max_items}. Prefer specific, named accelerators over generic themes.\n"
+        "- Skip individual tools/languages (Selenium, Python, Docker); name the capability.\n"
+        "NOTES:\n\"\"\"\n" + notes[:9000] + "\n\"\"\"\n"
+        'Return ONLY this JSON: {"items": [{"name": "...", "description": "..."}]}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL,
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You extract a client's needed "
+                 "capabilities from meeting notes. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return []
+    out = []
+    for m in (data.get("items") if isinstance(data, dict) else []) or []:
+        if isinstance(m, dict) and (m.get("name") or "").strip():
+            out.append({"name": m["name"].strip(),
+                        "description": (m.get("description") or "").strip()})
+    return out[:max_items]
+
+
 def extract_asks(transcript):
     """Pull the SPECIFIC capability / skill / technology asks the CLIENT made.
 

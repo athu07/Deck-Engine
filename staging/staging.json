@@ -226,5 +226,75 @@
     "template": "case_study",
     "for_client": "FutureCorp",
     "created_at": "2026-06-29 11:27"
+  },
+  {
+    "id": "G012",
+    "status": "pending",
+    "work_type": "",
+    "topic": "",
+    "industry": "MANUFACTURING",
+    "title": "Enhancing Safety-Critical Testing with Hardware-in-the-Loop Methodology",
+    "keywords": "",
+    "bullets": [],
+    "template": "case_study_full",
+    "for_client": "Scnieder Electric",
+    "created_at": "2026-07-01 14:35",
+    "subhead": "Client: Global Manufacturing Leader | Domain: Manufacturing | Function: Quality Assurance",
+    "challenge": "The client faced challenges in validating system performance for safety-critical applications. Existing testing methods were insufficient, leading to potential risks in product reliability. They required a solution that could integrate real hardware components with simulation models to enhance testing accuracy and efficiency.",
+    "solution": "The client implemented a Hardware-in-the-Loop testing methodology that combines real hardware with simulation models. This integration allows for real-time validation of system performance, significantly improving the reliability of safety-critical applications. The new approach enhances testing processes and reduces time-to-market for new products.",
+    "capabilities": [
+      "Performance Validation: Real-time assessment of system performance under various conditions.",
+      "Risk Mitigation: Early detection of potential failures in safety-critical systems.",
+      "Efficiency Improvement: Streamlined testing processes to reduce overall testing time.",
+      "Integration Testing: Seamless combination of hardware and simulation for comprehensive validation.",
+      "Quality Assurance: Enhanced reliability of products through rigorous testing protocols.",
+      "Regulatory Compliance: Ensured adherence to safety standards and industry regulations."
+    ],
+    "results": [
+      "Achieved 30% reduction in testing time compared to previous methods.",
+      "Reduced product recalls by 25%, enhancing brand trust and financial performance.",
+      "Increased confidence in decision-making for product launches and safety assessments."
+    ],
+    "review": {
+      "quality": "Strong",
+      "weakest": "None",
+      "fix": "None"
+    },
+    "kind": "user_created"
+  },
+  {
+    "id": "G013",
+    "status": "pending",
+    "work_type": "",
+    "topic": "",
+    "industry": "MANUFACTURING",
+    "title": "Hardware-in-the-Loop Testing for Real-Time Validation",
+    "keywords": "",
+    "bullets": [],
+    "template": "case_study_full",
+    "for_client": "Scnieder Electric",
+    "created_at": "2026-07-01 17:02",
+    "subhead": "Client: Leading Manufacturing Enterprise | Domain: Manufacturing | Function: Innovation Labs",
+    "challenge": "The client, a major player in manufacturing, faced significant delays in validating system performance due to traditional testing methods. These methods often led to discrepancies between simulated and real-world conditions, causing costly rework and extended time-to-market. The need for a more efficient and accurate testing approach was critical to maintain competitiveness.",
+    "solution": "J2W implemented a Hardware-in-the-Loop testing framework that integrates real hardware with simulation models. This approach enables real-time validation of system performance, significantly reducing discrepancies between simulations and actual conditions. The client can now conduct extensive testing faster and with greater confidence in results.",
+    "capabilities": [
+      "Real-Time System Performance Validation",
+      "Integration of Hardware and Simulation Models",
+      "Reduction of Testing Cycle Times",
+      "Enhanced Accuracy in Performance Metrics",
+      "Increased Confidence in Product Launches",
+      "Improved Collaboration Across Teams"
+    ],
+    "results": [
+      "Testing cycle time reduced by 40%.",
+      "Operational costs decreased by 25%.",
+      "Decision-making confidence increased significantly."
+    ],
+    "review": {
+      "quality": "Strong",
+      "weakest": "None",
+      "fix": "None"
+    },
+    "kind": "user_created"
   }
 ]

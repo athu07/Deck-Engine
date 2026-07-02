@@ -1,0 +1,34 @@
+{
+  "name": "J2W_MerckGroup_PR",
+  "client": "Merck Group",
+  "industry": "AUTOMOTIVE",
+  "functions": [],
+  "work_types": [
+    "WORKFORCE",
+    "MS"
+  ],
+  "phase": "Pre-read",
+  "phase_code": "PR",
+  "recipient": "Project Manager, GRE - Strategy, Planning & Innovation",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-07-01 19:01:01",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS10",
+    "CS11",
+    "CS12",
+    "CS18",
+    "CS19",
+    "WFS038",
+    "MSS007",
+    "MSS001",
+    "CS07",
+    "CS08",
+    "WFS042"
+  ],
+  "deck_file": "Tailored_Deck_Merck_Group.pptx"
+}

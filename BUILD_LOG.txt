@@ -1175,3 +1175,341 @@ fills them exactly as before. Also:
 Verified: built all 3 slides via skills.build_into with sample data -> each renders
 its native chart, 0 leftover markers, 0 em-dashes. Sample saved at
 output/Sample_Capability_Slides.pptx.
+
+################################################################################
+=== 2026-07-01  MATCHING REBUILD (A+B+C+D) — Ericsson stress-test fix ===
+################################################################################
+PROBLEM (real Ericsson telecom-manufacturing test): the engine surfaced only a
+few, weak case suggestions. Measured baseline: it captured just 1 of the 19 case
+studies a human had mapped by hand — and picking Telecom vs Manufacturing gave
+the IDENTICAL deck (industry barely mattered).
+
+ROOT CAUSES found:
+  1. Work-type checkboxes were a HARD filter — 13/19 right cases were "MS"; if MS
+     wasn't ticked they were invisible.
+  2. One industry can't describe Ericsson (telecom + manufacturing + IT). Only 4
+     telecom cases exist; the real proofs were Manufacturing/Tech-IT.
+  3. Only top-3 cases per work type were kept (<=9 total; needed ~19).
+  4. Matching read only the short keyword TAGS + never the title, ignoring the
+     rich challenge/solution/capability text.
+  5. Email product codenames + business language shared no words with the tags.
+
+FIX (A+B+C+D):
+  - case_library.py: added _search_text() (full case body) + all_rows() (no gate).
+  - relevance.py (NEW): ranks EVERY case by
+       meaning match (per-ask OpenAI embeddings, best-matching ask wins)  [primary]
+       + lexical overlap on the full body (title/keywords weighted)
+       + industry/function/persona/work-type as light BOOSTS (never filters).
+    Fail-safe: no key/offline -> semantic off, lexical+boosts still rank.
+  - build_case_embeddings.py (NEW): one vector per case (text-embedding-3-small)
+    -> case_embeddings.json. RE-RUN THIS whenever case text changes.
+  - matcher.py: case selection now = rank all 160, keep the strongest above a
+    relative+absolute floor, deck SIZE adapts to the number of asks in the notes
+    (simple meeting -> ~4 cases; multi-solution email -> up to 12). Work-type &
+    industry no longer gate cases. Suggestions widened to 12.
+  - eval_ericsson.py (NEW): automated scorecard = how many of the 19 hand-picked
+    cases we capture. Run `py eval_ericsson.py` after any matching change.
+
+RESULT (semantic ON, use_ai=True — which the live /build already uses):
+  captured 1/19  ->  11/19 in auto-PICKS, 13/19 in picks+suggestions,
+  and now ROBUST: telecom-only vs all-work-types vs manufacturing all land ~11-13.
+  Simple 1-ask meeting correctly gets ~4 cases, not 12.
+  The last ~6 are the email's "back-pocket" mentions (inventory, IT-OT, team
+  build) that rank ~27-53 — reachable via the browse "add a case" panel.
+  End-to-end /finalize build verified: 28-slide Ericsson deck, 0 markers/dashes.
+
+OP NOTE: /build now makes one small embeddings call per build (the notes). Needs
+OPENAI_API_KEY. Backups of the pre-rebuild matcher/case_library/store are in
+backups/pre_match_rebuild/.
+
+--- 2026-07-01  De-duplication of look-alike case picks (MMR) ---
+Selection now greedily demotes a case that looks too much like one already
+picked (case-to-case embedding cosine >= 0.80), so the deck spreads across
+DISTINCT proofs instead of near-twins. Calibrated on real data: the 3 governance
+cases the human wanted (MSS065/066/067) sit at cosine 0.54-0.70 (kept); true
+twins only appear at 0.88+ (AIP034/AIP035 0.914) and now drop to suggestions.
+Ericsson scorecard unchanged (11/19 picks, 13/19 visible) but picks are more
+diverse. Knobs: DEDUP_GATE=0.80, DEDUP_WEIGHT=10 in matcher.py.
+NOTE: de-dup does NOT remove weak-but-distinct off-theme cases (e.g. MSS049
+financial) — that needs the function/industry tier logic (under review).
+
+--- 2026-07-01  Function/industry TIERING + seniority + thin-area flags ---
+Adopted the two-axis matching model (from the reusable matching prompt): a case
+that solves the PERSON'S functional problem beats one merely in their industry.
+  - relevance.py: industry/function fit now a TIER bonus, not flat weights:
+      T1 role+industry (1.2) > T2 role only (0.8) > T3 industry only (0.4) > T4 (0).
+    The account's FUNCTION profile = the form's function field UNION the functions
+    read from the notes (tagger._score on the transcript) — so a broad title like
+    "Head of IT" still gets a function profile from what was actually discussed.
+  - Seniority metric-resonance: a CXO/exec recipient nudges cases that carry
+    business-outcome results (roi/cost/margin/risk/...) up a touch (W_METRIC=0.4).
+  - matcher.py: picks now labelled with their tier (T1..T4) + "role fit"/"industry
+    fit"; a THIN-AREA gap flag fires when the best pick is only T3/T4 (tells the
+    team to prep a custom narrative instead of a weak case). Renders as a normal
+    amber flag (no generate button).
+  - HELD (not built): the optional LLM "deep-match" re-ranker — revisit only if
+    the free heuristic proves not enough.
+Proof it works: "Head of QA @ a bank" now leads with T1 (regression/cyber testing
+for financial) then T2 (telecom testing, cross-industry role fit) — exactly the
+two-axis intent. Ericsson scorecard 10/19 picks, 13/19 visible (was 11/13): a
+1-case trade for role-appropriate ordering + consistency across all work-type/
+industry selections. End-to-end /finalize verified (28-slide deck, 0 markers).
+Tuning knobs: relevance.TIER_BONUS, W_METRIC; matcher DEDUP_GATE/WEIGHT.
+
+################################################################################
+=== 2026-07-01  Research ingestion + "why matched / what's missing" + search ===
+################################################################################
+Owner wanted their pre-meeting deep-research step pulled into the tool (no web
+research — bring-your-own brief), plus a rationale + gap section and a searchable
+add-slide. Built (all local, nothing sent to the web):
+
+1. INPUT PAGE (NEW_FORM_BODY): optional "Attach a deep-research file" upload
+   (PDF or text). research.py (NEW) extracts the text (pypdf, then PyMuPDF
+   fallback); scanned/image PDFs yield no text and are handled gracefully.
+   The research text is matched ALONGSIDE the typed notes (match_notes =
+   transcript + research), so both drive the picks.
+
+2. BUILD/TOC PAGE (BUILD_BODY), below the TOC:
+   a) "Why this deck matches" — per case study: its tier (T1..T4) + the reason
+      it was picked (role/industry fit, meaning match, matched notes). Built
+      deterministically from the matcher's own signals.
+   b) "Not in our library - worth building" — accelerators/capabilities the
+      account needs that we have NO case for, each with a 1-2 line description
+      and a "Draft with AI" button that pre-fills the Create-a-slide tool.
+      DETECTION (important): AI (ai_matcher.extract_accelerators) only EXTRACTS
+      the needed accelerators; COVERAGE is decided by SEMANTIC match
+      (relevance.coverage -> best case cosine). Calibrated: things we have score
+      0.58-0.72, genuine gaps 0.39-0.48 -> COVERAGE_THRESHOLD=0.55 (errs toward
+      "covered" so we don't tell the user to rebuild what we already have).
+      [We first tried letting the LLM eyeball 160 titles -> it wrongly flagged
+      PlanForge/LLMOps/governance as missing. Semantic coverage fixed it.]
+
+3. ADD-SLIDE: a search box (filterAdd) filters the picker by title OR id
+   (CS/AIP/WFS/MSS) — no more scrolling 160.
+
+Files: research.py (new), ai_matcher.extract_accelerators (replaced the bad
+missing_accelerators), relevance.coverage (new), app.py (form upload + /build
+wiring + BUILD_BODY sections + search JS). Matching scorecard unchanged (10/13).
+Verified end-to-end via test_client (PDF + txt): sections render, coverage
+filter drops what we have, keeps genuine gaps; unreadable file shows a warning.
+NOTE: each /build with notes now makes 1-2 extra AI calls (extract + embed) —
+needs OPENAI_API_KEY; fails safe to no-missing-list if unavailable.
+
+--- 2026-07-01  Fix false "missing" flags + stakeholder-specific "why it fits" ---
+Real test (Schneider Electric / Mithun Paik, Test & Automation CoE lead) exposed
+two problems:
+
+1. FALSE GAPS: broad capability areas we DO cover (test automation standardization,
+   digital-twin/HIL, managed-services operating models, computer-vision inspection)
+   were flagged "not in our library". Root cause: a BROAD capability phrase only
+   matches a SPECIFIC case doc at ~0.5 cosine, so everything landed in the fuzzy
+   zone around the old 0.55 line. The PDF read fine (19k chars) and semantic search
+   worked — the THRESHOLD/method was the issue.
+   FIX: only flag a TRUE gap — clearly absent on BOTH signals:
+     covered = max(cosine(name), cosine(name+desc)) >= 0.50   (best-of-two)
+               OR relevance.lexically_covered(name)  (our case titles/keywords
+                  already use most of its words).
+   Verified: all 8 Schneider needs -> covered (0 false flags); genuine novel gaps
+   (blockchain traceability 0.43, post-quantum crypto 0.40) still flag correctly.
+
+2. RATIONALE WAS GENERIC: "role fit · meaning match" didn't say why a case would
+   excite THIS person. Added ai_matcher.explain_fit(notes, recipient, picks): one
+   AI call writes a one-line, role-grounded "why this resonates with <recipient>"
+   per case (e.g. WFS013 -> "Building a CoE in India mirrors your role managing
+   talent in Schneider's C&I Labs"). Shown above the technical reason; falls back
+   to the deterministic reason if AI is unavailable. The recipient's role comes
+   from the Recipient field + the research brief text (no separate profile upload
+   needed for now).
+
+COST NOTE: a /build with notes now makes ~4-5 small AI calls (match embed, extract
+accelerators, 2 coverage embeds, explain_fit). Needs OPENAI_API_KEY; every AI step
+fails safe. Knob: app.COVERAGE_THRESHOLD (0.50).
+
+--- 2026-07-01  Removed the OLD registry-blind capability-gap detector ---
+Schneider run still showed false "Asked but not in the deck" flags (e.g.
+"computer-vision visual inspection" — which we HAVE as MSS010 Weld Vision & Joint
+Integrity Analytics; also "engineering productivity acceleration"). Root cause:
+matcher.plan's missing_capability detector judged coverage via _slides_covering
+against the LEGACY REGISTRY, blind to the 160 store cases. RETIRED that whole
+block (asked_existing = []); coverage is now judged store-aware in app.py's "Not
+in our library" section only. Verified: matcher gaps now [] for Schneider, MSS010
+is picked, Ericsson scorecard 10/19 picks + 14/19 visible (suggestions improved,
+no longer diluted by registry slides). Dead helpers (_capability_gaps,
+_slides_covering, _known_topics, extract_asks usage) left in place, unused.
+
+--- 2026-07-01  Title-topic boost (surface cases whose TITLE names the ask) ---
+Owner: "we have a digital-twin slide, quality engineering, etc. — why aren't they
+picked? Understand context, not just keywords." Diagnosis: semantic ranked
+MSS005 "Operational Digital Twin" at rank 75 for a Schneider brief that explicitly
+asks for "digital twin" — because semantically an OPERATIONAL twin != a TEST/HIL
+twin, even though the title literally says digital twin. The title is strong
+context the ranker under-used.
+FIX: relevance.py adds a TITLE-topic boost — when a meeting term appears in a
+case's TITLE, boost it (W_TITLE=0.7, cap 3 hits). Titles are curated + meaningful,
+so a topic in the title strongly implies the case is about it.
+RESULT: MSS005 digital twin rank 75 -> 2 (now picked); weld-vision + test cases
+surface in picks/suggestions; and the Ericsson scorecard IMPROVED 10 -> 12/19
+picks, 13 -> 14-15/19 visible (exact-name/title matches like PlanForge get the
+boost too). No regressions.
+Knobs: relevance.W_TITLE, TITLE_CAP.
+
+--- 2026-07-01  Deep research DRIVES the deck (priority pinning) ---
+Owner's key insight: the mail thread = J2W's generic outreach (Industry 4.0,
+predictive maintenance); the DEEP-RESEARCH PDF = the analysed view of what
+actually excites the stakeholder (agentic self-healing test automation, AI
+test-case gen, computer-vision V&V, digital-twin+HIL). The deck was matching the
+generic mail topics and burying the researched priorities.
+
+FIX: the account's real interests are extracted from the RESEARCH (falls back to
+notes), then split by coverage:
+  - covered (we have a case) -> that best case is a PRIORITY PICK, force-pinned
+    to the top of the deck (matcher.plan(priority_ids=...) adds +100 to its score,
+    labelled "deep-research priority"), ahead of generic mail matches.
+  - not covered -> a build-worthy gap (the existing "Not in our library").
+This unifies the two: every researched hook either shows its proof IN the deck or
+is flagged to build. app.py extracts+covers BEFORE planning and passes priority_ids;
+matcher boosts + labels them and grows pick_cap to fit every priority.
+
+Verified on the real Schneider/Mithun PDF: the 8 research hooks all mapped to
+cases and pinned — MSS027 Agentic SDLC (self-healing/test-case-gen), MSS011
+Quality Gates (computer-vision), MSS005 Digital Twin, AIP010 Cybersecurity, AIP026
+Regression, MSS026 team augmentation — each carrying "deep-research priority".
+
+--- 2026-07-01  Priority ORDER + account-aware pins + support cases underneath ---
+Owner feedback on the pinning: (1) priorities must appear in RESEARCH ORDER, not
+regrouped by work type; (2) a pin picked AIP025 fintech for a manufacturer
+(irrelevant); (3) the mail-thread topics should still appear, at a lower base.
+Fixes:
+  - relevance.best_cases(): hook -> case pick is now account-aware. What the case
+    is ABOUT dominates: cosine + hook-words-in-TITLE (0.15/hit) + stakeholder
+    FUNCTION (0.10); industry only a light nudge (0.06). Kills the fintech pick;
+    test-automation hook -> a test-automation case, digital-twin -> MSS005, etc.
+  - matcher.plan: priority_ids is now an ORDERED list; the case section LEADS with
+    the pins in that order, then the rest grouped by work type.
+  - BUG FIX: the +100 priority boost had inflated the relative floor
+    (0.72*top_score ~ 78), excluding ALL non-priority cases. Floor is now relative
+    to the best NON-priority score, and pick_cap = max(asks+2, prio+2) — so the
+    mail-thread/support cases (predictive maintenance, Industry 4.0) come through
+    UNDER the priorities.
+Verified on Schneider/Mithun: deck = [test automation, weld-vision, digital twin,
+cyber testing, regression] (★ priorities, research order) THEN predictive
+maintenance + Industry 4.0 (support). Ericsson scorecard 11/19 picks, 15/19 visible.
+
+--- 2026-07-01  Add-slide picker: hide the 105 legacy case slides (old template) ---
+Owner: manually adding SDLC / quality-vision / Industry-4.0 gave the OLD master
+template, not the new branded one. Cause: the master deck still holds 105 legacy
+CASE_STUDY slides (CS22-CS136) that DUPLICATE the store cases (CS80 Agentic SDLC =
+MSS027, CS71 Weld Vision = MSS010, CS74 Industry 4.0 = MSS004, CS75 Digital Twin =
+MSS005, ...). The "Master deck slides" add-list showed all 136, and the new search
+auto-picked the first match (a legacy CSxx), so a manual add pulled the OLD-template
+version. FIX: app._legacy_case_ids() (registry kind==CASE_STUDY) now filters those
+out of all_slides in BOTH the /build and resume renders — master list 136 -> 31
+(core/structural/standard only). Case studies can now ONLY be added from the "Case
+library" group (store cases -> new branded template via fill_case_study).
+NOTE for owner: remove any old CS-version case you already added to a deck and
+re-add it from search — it will now resolve to the MSS/AIP/WFS store case.
+
+--- 2026-07-01  "Draft with AI" -> client-specific + branded template ---
+Owner: the AI-drafted case study must be SOLID and specific to the client/stakeholder
+(not generic), in the strict CASE STUDY format, and LOOK like the other case studies.
+Two fixes:
+1) slide_generator.draft_case_study now takes account context (industry, recipient,
+   function, meeting notes/research) and writes an anonymised proof point in the SAME
+   domain, mirroring what the stakeholder personally owns, solving the exact capability.
+   create_ai passes recipient/functions/notes (from SERVER_CTX in the create-AI JS).
+   Format enforced: Title, Client|Domain|Function subhead, Challenge <=100w, Solution
+   <=100w, EXACTLY 6 capabilities + 3 results, no em-dashes, no real names.
+2) AI-drafted slides now RENDER from the branded case_study_v2 template (not the old
+   case_study_full placeholder): finalize converts the staged content to a store-shaped
+   record (app._ai_to_store_record) and skills.build_into fills case_study_v2 via
+   fill_case_study.build_mapping — identical look to library cases. Domain is taken
+   from the ACCOUNT industry (the AI sometimes put the function in the Domain slot).
+Verified: HIL draft for Schneider/Mithun -> "HIL Testing for Electromechanical
+Validation", CLIENT: Leading Manufacturing Enterprise | DOMAIN: Manufacturing,
+0 markers, 0 em-dashes.
+
+STILL OPEN (owner flagged): some deep-research PINS map to off-target cases
+(AIP036 e-learning for "platform", AIP024/AIP026 fintech for "cyber/regression")
+instead of the intended SDLC/weld/twin. best_cases title-match on generic words
+(platform/quality/global) is the cause — to tune next.
+
+################################################################################
+=== 2026-07-01  MATCHING REWORK v2 — simpler, research-led, work-type-gated ===
+################################################################################
+Owner reset: "forget the persona-mixing / priority-pin machinery. Logically: read
+the research, pull the relevant slide; if not there, flag missing. And an MS deck
+must show ONLY MS case studies (I was getting AI-Pod ones); pick industry-relevant."
+Decisions: work-type = HARD FILTER; industry = same-preferred + strong cross-industry
+allowed; stakeholder-profile upload = later.
+
+REMOVED: the +100 priority-pin hack, the T1-T4 persona tier reshuffle, the
+un-gating of work type, best_cases picking cross-work-type/industry (that pulled
+fintech/e-learning), the thin_area tier flag.
+
+NEW / SIMPLER matching:
+  - Candidates come ONLY from the selected work types (case_library.candidate_rows).
+  - relevance.rank_cases now weights the DEEP RESEARCH above the mail thread
+    (MAIL_WEIGHT=0.7 on mail-only matches) so the research drives; industry is a
+    preference boost (W_INDUSTRY), function a boost (W_FUNCTION); a cross-industry
+    case is only eligible if its content match is strong (CROSS_INDUSTRY_MIN=0.42).
+  - Per-need mapping (the owner's logic): app extracts each research need and finds
+    OUR best case OF THE SELECTED WORK TYPES (relevance.best_cases + coverage, now
+    work-type-aware via allowed_ids). Covered -> that case LEADS the deck (labelled
+    "research match", in research order). Not covered -> "missing, want to generate".
+  - Deck then fills with the next best in-work-type cases (MMR de-dup).
+
+RESULT (Schneider/Mithun, MS-only, real PDF): deck = MSS070 test automation,
+MSS010 WELD VISION, MSS005 DIGITAL TWIN (research matches, leading) + supporting
+MS cases; missing = cybersecurity testing / standardization / extended-team.
+ALL MS, no AI-Pod, industry-relevant. Ericsson (all WTs) 12/19 picks, 14/19 visible.
+Draft-with-AI stays person-specific + branded (prior change).
+Knobs: relevance.MAIL_WEIGHT, W_INDUSTRY, W_FUNCTION, CROSS_INDUSTRY_MIN;
+matcher priority_ids (research-matched cases lead).
+
+--- 2026-07-01  Stakeholder-PROFILE matching (function/skill, direct-term) ---
+Real example (Karthik @ Merck): tool gave weak industry/keyword matches (network
+security, mainframe, staffing) with generic "aligns with your role" reasoning,
+missing his real function (GCC setup, real estate, procurement, contracts). Even
+matching his full profile semantically failed. Root causes: tokenizer DROPPED
+"GCC" (<4 chars); embeddings are noisy (~0.4) for B2B functional terms.
+FIX (owner decisions: balance profile+research; direct term match backed by semantic):
+  - relevance._tokens keeps 3-char acronyms (GCC/ODC/ERP...). Added specific_terms()
+    that drops generic biz words (cost/optimization/management/...) so a skill like
+    "procurement" is discriminating.
+  - relevance.best_cases now DIRECT-matches a skill's specific terms to the case
+    TITLE/keywords (0.35/hit title+kw, +0.25 title-only), semantic/function/industry
+    refine. Returns title_hits; "covered" = skill term in a case TITLE (strong) OR
+    strong semantic — so a stray keyword no longer counts (real-estate stays a gap).
+  - ai_matcher.extract_profile(): pulls the person's function, skills, and CURRENT-
+    role mandate from a LinkedIn/bio PDF.
+  - app: new PROFILE upload (profile_file). Needs = profile focus + research needs
+    (balanced); each -> best in-work-type case: covered LEADS the deck, uncovered ->
+    "missing, want to generate". Profile focus areas also feed the ranking (lead_research).
+RESULT (Karthik, WORKFORCE+MS): leads with MSS001 Procurement, WFS038 GCC Strategy,
+WFS042 GCC R&D Hub (3 of the human's 4 picks); Real Estate + Risk flagged missing.
+OPEN: "contract" need grabbed WFS025 (contract-to-HIRE staffing) over MSS007 (contract
+intelligence) — both have "contract" in title; healthcare industry boost tipped it.
+
+--- 2026-07-01  Profile matching v2 — tight, honest, current-role focused ---
+Owner feedback on the Karthik/Merck run: off-function cases still appearing
+(IT-OT, PLM budget, cloud, market-data), reasoning was generic, and it should key
+off his CURRENT ROLE. Fixes:
+  - best_cases now matches on the skill NAME only (not the prose description, which
+    added generic words that matched random cases). Industry boost cut 0.06->0.02
+    so it's a light tiebreak, not an override (fixed contract: MSS007 has higher
+    meaning 0.51 vs WFS025 0.49 but was losing on the healthcare boost).
+  - ai_matcher.extract_profile rewritten: read WHO they are + CURRENT role first,
+    return SPECIFIC functional domains (procurement, contract mgmt, corporate real
+    estate, GCC), NOT generic management labels.
+  - app: _GENERIC_NEEDS filter drops project/budget/risk/vendor/cost "management"
+    labels from both picks and the missing list.
+  - Deck kept TIGHT: pick_cap = max(#matched-needs, 3) — no off-function padding.
+  - explain_fit now grounded in the PROFILE + function/skills (not the thin
+    transcript), so the "why this fits <person>" line is real and shows.
+RESULT (Karthik, WORKFORCE+MS): deck = WFS038 GCC Strategy, MSS007 Contract
+Intelligence, MSS001 Procurement — 3 tight, all his function, each with a clear
+Karthik-specific why; Corporate Real Estate + Facilities flagged missing. Matches
+3 of the human's 4 (WFS042 GCC-hub needs a 2nd GCC need to surface; add via search).
+Research path still sizes fine (Schneider MS+all = 5 matched cases).
+NOTE: eval_ericsson.py now under-reports (it calls matcher.plan directly, bypassing
+the app's need-extraction/priority_ids) — the real /build path is representative.

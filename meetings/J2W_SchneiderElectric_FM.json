@@ -1,0 +1,42 @@
+{
+  "name": "J2W_SchneiderElectric_FM",
+  "client": "Schneider Electric",
+  "industry": "MANUFACTURING",
+  "functions": [],
+  "work_types": [
+    "AI_POD",
+    "MS",
+    "WORKFORCE"
+  ],
+  "phase": "First Meeting",
+  "phase_code": "FM",
+  "recipient": "Mithun Paik, Leader India Customer & Innovation Labs (Test & Automation CoE)",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-07-01 14:14:11",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS10",
+    "CS11",
+    "CS12",
+    "CS13",
+    "CS15",
+    "CS16",
+    "CS18",
+    "CS19",
+    "MSS070",
+    "MSS010",
+    "MSS005",
+    "AIP024",
+    "AIP026",
+    "MSS026",
+    "MSS012",
+    "CS07",
+    "CS08"
+  ],
+  "deck_file": "Tailored_Deck_Schneider_Electric.pptx"
+}

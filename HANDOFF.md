@@ -1,386 +1,193 @@
-# J2W Pre-sales Engine — Handoff Document
-**Owner:** Athithia (non-developer — explain changes simply and confirm before large or irreversible edits)
-**Last updated:** 26 June 2026
-**Authoritative running log:** `BUILD_LOG.txt` (read it first; this file is for orientation)
+# J2W Pre-sales Deck Engine — Handoff Document
 
-> Project folder: `C:\Users\E36250417\Downloads\Deck engie`
-> (folder name is "Deck engie" — a typo for "engine"; not a mistake to fix)
+**Owner:** Athithia (non-developer — explain changes simply, confirm before large or irreversible edits).
+**Last updated:** 2 July 2026.
+**Authoritative running log:** `BUILD_LOG.txt` — the owner's chronological notebook of every decision/change. Read it after this file. This document is for orientation; `BUILD_LOG.txt` is the source of truth for *why* things are the way they are.
+
+> Written so someone who has never seen this project can pick it up with zero loss. If something here disagrees with the code, the code wins — but tell the owner.
 
 ---
 
 ## 1. What this project is
 
-The **J2W Pre-sales Engine** (previously called "Deck Engine") is a locally-run Flask web application for JoulesToWatts' **pre-sales team**. A pre-sales person fills in a short form — client name, industry, deck phase (Pre-read / First Meeting / Second Meeting / Proposal), work type(s) (Workforce / AI Pods / Managed services), optional function tags, and a free-text "Give me more information" box for meeting notes or transcripts. The engine then selects the most relevant slides from a master PowerPoint, fills data-driven capability and footprint slides from a spreadsheet, lets the user create AI-generated structured case study slides on demand, and produces a downloadable `.pptx` tailored for that specific client meeting. The sales team uses the output; the pre-sales team operates the tool. There is no database and no cloud hosting yet — it runs on a laptop with `py app.py`.
+The **J2W Deck Engine** is a locally-run **Flask** web app that assembles a **tailored PowerPoint** for JoulesToWatts' (J2W) sales team. A salesperson enters client context (client, industry, deck phase, work type(s), function(s), free-text notes) — and optionally uploads a **deep-research brief** and the **stakeholder's profile** (LinkedIn/bio). The engine picks the most relevant case studies and standard slides, fills data-driven slides from spreadsheets, AI-writes any slide that's missing, and produces a downloadable `.pptx`. Users are J2W salespeople prepping for a specific meeting with a specific person; the goal is a deck that makes the buyer feel "this vendor understands my job and my company."
+
+Run it:
+```
+py app.py        # Python 3.12 via the `py` launcher; serves http://127.0.0.1:5000
+```
+- **No auto-reload** (`debug=False`). After *any* code change, kill the process on port 5000 and re-run `py app.py`.
+- No `requirements.txt`. Installed: `flask`, `python-pptx`, `openpyxl`, `openai`, `pywin32`, `pypdf`, `PyMuPDF (fitz)`.
+- **No test suite.** Verify by driving routes with `app.test_client()` or calling modules directly (`matcher.plan(...)`, `relevance.rank_cases(...)`, `skills.build_into(...)`), or run the scorecard `py eval_ericsson.py`.
+- **AI provider: OpenAI** — `gpt-4o-mini` (extraction, "why it fits", draft slides) + `text-embedding-3-small` (semantic matching). Key in `.env` (`OPENAI_API_KEY`, git-ignored, loaded by `secrets_loader`). **The key was exposed in chat — treat as compromised, rotate before any deploy.**
 
 ---
 
-## 2. Current Status
+## 2. Current status
 
-### What is fully built and working
+### The 5-step request flow (one linear path, all live)
+```
+/ or /new  (NEW_FORM_BODY)                 (1) enter client context
+   -> POST /build   matcher.plan()          (2) build — engine plans the deck
+   -> POST /review                          (3) review AI gap slides (accept/reject)
+   -> POST /finalize                        (4) finalize & assemble the .pptx
+   -> /output/<file>                        (5) download .pptx (auto-downloads)
+```
+All five steps work. Each step's HTML is an inline string constant in `app.py` (`*_BODY`) rendered with `render_template_string` — there are **no template files**.
 
-| Feature | Status |
-|---|---|
-| Core form (client, industry, phase, work types, functions, transcript) | Done |
-| Phase field (Pre-read / First Meeting / Second Meeting / Proposal) | Done (captured, not yet used for selection rules — see Pending) |
-| Slide library (138 slides: CS01–CS136 + 2 template slides) | Done |
-| Rule-based + keyword + AI matching (`matcher.py`, `ai_matcher.py`) | Done |
-| Drag-to-reorder, add, remove slides on Suggested page | Done |
-| "You might also include" suggestions panel | Done |
-| Linear flow: New → Suggested → Review & Edit → Done/Download | Done |
-| AI gap-fill (drafts missing slides, shown for Accept/Reject on Review page) | Done |
-| Accept = promotes to master library permanently; Reject = discards | Done |
-| Guided brief box for gap-fill (editable pre-filled text per gap) | Done |
-| "Create with AI" panel — structured 4-field form (Topic, Problem, Solution, Results) | Done — redesigned 26 Jun 2026 |
-| Loading progress bar while AI generates in "Create with AI" | Done — added 26 Jun 2026 |
-| Strict case-study format (6 capabilities / 3 results / self-review) | Done |
-| Skills slides — capability + company footprint (Workforce-only) | Done |
-| Proficiency doughnut chart on capability slides (native PowerPoint chart) | Done |
-| Deck phase dropdown + recipient field on form | Done |
-| Automatic meeting log (one JSON per client+phase in `meetings/`) | Done |
-| "Deck repository" page (`/meetings`) — search all created decks | Done — renamed 26 Jun 2026 |
-| Library browse with filters and "+ Add to deck" from library | Done |
-| Deck tray (browser localStorage — resume a deck in progress) | Done |
-| AI history queue (`/staging`) — read-only log of all AI slides | Done |
-| Atomic save (prevents corrupt .pptx if file is open in PowerPoint) | Done |
-| Loading spinner on slow steps (AI calls) | Done |
-| Done page — manual download only (no auto-download) | Done — fixed 25 Jun 2026 |
-| Responsive layout — content centres at all zoom levels | Done — fixed 25 Jun 2026 |
-| Tool renamed: "J2W Deck Engine" → "J2W Pre-sales Engine" | Done — 26 Jun 2026 |
-| "Past meetings" → "Deck repository" throughout | Done — 26 Jun 2026 |
+### The three ways a slide is produced (all working)
+1. **Picked from the library** — case studies come from the **content store** (`case_study_content_store.json`, 160 cases, ids `AIP/WFS/MSS`), ranked by `relevance.py` and built on demand from the shared branded template `case_study_v2.pptx`. Core/standard/structural slides come from the master deck (`assembler.py`, `CSxx` ids).
+2. **AI-generated for a gap** — when a needed capability has no matching case, `slide_generator.draft_case_study()` writes a client-specific case study; it's held in `staging.py` and shown as an editable Accept/Reject card, then rendered into the **same branded template** at finalize.
+3. **Data-driven skills slide** — `skills.py`, **Workforce-only** (see §4). Filled from `J2W_Skills_Inventory.xlsx` into the redesigned `skills_templates.pptx`.
+
+### Built and working (this is a working v1 of the core loop)
+- **Matching engine (rebuilt this session — the big change).** `matcher.plan()` + `relevance.py`:
+  - Case candidates are **hard-filtered to the selected work types** (an MS deck shows only `MSS` cases; no AI-Pod leakage).
+  - Ranked by **meaning** (per-ask OpenAI embeddings), **full-text + title** lexical overlap, and **direct skill→title term match** (the reliable signal for B2B terms like GCC / procurement / contracts).
+  - **Industry is preferred**, not forced: same-industry cases always eligible; a cross-industry case only survives if its content match is strong (`CROSS_INDUSTRY_MIN`).
+  - **Deep research + stakeholder profile drive the deck.** Each named need/skill → our best in-work-type case: **covered → leads the deck** ("research match"); **not covered → flagged "not in our library → generate."**
+  - Deck is kept **tight** (sized to the number of matched needs; no off-function padding), de-duplicated (MMR), and each pick carries an **honest, person-specific "why it fits."**
+- **Inputs & UI.** Optional **deep-research** upload and **stakeholder-profile** upload (PDF/text, parsed by `research.py`). On the build page: "Why this deck matches", "Not in our library — worth building", and a **search box** in the add-slide picker.
+- **Case studies.** 160 cases; titles cleaned (no redundant domain tails); **no em-dashes anywhere** (hyphens only); **client names anonymized** on every slide via `anon_client()` (`CLIENT: Leading <Domain> <descriptor>`), never a real company.
+- **Draft-with-AI.** Client-specific case study in the strict format (Title, Client|Domain|Function, Challenge ≤100w, Solution ≤100w, 6 capabilities, 3 results), rendered in the branded `case_study_v2` template.
+- **Skills slides** — the 3 templates redesigned to match the case-study branding (red+teal bar, cards); markers + charts intact.
+- **Add-slide picker** now excludes the 105 legacy master case slides, so **every case study renders in the new Python template regardless of how it's added** (auto-pick, suggestion, or library search).
+- **Meeting log** (`meeting_log.py`) auto-writes one JSON per client+phase on generate.
 
 ### In progress / partially done
+- **Persona / profile matching** — largely done via the profile upload (extract function/skills → direct match). `personas.py` (buyer-role detection) still exists and contributes a light boost, but the **profile-driven path is now primary**. A dedicated PERSONA *tag on every slide* + a persona picker in the form is not yet built.
+- **Gap handling** — done: research/transcript-first, misses flagged as "not in our library," and **Draft-with-AI** is the "+ generate" action (it pre-fills the creator). The one nuance still open: an AI-drafted slide currently looks like an anonymized real case study — if the scenario is invented it should be **visibly labelled "illustrative approach,"** never presented as a delivered project (see §7).
+- **Tag strengthening** — ongoing; matching now leans on semantic + direct-term more than raw tags, but richer tags still help.
 
-| Feature | Status |
-|---|---|
-| Phase-driven slide selection (Pre-read emphasises X, Proposal emphasises Y) | PARKED — waiting for owner to define per-phase rules |
-| Expert routing/notification after an AI slide is created | PARKED — needs team login first |
-
-### Not yet started
-
-| Feature | Notes |
-|---|---|
-| Deploy + team login | The single biggest remaining task. Blocks almost everything below. |
-| Real J2W slide template for AI-generated slides | Current `case_study_full` in `templates.pptx` is text-only placeholder. Replace with real J2W design — same markers, no code change needed. |
-| Per-field inline editing of "Create with AI" slides on /review | Currently: edit via Regenerate or remove and redo. Review page only edits title/subtitle for library slides. |
-| Position AI-written slides into their exact deck section | Currently they slot before the closer slides (CS07/CS08). |
-| Visual pixel-perfect slide preview | PPTXjs removed. Needs LibreOffice at deploy time. |
+### Not started
+- Finalize/lock the master deck template design.
+- Login / team-auth page (the salesperson identity is a placeholder — `current_salesperson()` in `app.py`).
+- Full research *step* between "enter context" and "build" (today research is an **upload**, not an automated web-research stage — see §6).
+- Persona as a first-class form field + per-slide tag.
+- Anything beyond decks (proposals/RFQ/RFP/retros).
 
 ---
 
-## 3. Folder Structure
+## 3. Folder structure (key files)
 
-```
-Deck engie/
-|
-|-- app.py                          The entire Flask app. All HTML is inline string
-|                                   constants (NEW_FORM_BODY, BUILD_BODY, REVIEW_BODY,
-|                                   PREVIEW_BODY, MEETINGS_BODY, etc.). No template files.
-|                                   Key constants at top: WORK_TYPES, WT_LABELS, PHASES,
-|                                   INDUSTRIES, FUNCTIONS.
-|-- matcher.py                      Slide selection brain: rules + keyword + AI scoring
-|-- ai_matcher.py                   OpenAI call that refines keyword picks
-|-- assembler.py                    Builds the final .pptx from a list of slide IDs
-|-- slide_generator.py              AI-writes gap slides; fills templates; hosts the
-|                                   strict case-study prompt + draft_case_study() +
-|                                   fill_case_study()
-|-- skills.py                       Workforce-only data-driven slides (capability +
-|                                   footprint), proficiency doughnut chart
-|-- staging.py                      Queues AI-written slides; Accept promotes to master
-|-- meeting_log.py                  Writes/reads JSON meeting records in meetings/
-|-- build_library.py                Reads slide notes to build library.json
-|-- tagger.py                       Rule-based tags to build tagged_library.json
-|-- editor.py                       In-deck text replacement (keeps first-run formatting)
-|-- stamp_ids.py                    Stamps J2W_ID into each slide's notes (insert-safe)
-|-- secrets_loader.py               Loads .env (OPENAI_API_KEY); git-ignored
-|-- .env                            API key only. NEVER commit. ROTATE before deploy.
-|
-|-- WORKING_COPY_Master_Deck.pptx   THE LIVING MASTER. All reads/writes go here.
-|                                   138 slides: CS01-CS136 (ID-stamped) +
-|                                   2 template slides (J2W_TEMPLATE: skills and
-|                                   J2W_TEMPLATE: company_footprint, NO J2W_ID).
-|-- WORKING_COPY_Master_Deck.BEFORE_CHART.pptx   Backup before chart layout edit
-|-- Master_Deck_Case_Study_Portfolio.pptx         Original pristine backup. NEVER use
-|                                                 as source or re-stamp IDs from it.
-|-- templates.pptx                  AI-generated slide templates. Two tagged slides:
-|                                   - "case_study" (simple: TITLE/KEYWORDS/BULLETS)
-|                                   - "case_study_full" (structured: TITLE/SUBHEAD/
-|                                     CHALLENGE/SOLUTION/CAPABILITIES/RESULTS)
-|                                   Both are text-only placeholder designs.
-|                                   Replace with real J2W designs when ready —
-|                                   same tag + markers, no code change.
-|
-|-- J2W_CaseStudy_Portfolio_Metadata.xlsx  Slide registry (sheet: "Slide Registry").
-|                                          One row per slide: slide_id, include_rule,
-|                                          std_group, section, work_types, keywords, etc.
-|                                          Keywords column separator is · (U+00B7).
-|-- J2W_CaseStudy_Portfolio_Metadata.BACKUP.xlsx   Registry backup
-|-- J2W_Skills_Inventory.xlsx       Skills data. ONLY two aggregated sheets are read:
-|                                   "Skills Master (Aggregated)" and
-|                                   "Client Footprint (Aggregated)".
-|                                   NEVER read "Consultant Detail" — individual names.
-|
-|-- library.json                    Slide content library (rebuilt by build_library.py)
-|-- tagged_library.json             Same + tags (rebuilt by tagger.py after library.json)
-|
-|-- static/
-|   `-- app.css                     Design system. Brand: white #F6F6F6, black #111110,
-|                                   teal #2C6E66. Space Grotesk + Inter fonts.
-|                                   .form-layout = 2-column grid (collapses at 980px).
-|                                   .page has margin:0 auto so content centres at all widths.
-|
-|-- staging/
-|   `-- staging.json                All AI-generated slide records (pending/approved/
-|                                   discarded). Grows on every "Create with AI" or gap-fill.
-|-- meetings/                       One JSON per client+phase (J2W_<Client>_<Code>.json).
-|                                   Newest overwrites for the same client+phase.
-|-- output/                         Generated .pptx decks served for download.
-|
-|-- BUILD_LOG.txt                   Owner's running notebook. Authoritative decision log.
-|                                   UPDATE THIS when making meaningful changes.
-|-- CLAUDE.md                       Instructions for Claude Code (this tool).
-|-- HANDOFF.md                      This file.
-|
-|-- ai_fallback.py                  DEAD CODE. Old static re-tagger. Do not revive.
-`-- renderer.py                     DEAD CODE. Rolled-back PowerPoint COM renderer.
-                                    Left on disk in case we revisit it later.
-```
+**App & flow**
+- `app.py` — the Flask app. All HTML is inline (`NEW_FORM_BODY`, `BUILD_BODY`, `REVIEW_BODY`, `PREVIEW_BODY`). Routes: `/`, `/new`, `/build`, `/review`, `/finalize`, `/create_ai`, `/output/<f>`, `/library`, `/meetings`. Holds the research/profile upload wiring, the "why matched"/"missing" computation, `_ai_to_store_record()`, `_legacy_case_ids()`, `COVERAGE_THRESHOLD`.
+- `matcher.py` — `plan(context, use_ai, priority_ids)`: always-in core + per-work-type standard blocks (from the registry, `CSxx`) + **case selection via `relevance`** (work-type gated, research-led, tight, de-duped). `_account_functions()`, `_is_cxo()`, `_case_reason()`.
+- `relevance.py` **(new)** — the scoring core. `rank_cases()` (semantic + lexical + title-boost + industry/function, research-weighted over the mail), `best_cases()` (direct skill→title term match for per-need mapping), `coverage()` / `lexically_covered()` (work-type-aware "do we have this?"), `embed_texts()`, `_split_asks()`, `ask_count()`, `max_similarity()` (MMR dedup). Tuning knobs live here: `W_SEMANTIC, W_LEXICAL, W_TITLE, W_INDUSTRY, W_FUNCTION, MAIL_WEIGHT, CROSS_INDUSTRY_MIN`.
+
+**Case-study library (content store)**
+- `case_study_content_store.json` — 160 cases (`AIP`=AI Pods 37, `WFS`=Workforce 43, `MSS`=MS Solution 80). Each: title, domain, industry code, function, challenge, solution, 6 capabilities ({title,body}), 3 results, keywords.
+- `case_library.py` — serves store records in the matcher's row shape (`candidate_rows`, `all_rows`, `all_cases`, `title_map`, `_search_text`).
+- `case_embeddings.json` **(new)** — one embedding vector per case. **Rebuild whenever case text changes:** `py build_case_embeddings.py`.
+- `build_case_study_store.py` — builds the store + engine-side Excel mirror from the owner's `Case_Studies_Master_IDed.xlsx` (source is in `Downloads`). Normalizes em/en dashes to `-`; cleans titles (`_clean_title`).
+- `Case_Studies_Master_IDed.xlsx` — the case-study source spreadsheet (IDs in col 1).
+- `case_study_v2.pptx` — the **branded case-study template** (red+teal split bar, Challenge/Solution cards, 6 capability cards, 3 results). Generated by `create_case_study_template.py` (**has a shebang → run with `py -3`**).
+- `fill_case_study.py` — fills `case_study_v2.pptx` from one store record. `anon_client()` (name-free CLIENT descriptor), `build_mapping()`, `split_result()`, `split_capability()`.
+
+**AI**
+- `ai_matcher.py` — `extract_accelerators(notes)` (needs from research/notes), `extract_profile(profile)` (function/skills/current-role from a bio), `explain_fit(person_ctx, recipient, picks)` (per-case "why it fits THEM"). Legacy `refine()`/`extract_asks()` remain but are **unused**.
+- `research.py` **(new)** — extract text from an uploaded PDF/text file (pypdf → PyMuPDF fallback). Used for both research and profile uploads.
+- `slide_generator.py` — `draft_case_study(brief, context)` ("Create with AI"), `_copy_slide()`, placeholder templates. (`draft()` legacy gap path and the red "verification banner" are vestigial.)
+- `staging.py` — pending AI slides (`add/find/promote/discard/all_items`). `/review` shows them; accept = promote.
+- `eval_ericsson.py` **(new)** — automated scorecard against a real hand-mapped example. Run `py eval_ericsson.py`. **Note: it calls `matcher.plan` directly and bypasses the app's need-extraction, so it now under-reports — the real `/build` path is representative.**
+
+**Data-driven skills**
+- `skills.py` — `candidates(context)` (Workforce-only gate), `build_into(deck, order, cands)` (renders skills + store-case slides into the deck and reorders). Reads only the **aggregated** sheets of `J2W_Skills_Inventory.xlsx`.
+- `skills_templates.pptx` — the 3 skills template slides (redesigned to match branding). Generated by `create_skills_templates.py` (**no shebang → run with `py`**).
+- `J2W_Skills_Inventory.xlsx` — skills data. **Only the two aggregated sheets are used. The "Consultant Detail" sheet has individual names and must NEVER be read.**
+
+**Master deck & registry**
+- `WORKING_COPY_Master_Deck.pptx` — **the living master** the engine reads/writes (`assembler.SOURCE`). Core/standard/structural `CSxx` slides live here.
+- `Master_Deck_Case_Study_Portfolio.pptx` — stale pristine backup; **never** use as source or re-stamp IDs from it.
+- `J2W_CaseStudy_Portfolio_Metadata.xlsx` — the **registry** (sheet `Slide Registry`): one row per master slide with `include_rule` / `kind` / `std_group` / `section` / `work_types` / `keywords`. Drives *which* master slides go in; `kind == CASE_STUDY` rows are the 105 legacy case slides (now hidden from the add-picker).
+- `assembler.py` — `build_deck(ids)` builds the `CSxx` slides from a copy of the master (drops non-kept incl. ID-less template slides, prunes media, atomic save).
+- `tagged_library.json` / `library.json` — master-slide content/keywords (`CSxx`). `build_library.py` (`read_id`, `build`), `stamp_ids.py` (insert-safe ID assignment).
+
+**Support**
+- `personas.py`, `tagger.py` (FUNCTION/INDUSTRY taxonomy + `_score`), `synonyms.py`, `editor.py` (marker/text edits), `meeting_log.py`, `secrets_loader.py`.
+- `backups/pre_match_rebuild/` — pre-rebuild copies of `matcher.py`, `case_library.py`, and the store.
 
 ---
 
-## 4. How the Engine Works End to End
+## 4. The skills-slide rules (do not weaken without asking)
 
-### The linear request flow (one path only)
-
-```
-GET /  or  /new
-  Renders NEW_FORM_BODY: the context form.
-  Fields: client name, industry, deck phase (required), work types (required,
-  at least one), functions (optional, "Any function" clears selection),
-  recipient (optional), "Give me more information" (transcript / MOM / notes).
-
-POST /build
-  matcher.plan(context) runs:
-    1. Core always-in slides (intro, why J2W)
-    2. Per-work-type standard blocks from the registry
-    3. Case studies scored by: transcript keyword hits, then industry, then function
-    4. ai_matcher.refine() (OpenAI) — filters false positives, adds optional slides
-    5. Gap detection: work types with no strong case match flagged "needs to be created"
-    6. skills.candidates(context): if pure-Workforce deck, adds capability/footprint slides
-  Renders BUILD_BODY: the "Suggested slides" panel.
-    - Drag-to-reorder list
-    - Gaps shown as amber chips with an editable brief box
-    - "You might also include" suggestions
-    - "Create with AI" card (always visible — structured form, see below)
-
-POST /review
-  For each gap work type: calls slide_generator.draft() -> stages the content.
-  Shows per-slide editable cards:
-    - Library slides: edit title/subtitle, [CLIENT] token fill
-    - AI-written gaps: edit title/keywords/bullets, Accept/Reject choice (default Accept)
-
-POST /finalize
-  For each AI card: Reject -> staging.discard(); Accept -> staging.promote()
-    (promotes to master deck + library + registry, gets real CS id like CS137)
-  Assembles the deck: assembler.build_deck(ids) -> copy of master, keep only chosen slides
-  "Create with AI" slides (NEW:<id>) built from templates.pptx case_study_full template
-  skills.build_into() fills and slots capability/footprint slides
-  editor replaces [CLIENT] tokens with the real client name
-  Atomic save to output/<filename>.pptx
-  meeting_log.write() saves the session record to meetings/
-  Renders PREVIEW_BODY: "Your deck is ready" page.
-    Download button is manual — user must click it. No auto-download.
-
-GET /output/<filename>?dl=1
-  Serves the .pptx as a file attachment (browser downloads it).
-```
-
-### Other routes
-
-| Route | What it does |
-|---|---|
-| `/meetings` | "Deck repository" — search all previously generated decks by industry / work type / phase |
-| `/library` | Browse all 138 slides with filters; "+ Add to deck" adds any slide to current deck |
-| `/deck` | Resume an in-progress deck from browser localStorage |
-| `/staging` | Read-only AI history — log of all AI-written slides (accepted / rejected / pending) |
-| `/create_ai` | POST endpoint (AJAX); called by the "Create with AI" panel |
-| `/generate` | POST endpoint (AJAX); called by per-gap "Generate with AI" buttons |
-| `/slide/<id>/download` | Download a single slide as a 1-slide .pptx from the library |
-
-### "Create with AI" — how the structured form works
-
-The panel is always visible on the Suggested page (BUILD_BODY). It replaced an earlier free-text textarea with a structured 4-field form:
-
-| Field | Required | Pre-filled |
-|---|---|---|
-| Topic / Use case | Yes | No |
-| Industry | No | Yes — from the deck's industry |
-| Problem / Challenge | Yes | No |
-| Solution | No | No |
-| Results | No | No |
-
-On Generate:
-1. JS assembles a single brief string from the fields: `"<topic>. Problem: <problem>. Solution: <solution>. Results: <results>."`
-2. A teal progress bar animates below the button (advances to ~88%, then snaps to 100% on completion).
-3. POST /create_ai sends the brief + industry to `slide_generator.draft_case_study()` via OpenAI.
-4. Returns structured JSON: title / subhead / challenge / solution / capabilities[6] / results[3] / self-review verdict.
-5. Shown inline as a preview card — Regenerate / Add to deck / Discard.
-6. If added: rides in the deck order as `NEW:<staging_id>`.
-7. At /finalize: built from the `case_study_full` template.
-8. NOT promoted to master library — "this deck only" (owner's explicit choice).
-
-The human supplies the real facts; the AI just writes them up in J2W's strict format and self-checks.
-
-### Gap-fill vs "Create with AI"
-
-| | Gap-fill | Create with AI |
-|---|---|---|
-| Triggered by | Missing case study for a work type | Pre-sales wants a custom slide |
-| Input | Pre-filled brief (editable one-liner) | 4-field structured form |
-| Format | Simple (title/keywords/bullets) | Full case study (challenge/solution/caps/results) |
-| After Accept | Promoted to master library forever | This deck only (not in library) |
+- **Both skills slides appear ONLY in a pure Workforce deck** — Workforce selected and nothing else (`skills.candidates` is gated to `work_types == {WORKFORCE}`). Any other mix → no skills slides.
+- **Capability slide auto-includes** when a skill area matches the context/transcript (keyword-first, uncapped; industry matches capped at `CAP_INDUSTRY=3`; a `STOPWORDS` set stops generic words like "engineering" over-matching).
+- **Footprint slide** only for an **existing partner** whose client name matches a Client Footprint row (has footprint data).
+- Both **auto-add but are removable** in the suggestions panel (they ride in the order as `SK:` / `FP:` ids).
+- **Stale data (>90 days, `last_verified`) flags a warning** on the slide.
+- **Markers must stay in single text runs** — marker filling preserves only the first run's formatting per paragraph (`editor.set_text` / `skills.fill_markers`). Keep each `{{MARKER}}` in its own run/box.
+- Template slides are tagged in **speaker notes**. Current code uses three kinds: `J2W_TEMPLATE: skill_deepdive`, `J2W_TEMPLATE: industry_strength`, `J2W_TEMPLATE: company_footprint` (the "capability" slide is `skill_deepdive`/`industry_strength`; the footprint slide is `company_footprint`). `find_template()` matches on these note tags — don't rename them without updating `skills.py`.
 
 ---
 
-## 5. Skills Slides — Detailed Rules
+## 5. Key decisions and why
 
-**Gate:** Skills slides appear ONLY in a **pure Workforce deck** — "Workforce" selected AND no other work type. If Workforce + Managed services is selected, no skills slides.
-
-**Capability slides** (tagged `J2W_TEMPLATE: skills` in the master, around slide position 14):
-- **Keyword match** (uncapped): a skill area name from "Skills Master (Aggregated)" appears in the meeting notes/transcript. Every keyword hit gets a slide.
-- **Industry match** (capped at 3): the deck's industry appears in that skill area's `industries_served` column. Max 3 slides from this path.
-- `STOPWORDS` in `skills.py` prevents generic words ("engineering", "solutions", "management", "platforms", "services", "modernization", "legacy") from matching every capability slide.
-- Each capability slide gets a **proficiency doughnut chart** (Expert/Intermediate/Junior counts, brand-coloured teal palette, native PowerPoint chart via python-pptx). The `{{CHART}}` marker in the template is replaced with the real chart at the same position.
-- Staleness: `last_verified` > 90 days → yellow warning in the Suggested panel.
-
-**Company footprint slide** (tagged `J2W_TEMPLATE: company_footprint`, around slide position 13):
-- Trigger: form client name exactly matches a row in "Client Footprint (Aggregated)".
-- One slide per deck maximum. No chart — data is single aggregates, not chart-shaped.
-
-**Both template slides have NO `J2W_ID`** — only a `J2W_TEMPLATE:` tag in their notes. This is intentional. `assembler.build_deck()` drops all slides without a J2W_ID, preventing the templates from leaking unfilled into every deck.
-
-**Skills data column shape** (for when real data replaces mock data):
-- "Skills Master (Aggregated)": `skill_area`, `total_consultants`, `expert`, `intermediate`, `junior`, `avg_ramp_up_weeks`, `available_now`, `industries_served`, `example_clients`, `last_verified`
-- "Client Footprint (Aggregated)": `client_name`, `total_deployed`, `active_engagements`, `skill_areas_count`, `relationship_duration`, `skills_deployed`, `divisions_served`, `expansion_areas`, `snapshot_date`, `last_verified`
-- `industries_served` is plain text. `TECH_IT` in the deck is normalised to `tech` before matching.
+- **Content-library design, not positional.** Slides are matched by content/tags, never deck position. Every master slide carries a stable `J2W_ID: CSxx` in its speaker notes; store cases use `AIP/WFS/MSS`.
+- **Keywords/tags were the original matching fuel** — still contribute, but the engine now leans more on **semantic meaning (embeddings) + direct skill→title term matching**, which proved far more reliable for B2B functional terms than tags or pure embeddings alone.
+- **AI-written slides are quarantined until approved** — drafted → `staging` → shown as Accept/Reject → only then built into the deck. Nothing AI-written reaches a deck silently.
+- **Meeting log stays behind team login at deploy** — it stores real client names (`meetings/J2W_<Client>_<Phase>.json`).
+- **Skills data is aggregated-only, never individual names** — only the two aggregated sheets of the inventory are read; the "Consultant Detail" sheet is off-limits.
+- **Canonical skills list still needs team review** — ~433 raw skill strings collapsed to ~238 distinct; the groupings (especially **SAP-by-module** and **generic role titles**) still need a human pass before they're trusted for matching.
+- **Confidentiality: no real client/company names on any slide** — only "J2W"/"JoulesToWatts." Enforced structurally by `anon_client()`; the CLIENT line is always a generic descriptor.
 
 ---
 
-## 6. Key Decisions and Why
+## 6. Pending tasks to finish v1 (in order)
 
-1. **Content-library, not positional.** Slides are matched by content/tags (stable CS-id in notes), never by position. You can rearrange the master deck without breaking anything.
-
-2. **`keywords` column is the primary matching fuel.** The middle-dot-separated keywords column in the registry drives most case-study scoring. Separator is `·` (U+00B7) — editors may show it as a period; the code handles it.
-
-3. **AI at assembly time, not tagging time.** An experiment with static AI re-tagging did not beat the rule-based tagger. AI is useful for reading a specific transcript to score specific cases, not for static metadata.
-
-4. **AI-written slides are reviewed before use.** Gap-fill and "Create with AI" slides go through Accept/Reject on /review. Accepting permanently promotes to master (new CS id, library row, registry row). Rejecting discards. `/staging` is now a read-only history log.
-
-5. **Accept = permanent growth of the master.** Each Accept adds a slide to `WORKING_COPY_Master_Deck.pptx`. Back it up before testing the Accept path. The original (`Master_Deck_Case_Study_Portfolio.pptx`) is a pristine backup — never use it as the source.
-
-6. **Meeting/deck log must be behind team login.** Stores client names and context. Never a public URL.
-
-7. **Skills data is aggregated-only.** `J2W_Skills_Inventory.xlsx` has a "Consultant Detail" sheet with individual names. That sheet is NEVER read.
-
-8. **Function grouping of skills needs team review** before the skills slides go live with real data.
-
-9. **Salesperson is a placeholder.** `current_salesperson()` in `app.py` returns `"[NOT LOGGED IN - wire to login at deploy]"`. Wire the real logged-in user there at deploy time — one place, everything else reads from it.
-
-10. **OpenAI key was exposed in chat once.** Treat as compromised — REVOKE in the OpenAI dashboard and put a fresh one in `.env` before deploy.
-
-11. **Primary users are pre-sales team.** Sales team use the output. Pre-sales operate the tool (they know which case studies are relevant, they interpret transcripts, they approve AI slides). Tool name updated to "J2W Pre-sales Engine" to reflect this.
+1. **Finalize the master template** — lock the visual design of the core/structural master slides.
+2. **Scrub client names from all case studies** — *structurally done* (every slide anonymized via `anon_client`), but do a **content audit** of challenge/solution/results text for any lingering real names or identifying details.
+3. **Strengthen tags** — richer, cleaner `keywords` per case (helps every matching path). Fold in the canonical-skills review from §5.
+4. **PERSONA as a first-class tag + matcher** — this is *partly delivered* via the profile upload (function/skills → direct match). To finish: add a **persona field/picker** in the form (e.g., QA/BA, CFO, Head of Testing) and a **persona tag on every slide**, so the engine mixes/matches by *who we're meeting* even without a profile upload.
+5. **Gap handling** — *largely delivered*: transcript/research-first; if missing, flag "asked but not present," suggest the nearest, and offer a **"Draft with AI"** button that pre-fills the creator. Remaining: the "illustrative approach" labelling from §7.
+6. **Login page** — replace the `current_salesperson()` placeholder with real team auth; put the meeting log behind it.
 
 ---
 
-## 7. What's Next (in order)
+## 7. The newest direction (owner's current top pain point): company research + better case-study matching
 
-### Priority 1 — Deploy + team login
-Unblocks almost everything else:
-- Choose hosting (internal server, cloud VM, Docker — `Dockerfile` + `docker-compose.yml` already in the folder)
-- Wire `current_salesperson()` to the real logged-in user
-- Put the whole app behind auth — deck repository and transcript input must never be public
-- Rotate the OpenAI API key into the new environment's `.env`
-- Expert routing: after an AI slide is created, notify the relevant solution lead (needs team identity from login)
+**The problem:** the case-study library may simply not contain a story the client needs.
 
-### Priority 2 — Phase-driven slide selection
-Phase (Pre-read / First Meeting / Second Meeting / Proposal) is captured but not yet used to change which slides are picked. Owner must define per-phase rules (e.g. "Pre-read = intro + overview only; Proposal = include pricing and ROI"). **Do NOT guess sales logic — wait for owner's input.**
-
-### Priority 3 — Replace mock skills data with real organised data
-`J2W_Skills_Inventory.xlsx` has placeholder/dummy aggregated data. Real data needs to go into the two aggregated sheets in the same column shape.
-
-### Priority 4 — Real J2W case-study slide template
-`case_study_full` in `templates.pptx` is a text-only placeholder. When the design team builds the real PowerPoint template, drop it into `templates.pptx` as a slide tagged `J2W_TEMPLATE: case_study_full` with the same markers. No code change needed.
-
-### Priority 5 (nice to have)
-- Per-field inline editing of "Create with AI" slides on /review page
-- Visual (pixel-perfect) slide preview — needs LibreOffice at deploy
-- Position AI-generated slides into their exact deck section (currently before closers CS07/CS08)
+**The plan, and where it stands now:**
+- **(a) Better matching so near-fit cases surface for non-obvious matches — DONE (extends the tags/persona work).** The rebuilt engine reads full case text + meaning + direct skill terms, gated by work type, industry-preferred. Real proof: on the Merck/Karthik test it went from an all-wrong batch to surfacing his actual function (procurement, GCC, contracts) and correctly flagging real estate/facilities as missing.
+- **(b) Flag gaps honestly — DONE.** "Not in our library — worth building" lists exactly the needs we can't prove, work-type-aware. It does **not** stretch a weak case to look like a match.
+- **(c) A research step between "enter context" and "build" — PARTIALLY DONE, as an upload.** Today the salesperson uploads a **deep-research brief** (from ChatGPT/Claude) and the **stakeholder profile**; the engine reads them and feeds richer signal into the matcher. What's **not** built: an **automated web-research stage** inside the tool that researches the company itself.
+- **The illustrative-approach slide — CAUTION, not fully solved.** Draft-with-AI can generate a research-informed slide for a gap, but it currently renders like an anonymized real case study. Per the owner's rule it **must be clearly distinct from a real case study and never presented as a delivered project.** Next session should add a visible "Illustrative approach — not a delivered engagement" label/band to AI-drafted slides whose scenario is invented, and keep the human-review gate (nothing research-derived goes silently into a client deck — the salesperson must verify it).
 
 ---
 
-## 8. Fragile / Non-obvious Things — Do Not Touch Without Reading This
+## 8. Future roadmap
 
-### {{MARKERS}} must be in single text runs
-`editor.set_text()` and `skills.fill_markers()` replace `{{MARKER}}` tokens by rewriting the **first run** of a paragraph and blanking the rest. If a marker is split across two runs in PowerPoint (e.g. `{{TI` then `TLE}}`), it will NOT match. Always keep each marker in one clean text run in the template.
-
-### Template slides have NO J2W_ID — intentional
-`J2W_TEMPLATE: skills` and `J2W_TEMPLATE: company_footprint` in the master, and both slides in `templates.pptx`, intentionally have no `J2W_ID`. `assembler.build_deck()` drops ALL slides without a J2W_ID — that is how templates are prevented from leaking unfilled. **Do NOT stamp template slides with `stamp_ids.py`.**
-
-### `stamp_ids.py` is insert-safe — existing IDs never renumber
-Only un-stamped slides get a new ID (`max + 1`). Safe to run after adding new slides. **Never run it against `Master_Deck_Case_Study_Portfolio.pptx`** — that would renumber everything and break all cross-references.
-
-### `_copy_slide` does NOT copy image parts
-`slide_generator._copy_slide()` deep-copies shape XML but not image part references. Picture shapes in a template become broken-image boxes in the output. This is why ALL picture shapes were removed from both skills template slides. Any new template for copying must be text/auto-shape only.
-
-### lxml elements are "falsy" when childless
-An lxml XML element with no children evaluates as `False` in Python. Always use `is None` / `is not None` when testing lxml elements — `if elem:` will wrongly skip a valid but childless element. This caused a reorder bug in `skills.build_into()` (now fixed).
-
-### Deck tray lives in localStorage, not the server
-Browser `localStorage` key `j2w_deck` holds the in-progress deck. Clearing browser storage loses the deck. No server-side session exists.
-
-### DIVIDER slides are always excluded
-7 divider slides (CS09, CS14, CS17, CS20, CS21, CS35, CS45) are section headers. `matcher.py` always excludes them from every deck.
-
-### Leader slides CS61/CS62 are never auto-picked
-Surfaced as suggestions only. Salesperson can add them manually.
-
-### Meeting log overwrites for the same client+phase
-Second deck for "Acme Bank / First Meeting" replaces the first JSON. Only the latest is kept. Owner's explicit choice.
-
-### The "Don't Break" list
-- `WORKING_COPY_Master_Deck.pptx` — back up before any Accept-path testing
-- `staging/staging.json` — append-only history; don't truncate it
-- The `·` separator in the keywords column — do not replace with regular periods
-- `assembler._atomic_save()` — do not revert to direct `prs.save()` (corrupts files if PowerPoint has them open)
-- `PIN_TO_END` slides: CS07 ("Next steps") and CS08 ("Let's win together") always go last; AI slides insert before them
-- "Create with AI" JS reads `ca-topic`, `ca-problem`, `ca-solution`, `ca-results`, `ca-industry` — these IDs must match the HTML form field IDs in `BUILD_BODY`
+- **Claude API deep research** in the gap area (automated, cited company research feeding the matcher). Note: Anthropic has **no embeddings endpoint** — embeddings would stay on OpenAI `text-embedding-3-small` (or Voyage); only the reasoning/research calls would move to Claude.
+- **Profile input → research** (auto-research the named stakeholder + company).
+- **Email / Outlook integration** to auto-fetch meeting transcripts/threads instead of pasting.
+- **Expand beyond decks** — proposals, RFQ, RFP responses, retros.
 
 ---
 
-## 9. How to Run Locally
+## 9. Fragile / non-obvious — gotchas and "do not touch"
 
-```
-py app.py
-```
-Serves at **http://127.0.0.1:5000**. Python 3.12 via the `py` launcher.
+- **No auto-reload.** Kill port 5000 and re-run `py app.py` after any code change, or you're testing stale code.
+- **`create_case_study_template.py` has a shebang → run with `py -3`** (bare `py` hits the Windows Store alias). **`create_skills_templates.py` has no shebang → run with `py`.**
+- **`_copy_slide` copies shape XML but NOT image parts.** Any template meant for copying (case_study_v2, skills templates) must be **text/auto-shape only** — pictures become broken references. This is why the skills templates have no images.
+- **Marker filling keeps only the first run's formatting** per paragraph — keep each `{{MARKER}}` in its own run/box.
+- **`case_embeddings.json` must be rebuilt when case text changes** — `py build_case_embeddings.py`. If you edit the store and forget, meaning-match silently drifts.
+- **Every `/build` makes ~4–5 OpenAI calls** (transcript embed, extract accelerators, extract profile, 2 coverage embeds, explain_fit). Needs `OPENAI_API_KEY`; each AI step **fails safe** (falls back to lexical/no-list) if the key is missing. Cost ≈ $0.002/build.
+- **`eval_ericsson.py` under-reports now** — it bypasses the app's need-extraction. Judge quality from the real `/build` page, not the scorecard number.
+- **Legacy master case slides (`CSxx`, `kind == CASE_STUDY`, ~105 of them) are stale duplicates** of the store cases (old template). They are filtered out of the add-slide picker (`app._legacy_case_ids()`); every case study now renders in `case_study_v2`. **Do not** re-add them to the picker or re-stamp IDs from `Master_Deck_Case_Study_Portfolio.pptx`.
+- **`WORKING_COPY_Master_Deck.pptx` is the living master.** Back it up before testing anything that writes to it (the old AI-accept/promote path grew the master).
+- **Skills inventory "Consultant Detail" sheet has individual names — NEVER read it.**
+- **OpenAI key was exposed in chat — rotate before deploy.** Key lives only in `.env` (git-ignored); never hardcode it.
+- **Vestigial / dead — do not revive without reason:** `/download` route, `_maybe_generate()`, the red "verification banner" in `slide_generator`, `slide_generator.draft()` (legacy gap path), `renderer.py`, `ai_fallback.py`, `FORM_HTML`, and `ai_matcher.refine()`/`extract_asks()`.
+- **Tuning knobs** (if matching feels off): `relevance.MAIL_WEIGHT` (research vs mail), `W_TITLE`, `CROSS_INDUSTRY_MIN`, `DEDUP_GATE/DEDUP_WEIGHT`, `app.COVERAGE_THRESHOLD` (covered vs missing), `matcher.pick_cap` (deck size). Extraction is slightly non-deterministic run-to-run — expect minor churn on borderline picks.
 
-**No auto-reload.** After ANY code change: kill the process, run `py app.py` again, then refresh the browser.
+---
 
-Kill the server: press **Ctrl+C** in the terminal, or Task Manager → find Python → End task.
+## 10. How to resume
 
-`.env` file must exist in the project folder:
-```
-OPENAI_API_KEY=sk-...
-```
+1. `py app.py` → open http://127.0.0.1:5000.
+2. Try a real meeting: fill the form, attach a **research PDF** and/or **stakeholder profile**, and watch the "Why this deck matches" + "Not in our library" sections.
+3. If you change case text: `py build_case_study_store.py` then `py build_case_embeddings.py`.
+4. Read `BUILD_LOG.txt` (bottom entries) for the exact reasoning behind the current matching behaviour.
 
-Installed packages (no reinstall needed for local dev): `flask`, `python-pptx`, `openpyxl`, `openai`.
-
-### Quick smoke-test after a change (no browser needed)
-```python
-from app import app
-c = app.test_client()
-r = c.post('/build', data={
-    'client_name': 'Test', 'industry': 'BANKING',
-    'phase': 'First Meeting', 'work_types': 'WORKFORCE', 'functions': 'HR'
-})
-print(r.status_code)  # should be 200
-```
+**Immediate next steps (owner's priorities):** (1) add the "illustrative approach" label to AI-drafted gap slides (§7); (2) persona as a form field + per-slide tag (§6.4); (3) login page + put the meeting log behind it (§6.6).

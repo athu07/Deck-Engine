@@ -1,0 +1,30 @@
+{
+  "name": "J2W_10x_PR",
+  "client": "10x",
+  "industry": "ENERGY",
+  "functions": [],
+  "work_types": [
+    "MS"
+  ],
+  "phase": "Pre-read",
+  "phase_code": "PR",
+  "recipient": "Head of energy",
+  "salesperson": "[NOT LOGGED IN - wire to login at deploy]",
+  "generated_at": "2026-07-02 12:10:41",
+  "slide_ids": [
+    "CS01",
+    "CS02",
+    "CS03",
+    "CS04",
+    "CS05",
+    "CS06",
+    "CS18",
+    "CS19",
+    "MSS005",
+    "MSS053",
+    "CS07",
+    "CS08",
+    "MSS075"
+  ],
+  "deck_file": "Tailored_Deck_10x.pptx"
+}

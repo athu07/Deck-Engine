@@ -33,6 +33,25 @@ def _load():
     return _cache
 
 
+def _search_text(rec):
+    """The full body of a case, for content-based matching — not just the terse
+    keyword tags. Titles + keywords are repeated so they weigh a little heavier."""
+    caps = " ".join((c.get("title", "") + " " + c.get("body", ""))
+                    for c in (rec.get("capabilities") or []))
+    kws = " ".join(rec.get("keywords") or [])
+    title = rec.get("title", "")
+    parts = [
+        title, title,                       # title twice (light emphasis)
+        rec.get("domain", ""),
+        kws,
+        rec.get("challenge", ""),
+        rec.get("solution", ""),
+        caps,
+        " ".join(rec.get("results") or []),
+    ]
+    return " ".join(p for p in parts if p)
+
+
 def _as_row(rec):
     """Reshape a store record into the row dict matcher/personas read."""
     kws = rec.get("keywords") or []
@@ -43,6 +62,7 @@ def _as_row(rec):
         "primary_industry": rec.get("industry") or "",
         "primary_function": rec.get("function") or "",
         "work_types":       rec.get("work_type") or "",
+        "search_text":      _search_text(rec),   # full body for content matching
         "_record":          rec,
     }
 
@@ -55,6 +75,17 @@ def candidate_rows(wanted):
         wt = (rec.get("work_type") or "").upper()
         if wt in want:
             out.setdefault(wt, []).append(_as_row(rec))
+    return out
+
+
+def all_rows():
+    """Every case as a matcher-shaped row, keyed by work type — NO work-type gate.
+    The rebuilt matcher scores across all cases and treats the salesperson's
+    work-type selection as a boost, not a filter."""
+    out = {}
+    for rec in _load():
+        wt = (rec.get("work_type") or "").upper()
+        out.setdefault(wt, []).append(_as_row(rec))
     return out
 
 
