@@ -714,7 +714,7 @@ BUILD_BODY = """
           {% if r.tier %}<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:#fff;background:#3A8B82;border-radius:4px;padding:2px 6px;margin-top:1px">{{ r.tier }}</span>{% endif %}
           <span><b>{{ r.id }} · {{ r.title }}</b>
             {% if r.fit %}<br><span style="font-size:13px;color:#3E3E3E">{{ r.fit }}</span>{% endif %}
-            <br><span class="hint" style="font-size:12px">{{ r.why }}</span></span>
+            {% if r.why %}<br><span class="hint" style="font-size:12px">{{ r.why }}</span>{% endif %}</span>
         </li>
         {% endfor %}
       </ul>
@@ -1569,14 +1569,26 @@ def build():
                   "why": _why(p["reason"]), "tier": _tier(p["reason"])}
                  for p in result["picks"] if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
 
-    # a stakeholder-specific "why this resonates with THEM" line per case (AI),
-    # grounded in WHO they are — the profile + their function/skills + the notes
+    # a stakeholder-specific "why this resonates with THEM" line per case (AI).
+    # We ALWAYS give it the account context (client/industry/role/work type) so a
+    # reason is written for EVERY case even with no notes/research/profile; the
+    # profile, extracted focus areas and notes enrich it when present.
+    account_bits = [
+        "CLIENT: " + (ctx.get("client_name") or "the client"),
+        "INDUSTRY: " + (ctx.get("industry") or "unspecified"),
+        "WORK TYPES: " + (", ".join(ctx.get("work_types") or []) or "unspecified"),
+    ]
+    if ctx.get("functions"):
+        account_bits.append("FUNCTIONS: " + ", ".join(ctx["functions"]))
+    if ctx.get("recipient"):
+        account_bits.append("STAKEHOLDER ROLE: " + ctx["recipient"])
     person_ctx = "\n\n".join(x for x in [
+        "ACCOUNT:\n" + "\n".join(account_bits),
         ("STAKEHOLDER PROFILE:\n" + profile_text[:4000]) if profile_text else "",
         ("THEIR FUNCTION/SKILLS: " + ", ".join(n["name"] for n in profile_needs)) if profile_needs else "",
         ("MEETING NOTES:\n" + match_notes[:3000]) if match_notes.strip() else "",
     ] if x)
-    if rationale and person_ctx.strip():
+    if rationale:
         _rec = {r["id"]: r for r in case_library._load()}
         picks_for_ai = [{"id": r["id"], "title": r["title"],
                          "blurb": (_rec.get(r["id"], {}).get("challenge", "") or "")[:160]}
@@ -1585,9 +1597,13 @@ def build():
             fit = ai_matcher.explain_fit(person_ctx, ctx.get("recipient", ""), picks_for_ai)
         except Exception:
             fit = {}
+        # bare, low-signal fallbacks the AI sentence should replace outright
+        _bare = ("same industry", "related", "related to your notes")
         for r in rationale:
             if fit.get(r["id"]):
                 r["fit"] = fit[r["id"]]
+                if r.get("why", "").strip().lower() in _bare:
+                    r["why"] = ""      # AI sentence carries it; hide the bare fallback
 
     # (priority picks + `missing` were computed before planning, above)
     body = render_template_string(BUILD_BODY, ctx=ctx, picks=result["picks"],

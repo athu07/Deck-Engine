@@ -1513,3 +1513,26 @@ Karthik-specific why; Corporate Real Estate + Facilities flagged missing. Matche
 Research path still sizes fine (Schneider MS+all = 5 matched cases).
 NOTE: eval_ericsson.py now under-reports (it calls matcher.plan directly, bypassing
 the app's need-extraction/priority_ids) — the real /build path is representative.
+
+--- 2026-07-02  "Why this deck matches" now has AI reasoning on EVERY case ---
+Owner: the reasoning lines disappeared (cases just showed the bare "same industry"
+fallback with no AI sentence). ROOT CAUSE (not a bug/dead key — the key works): the
+AI "why this fits THEM" sentence (ai_matcher.explain_fit) only ran when a research
+file / stakeholder profile / typed notes were attached; a bare form build had no
+context, so it fell back to industry-only matching ("same industry") with no sentence.
+FIX (owner ask: AI reasoning on every case, no fallback text):
+  - app.py: the AI reason is now ALWAYS given the ACCOUNT context (client, industry,
+    work types, functions, recipient), so a real reason is written for every case even
+    with zero notes/research/profile. explain_fit is now always called for case picks.
+  - ai_matcher.explain_fit: reworked to reason from that account context (not just
+    notes) and to return a line for EVERY case; when context is thin it explains why
+    the case's topic matters to a buyer in this industry/role. Guard relaxed
+    (only returns {} if there are no picks at all).
+  - The bare grey "same industry" line is hidden once a real AI sentence replaces it;
+    the meaningful grey line (research match / notes: ...) is KEPT for research matches.
+    If the AI call ever truly fails, the row keeps its old metadata so it's never blank.
+VERIFIED end-to-end via test_client: bare Healthcare/Workforce build -> 3 case studies
+each with an AI sentence, 0 "same industry"; build WITH notes -> AI sentence + the
+"research match/notes" grey line retained, 0 "same industry".
+NOTE: every /build now makes the explain_fit AI call even with no notes (was skipped
+before) — one small extra gpt-4o-mini call per build; fails safe if the key is down.

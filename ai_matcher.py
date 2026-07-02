@@ -91,22 +91,29 @@ def refine(transcript, candidates_by_wt, optional_slides, top_n=3):
 
 
 def explain_fit(notes, recipient, picks):
-    """One short 'why this resonates with THIS person' line per picked case,
-    grounded in the stakeholder's role + the meeting notes.
+    """One short AI 'why this case fits THIS account' line per picked case.
+
+    Writes a reason for EVERY case, always — grounded in the account context
+    (client/industry/role/work type) that the caller always supplies, plus any
+    meeting notes / research / profile when present. When context is thin, it
+    explains why the case's topic matters to a buyer in this industry/role, so a
+    real reason is produced even for an industry-only match (no bare fallback).
 
     picks : [{"id","title","blurb"}]  (blurb = a line of the case's challenge)
     Returns {id: reason}. Fails safe to {} (caller keeps its own reasons)."""
-    if not picks or not (notes or "").strip():
+    if not picks:
         return {}
     lines = "\n".join(f"  {p['id']}: {p['title']} — {p.get('blurb','')}" for p in picks)
     who = recipient.strip() or "the stakeholder"
     prompt = (
         f"You are prepping a J2W sales meeting with {who}.\n"
-        "Meeting notes + research brief:\n\"\"\"\n" + notes[:8000] + "\n\"\"\"\n\n"
-        "For EACH case study below, write ONE short line (max ~20 words) on why it "
-        f"would resonate with {who} specifically — tie it to THEIR role, remit, or a "
-        "priority in the notes. Do NOT invent case facts or numbers; frame in their "
-        "language.\n"
+        "About this account (context may be brief):\n\"\"\"\n" + (notes or "")[:8000] + "\n\"\"\"\n\n"
+        "For EVERY case study below, write ONE short line (max ~20 words) on why it "
+        f"is relevant to {who} / this account — tie it to their role, industry, or a "
+        "priority above. If the context is sparse, explain why this proof point "
+        "matters to a buyer in this industry/role, using the case's own topic. Always "
+        "return a line for every id; never leave one blank or generic. Do NOT invent "
+        "case facts or numbers; frame it in their language.\n"
         "CASE STUDIES:\n" + lines + "\n\n"
         'Return ONLY JSON mapping id -> reason: {"AIP001": "...", "MSS002": "..."}'
     )
