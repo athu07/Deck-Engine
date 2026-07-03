@@ -1,0 +1,12 @@
+
+<div style="max-width:560px;margin:40px auto;text-align:center">
+  <div style="width:74px;height:74px;border-radius:50%;background:#e8f3f1;display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+    <i class="ti ti-circle-check" style="font-size:42px;color:#2C6E66"></i>
+  </div>
+  <div class="eyebrow">Done</div>
+  <h1 class="display" style="font-size:34px">Your deck is ready{% if client %}, for {{ client }}{% endif %}</h1>
+  <p class="lede" style="margin:8px 0 22px">{{ count }} slides assembled. Click the button below to download your deck.</p>
+  <a class="btn btn-primary btn-lg" href="/output/{{ filename }}?dl=1"><i class="ti ti-download"></i> Download .pptx</a>
+  <a class="btn btn-lg" href="/new" style="margin-left:8px"><i class="ti ti-plus"></i> Build another</a>
+  <p class="hint" style="font-size:12px;margin-top:18px">If a file of the same name is open in PowerPoint, close it first, then click Download.</p>
+</div>

@@ -1,0 +1,32 @@
+
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css">
+</head><body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo"><i class="ti ti-stack-2"></i></div>
+    <a class="nav-btn {{ 'active' if active=='new' else '' }}" href="/"><i class="ti ti-sparkles"></i><span class="nav-tip">New deck</span></a>
+    <a class="nav-btn {{ 'active' if active=='library' else '' }}" href="/library"><i class="ti ti-books"></i><span class="nav-tip">Slide library</span></a>
+    <a class="nav-btn {{ 'active' if active=='templates' else '' }}" href="/templates"><i class="ti ti-template"></i><span class="nav-tip">Templates</span></a>
+    <a class="nav-btn {{ 'active' if active=='staging' else '' }}" href="/staging"><i class="ti ti-checkup-list"></i><span class="nav-tip">AI history</span></a>
+    <a class="nav-btn {{ 'active' if active=='meetings' else '' }}" href="/meetings"><i class="ti ti-history"></i><span class="nav-tip">Deck repository</span></a>
+    <div class="nav-sp"></div>
+    <a class="nav-btn {{ 'active' if active=='home' else '' }}" href="/dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-tip">Dashboard</span></a>
+    <a class="nav-btn" href="#"><i class="ti ti-settings"></i><span class="nav-tip">Settings</span></a>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><i class="ti ti-folder"></i> {{ crumb|safe }}</div>
+      {% if tabs %}<div class="tabs">{% for t in tabs %}<span class="tab {{ 'active' if loop.first else '' }}">{{ t }}</span>{% endfor %}</div>{% endif %}
+      <div class="top-sp"></div>
+      <button class="icon-btn" aria-label="Search"><i class="ti ti-search"></i></button>
+      <button class="icon-btn" aria-label="Adjust"><i class="ti ti-adjustments-horizontal"></i></button>
+      <div class="avatars"><span class="av">AT</span><span class="av" style="background:#dfe7e5">J2W</span></div>
+    </header>
+    <main class="page">{{ body|safe }}</main>
+  </div>
+</div>
+</body></html>

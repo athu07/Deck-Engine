@@ -1,0 +1,29 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Templates</div>
+  <h1 class="display" style="font-size:38px">Slide templates</h1>
+  <p class="lede">When a slide is missing, AI writes the content and the engine pours it into one of these templates by replacing markers. Pluggable — add or swap anytime, no code change.</p>
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+  {% for t in items %}
+  <div class="card">
+    <div class="lib-head"><span class="sid">{{ t.name }}</span>
+      <span class="chip flat">{{ t.status }}</span></div>
+    <div class="lib-title" style="margin-bottom:10px">For {{ t.name.replace('_',' ') }} slides</div>
+    <p class="hint" style="font-size:12px;margin:0 0 9px">Marker tokens it fills</p>
+    <div class="kw">{% for m in t.markers %}<span>{{ m }}</span>{% endfor %}{% if not t.markers %}<span>none found</span>{% endif %}</div>
+  </div>
+  {% endfor %}
+  {% if not items %}<div class="lib-empty">No templates found.</div>{% endif %}
+</div>
+
+<div class="section card card-dark">
+  <h2 class="sec-title" style="color:#fff;margin-bottom:18px">Add or swap a template</h2>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Design the slide</b>Build it in PowerPoint with the real J2W look.</div></div>
+    <div class="step"><div class="n">2</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Add markers</b>Place {{ '{{TITLE}}' }}, {{ '{{KEYWORDS}}' }} and {{ '{{BULLETS}}' }} where text should flow in.</div></div>
+    <div class="step"><div class="n">3</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Tag it</b>In the slide's notes add a line: J2W_TEMPLATE: case_study</div></div>
+    <div class="step"><div class="n">4</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Drop into templates.pptx</b>The engine picks it up automatically — no code change.</div></div>
+  </div>
+</div>

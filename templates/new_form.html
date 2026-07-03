@@ -1,0 +1,84 @@
+
+<div style="margin:14px 0 24px">
+  <div class="eyebrow">New deck</div>
+  <h1 class="display" style="font-size:38px">Tell us about the client</h1>
+  <p class="lede">Fill in the context. The engine picks the right slides, flags gaps, and you refine before download.</p>
+</div>
+{% if error %}<div class="card" style="border-left:4px solid #c0392b;margin-bottom:18px;color:#c0392b"><b>{{ error }}</b></div>{% endif %}
+<form id="deckForm" method="post" action="/build" class="form-layout" enctype="multipart/form-data">
+  <div>
+    <div class="card" style="margin-bottom:18px">
+      <h2 class="sec-title" style="margin-bottom:18px">Client &amp; focus</h2>
+      <div class="fgrid">
+        <div class="field"><label>Client name</label>
+          <input class="input" name="client_name" placeholder="Acme Bank" required></div>
+        <div class="field"><label>Industry</label>
+          <select name="industry" required><option value="">Select…</option>{% for i in industries %}<option>{{ i }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Deck phase</label>
+          <select name="phase" required><option value="">Select…</option>{% for p in phases %}<option>{{ p }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Recipient / stakeholder <span class="hint">— optional</span></label>
+          <input class="input" name="recipient" placeholder="Head of Engineering"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <h2 class="sec-title" style="margin-bottom:6px">Work type</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Pick one or more — each pulls in its standard slides plus matching case studies.</p>
+      <div class="chip-row">
+        <label class="chip-toggle"><input type="checkbox" name="work_types" value="WORKFORCE"><i class="ti ti-users"></i> Workforce</label>
+        <label class="chip-toggle"><input type="checkbox" name="work_types" value="AI_POD"><i class="ti ti-cpu"></i> AI Pods</label>
+        <label class="chip-toggle"><input type="checkbox" name="work_types" value="MS"><i class="ti ti-settings-cog"></i> Managed services</label>
+      </div>
+      <p id="wt-warn" class="hint" style="display:none;color:#c0392b;margin-top:10px">Please select at least one work type.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <h2 class="sec-title" style="margin-bottom:6px">Function</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Pick one or more — or choose <b>Any function</b> if it's not function-specific.</p>
+      <div class="chip-row" id="fn-chips">
+        <button type="button" id="fn-any" class="chip-toggle" onclick="toggleAnyFn()"><i class="ti ti-asterisk"></i> Any function</button>
+        {% for f in functions %}<label class="chip-toggle fn-chip"><input type="checkbox" name="functions" value="{{ f }}" onchange="fnChanged()"> {{ f.replace('_',' ')|title }}</label>{% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec-title" style="margin-bottom:6px">Give me more information</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">Paste anything useful — a meeting transcript, minutes (MOM), client or company research, notes. The AI reads it to pick the most relevant slides and write any that are missing.</p>
+      <textarea name="transcript" placeholder="Paste transcript, MOM, research, or notes about the client and what they need…"></textarea>
+      <div style="margin-top:14px;border-top:1px dashed #d7d7d3;padding-top:14px">
+        <label style="font-size:13px;font-weight:500;color:#3E3E3E;display:block;margin-bottom:4px">
+          <i class="ti ti-file-search"></i> Attach a deep-research file <span class="hint">— optional (PDF or text)</span></label>
+        <p class="hint" style="font-size:12px;margin:0 0 8px">Have a research brief from ChatGPT/Claude? Attach it — the engine reads it along with the notes to match capabilities and flag what we don't have a case for. Stays on your machine.</p>
+        <input type="file" name="research_file" accept=".pdf,.txt,.md" style="font-size:13px">
+      </div>
+      <div style="margin-top:14px">
+        <label style="font-size:13px;font-weight:500;color:#3E3E3E;display:block;margin-bottom:4px">
+          <i class="ti ti-user-search"></i> Attach the stakeholder's profile <span class="hint">— optional (LinkedIn PDF / bio)</span></label>
+        <p class="hint" style="font-size:12px;margin:0 0 8px">Meeting a specific person? Attach their profile — the engine reads their function, skills and current-role mandate and matches case studies to what they actually do.</p>
+        <input type="file" name="profile_file" accept=".pdf,.txt,.md" style="font-size:13px">
+      </div>
+    </div>
+  </div>
+
+  <aside class="side-card">
+    <div class="card">
+      <h2 class="sec-title" style="margin-bottom:16px">How it works</h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><div class="st"><b>Match</b>Right slides picked from {{ library_count }} in the library</div></div>
+        <div class="step"><div class="n">2</div><div class="st"><b>Fill gaps</b>Any missing slide is written by AI on the fly</div></div>
+        <div class="step"><div class="n">3</div><div class="st"><b>Ship</b>Preview, refine the text, download the .pptx</div></div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:22px"><i class="ti ti-wand"></i> Generate deck</button>
+      <a href="/library" class="hint" style="display:block;text-align:center;margin-top:14px;font-size:13px">Browse the library →</a>
+    </div>
+  </aside>
+</form>
+
+<div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:#2C6E66;border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div style="font-family:'Space Grotesk',Inter,sans-serif;font-weight:700;font-size:18px;color:#111110">Generating your deck…</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:5px">The AI is matching the right slides — a few seconds.</div>
+  </div>
+</div>
+<script src="/static/js/new-form.js"></script>

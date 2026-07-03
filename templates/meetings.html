@@ -1,0 +1,56 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Deck repository</div>
+  <h1 class="display" style="font-size:38px">All created decks</h1>
+  <p class="lede">Find a previously generated deck. Filter by industry, work type and phase — newest first. Everyone on the team sees all decks.</p>
+</div>
+
+<form method="get" action="/meetings" class="card" style="margin-bottom:20px">
+  <div class="fgrid">
+    <div class="field"><label>Industry</label>
+      <select name="industry"><option value="">Any</option>
+        {% for i in industries %}<option {{ 'selected' if f_ind==i else '' }}>{{ i }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>Work type</label>
+      <select name="work_type"><option value="">Any</option>
+        {% for w in work_types %}<option value="{{ w }}" {{ 'selected' if f_wt==w else '' }}>{{ wt_labels.get(w, w) }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label>Phase</label>
+      <select name="phase"><option value="">Any</option>
+        {% for p in phases %}<option {{ 'selected' if f_phase==p else '' }}>{{ p }}</option>{% endfor %}
+      </select></div>
+    <div class="field" style="display:flex;align-items:flex-end;gap:10px">
+      <button class="btn btn-primary" type="submit"><i class="ti ti-search"></i> Search</button>
+      <a class="btn" href="/meetings">Clear</a>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="section-head" style="margin-bottom:14px">
+    <h2 class="sec-title">Results</h2><span class="tag">{{ total }} meeting{{ '' if total==1 else 's' }}</span>
+  </div>
+  {% if rows %}
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e6e6e3">
+      <th style="padding:8px 10px">Client</th><th style="padding:8px 10px">Salesperson</th>
+      <th style="padding:8px 10px">Recipient</th><th style="padding:8px 10px">Date</th>
+      <th style="padding:8px 10px">Phase</th><th style="padding:8px 10px">Deck</th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr style="border-bottom:1px solid #f0f0ee">
+        <td style="padding:9px 10px"><b>{{ r.client }}</b><div class="hint" style="font-size:12px">{{ r.industry or '—' }}</div></td>
+        <td style="padding:9px 10px">{{ r.salesperson }}</td>
+        <td style="padding:9px 10px">{{ r.recipient or '—' }}</td>
+        <td style="padding:9px 10px;white-space:nowrap">{{ r.generated_at }}</td>
+        <td style="padding:9px 10px"><span class="chip flat">{{ r.phase or '—' }}</span></td>
+        <td style="padding:9px 10px"><a href="/output/{{ r.deck_file }}">{{ r.deck_file }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted" style="margin:0">No matching decks yet. Generate a deck and it will appear here automatically.</p>
+  {% endif %}
+</div>

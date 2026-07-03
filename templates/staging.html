@@ -1,0 +1,33 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">AI history</div>
+  <h1 class="display" style="font-size:38px">AI-written slides</h1>
+  <p class="lede">A read-only record of every slide AI has written to fill a gap. You accept or reject each one on the <b>Review &amp; edit</b> step while building a deck — <b>Accepted</b> slides join the master library (client-ready); <b>Rejected</b> ones are dropped. This page is just the log.</p>
+</div>
+
+{% if items %}
+<div class="card"><div class="list">
+  {% for s in items %}
+  <div class="row">
+    <div class="ic">
+      {% if s.status == 'approved' %}<i class="ti ti-check" style="color:#2C6E66"></i>
+      {% elif s.status == 'discarded' %}<i class="ti ti-x" style="color:#c0392b"></i>
+      {% else %}<i class="ti ti-clock" style="color:#9aa0a6"></i>{% endif %}
+    </div>
+    <div class="main">
+      <div class="t">{{ s.title }}</div>
+      <div class="s">
+        {% if s.status == 'approved' %}<b style="color:#2C6E66">Accepted</b> · now {{ s.promoted_id or 'in library' }}
+        {% elif s.status == 'discarded' %}<b style="color:#c0392b">Rejected</b>
+        {% else %}<b style="color:#9aa0a6">Not yet decided</b>{% endif %}
+        · {{ s.work_type }} · {{ s.industry or 'any industry' }}
+        {% if s.for_client %} · for {{ s.for_client }}{% endif %}
+        {% if s.created_at %} · {{ s.created_at }}{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div></div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">Nothing yet. When AI writes a slide to fill a gap, it's logged here after you accept or reject it on the Review step.</p></div>
+{% endif %}

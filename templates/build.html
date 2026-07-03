@@ -1,0 +1,208 @@
+
+<div style="margin:14px 0 18px">
+  <div class="eyebrow">Suggested deck</div>
+  <h1 class="display" style="font-size:38px">Deck for <span id="deck-client">{{ ctx.client_name }}</span></h1>
+  <div class="ctx-chips">
+    {% if ctx.industry %}<span class="ctx-chip">Industry <b>{{ ctx.industry }}</b></span>{% endif %}
+    {% if ctx.work_types %}<span class="ctx-chip">Work <b>{{ ', '.join(ctx.work_types) }}</b></span>{% endif %}
+    {% if ctx.functions %}<span class="ctx-chip">Function <b>{{ ', '.join(ctx.functions) }}</b></span>{% endif %}
+    {% if persona_labels %}<span class="ctx-chip">Persona <b>{{ ', '.join(persona_labels) }}</b></span>{% endif %}
+    {% if ai_used %}<span class="ai-badge"><i class="ti ti-sparkles"></i> AI-refined from your info</span>{% endif %}
+  </div>
+</div>
+
+<form method="post" action="/review" onsubmit="syncOrder();var l=document.getElementById('loader');if(l)l.style.display='flex'" class="form-layout">
+  <div>
+    <div class="card">
+      <div class="section-head"><h2 class="sec-title">Slides <span class="hint" style="font-size:14px;font-weight:400">— drag to reorder</span></h2>
+        <span class="tag" id="count-tag">{{ picks|length }} slides</span></div>
+      <ul id="list" class="slide-list">
+        {% for p in picks %}
+        <li class="slide-item" draggable="true" data-id="{{ p.slide_id }}">
+          <span class="grip"><i class="ti ti-grip-vertical"></i></span>
+          <span class="pos"></span>
+          <span class="sid" {% if p.skill %}style="background:#2C6E66;color:#fff"{% endif %}>{{ p.tag if p.skill else p.slide_id }}</span>
+          <div class="s-main">
+            <div class="s-title">{{ p.label if p.skill else titles.get(p.slide_id, '') }}</div>
+            <div class="s-reason {{ 'is-weak' if 'WEAK' in p.reason else '' }}" {% if p.skill and 'stale' in p.reason %}style="color:#c0392b;font-weight:600"{% endif %}>{{ p.reason }}</div>
+          </div>
+          <div class="s-actions">
+            <button type="button" class="mini" onclick="move(this,-1)" aria-label="up"><i class="ti ti-chevron-up"></i></button>
+            <button type="button" class="mini" onclick="move(this,1)" aria-label="down"><i class="ti ti-chevron-down"></i></button>
+            <button type="button" class="mini rm" onclick="removeRow(this)" aria-label="remove"><i class="ti ti-x"></i></button>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <div id="resume-empty" style="display:none;color:#6b7280;padding:6px 2px">No deck in progress yet. <a href="/new">Start a new deck</a>, or browse the <a href="/library">library</a> and add slides.</div>
+      <div class="addbar" style="flex-wrap:wrap">
+        <input id="addsearch" type="text" oninput="filterAdd(this.value)"
+               placeholder="🔍 Search a case study by name or ID (CS…, AIP…, WFS…, MSS…)"
+               style="flex:1 1 100%;padding:8px 10px;font-size:14px;border:1px solid #d7d7d3;border-radius:8px;margin-bottom:8px">
+        <select id="addsel" style="flex:1 1 auto">
+          <optgroup label="Master deck slides">
+          {% for sid, t in all_slides %}<option value="{{ sid }}">{{ sid }} — {{ t }}</option>{% endfor %}
+          </optgroup>
+          {% if case_lib %}<optgroup label="Case library — new branded case studies">
+          {% for c in case_lib %}<option value="{{ c.id }}">{{ c.id }} · {{ c.title }}{% if c.domain %} ({{ c.domain }}){% endif %}</option>{% endfor %}
+          </optgroup>{% endif %}
+        </select>
+        <button type="button" class="btn" onclick="addSlide()"><i class="ti ti-plus"></i> Add slide</button>
+      </div>
+      <div id="addsearch-none" class="hint" style="display:none;font-size:13px;color:#c0392b;margin-top:4px">No case study matches that search.</div>
+    </div>
+
+    {% if research_failed %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
+      <b>⚠ Couldn't read text from your research file.</b> It may be a scanned/image PDF. The deck was matched on your typed notes only — paste the key points into the notes box to include them.
+    </div>
+    {% endif %}
+
+    {% if rationale %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #3A8B82">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-list-check"></i> Why this deck matches{% if research_read %} <span class="hint" style="font-size:13px;font-weight:400">· read your research file too</span>{% endif %}</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">How each case study was chosen from your notes{% if research_read %} + research{% endif %}. Tier: T1 role + industry · T2 role fit · T3 industry · T4 topic only.</p>
+      <ul style="list-style:none;padding:0;margin:0">
+        {% for r in rationale %}
+        <li style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f0efec">
+          {% if r.tier %}<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:#fff;background:#3A8B82;border-radius:4px;padding:2px 6px;margin-top:1px">{{ r.tier }}</span>{% endif %}
+          <span><b>{{ r.id }} · {{ r.title }}</b>
+            {% if r.fit %}<br><span style="font-size:13px;color:#3E3E3E">{{ r.fit }}</span>{% endif %}
+            {% if r.why %}<br><span class="hint" style="font-size:12px">{{ r.why }}</span>{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if missing %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #C02026">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-bulb"></i> Not in our library — worth building <span class="hint" style="font-size:14px;font-weight:400">— {{ missing|length }}</span></h2>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">The account needs these, but we have no case study yet. Click <b>Draft with AI</b> to pre-fill the creator below.</p>
+      {% for m in missing %}
+      <div style="background:#fdf2f2;border:1px solid #f2d2d2;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div><b>{{ m.name }}</b><br><span class="hint" style="font-size:13px">{{ m.description }}</span></div>
+          <button type="button" class="btn" style="flex:0 0 auto;white-space:nowrap" onclick="prefillAI({{ m.name|tojson }}, {{ m.description|tojson }})"><i class="ti ti-wand"></i> Draft with AI</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if gaps %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27">
+      <h2 class="sec-title">Heads-up — not in this deck <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Flagged so you're aware. If you want a slide for any of these, use <b>Create a slide with AI</b> below, or add one from the panel.</p>
+      {% for g in gaps %}
+      {% if g.type == 'missing_capability' %}
+      <div class="gap-row" style="display:flex;align-items:flex-start;gap:8px;background:#fff8f0;border:1px solid #f0d9bf;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <i class="ti ti-alert-triangle" style="color:#c47d27;margin-top:2px"></i>
+        <span class="gap-text"><b>Asked but not in the deck:</b> {{ g.detail }}</span>
+      </div>
+      {% else %}
+      <div class="gap-row" style="display:flex;align-items:flex-start;gap:8px;padding:6px 2px;margin-bottom:4px">
+        <i class="ti ti-info-circle" style="color:#6E6E69;margin-top:2px"></i>
+        <span class="gap-text">{{ g.detail }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card" id="ai-create" style="margin-top:18px;border-left:4px solid #2C6E66">
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Fill in what you know — the AI writes it in J2W's strict format (6 capabilities · 3 results), self-checks it, and shows it here before you add it.</p>
+      <div class="fgrid" style="gap:12px;margin-bottom:10px">
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Topic / Use case <span style="color:#C2503C">*</span></label>
+          <input class="input" id="ca-topic" placeholder="e.g. Fraud detection for a retail bank" style="font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Industry <span style="color:#9C9C97;font-weight:400">(pre-filled)</span></label>
+          <input class="input" id="ca-industry" placeholder="e.g. Banking" style="font-size:13px">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Problem / Challenge <span style="color:#C2503C">*</span></label>
+        <textarea id="ca-problem" style="width:100%;min-height:54px;font-size:13px" placeholder="What was the client's core challenge?"></textarea>
+      </div>
+      <div class="fgrid" style="gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Solution <span style="color:#9C9C97;font-weight:400">(optional)</span></label>
+          <textarea id="ca-solution" style="width:100%;min-height:54px;font-size:13px" placeholder="What did J2W deploy or deliver?"></textarea>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Results <span style="color:#9C9C97;font-weight:400">(optional)</span></label>
+          <textarea id="ca-results" style="width:100%;min-height:54px;font-size:13px" placeholder="Key outcomes — numbers if you have them."></textarea>
+        </div>
+      </div>
+      <button type="button" id="ca-genbtn" class="btn btn-primary" onclick="createAI(this)"><i class="ti ti-wand"></i> Generate</button>
+      <div id="ca-loader" style="display:none;margin-top:12px">
+        <div style="height:4px;background:#e0ece9;border-radius:99px;overflow:hidden">
+          <div id="ca-bar" style="height:100%;width:0%;background:#2C6E66;border-radius:99px;transition:width 0.4s ease"></div>
+        </div>
+        <p style="font-size:12px;color:#6E6E69;margin:6px 0 0"><i class="ti ti-sparkles" style="font-size:13px"></i> Writing your case study…</p>
+      </div>
+      <div id="ca-preview" style="display:none;margin-top:14px"></div>
+    </div>
+
+    {% if suggested %}
+    <div class="card" style="margin-top:18px">
+      <h2 class="sec-title">You might also include <span class="hint" style="font-size:14px;font-weight:400">— related, lower priority</span></h2>
+      <div class="sug-list">
+        {% for s in suggested %}
+        <div class="sug-item">
+          <span class="sid">{{ s.slide_id }}</span>
+          <div class="s-main"><div class="s-title">{{ titles.get(s.slide_id, '') }}</div>
+            <div class="s-reason">{{ s.reason }}</div></div>
+          <button type="button" class="btn" onclick="addSlide('{{ s.slide_id }}', this)"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if suggestions %}
+    <div class="card" style="margin-top:18px">
+      {% for s in suggestions %}<div class="sug-row"><i class="ti ti-bulb"></i><span>{{ s }}</span></div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <aside class="side-card">
+    <div class="card">
+      <input type="hidden" name="client_name" id="h-client" value="{{ ctx.client_name }}">
+      <input type="hidden" name="order" id="order">
+      <input type="hidden" name="industry" id="h-industry" value="{{ ctx.industry }}">
+      <input type="hidden" name="transcript" id="h-transcript" value="{{ ctx.transcript }}">
+      <input type="hidden" name="phase" id="h-phase" value="{{ ctx.phase }}">
+      <input type="hidden" name="recipient" id="h-recipient" value="{{ ctx.recipient }}">
+      <span id="h-multi">{% for f in ctx.functions %}<input type="hidden" name="functions" value="{{ f }}">{% endfor %}{% for w in ctx.work_types %}<input type="hidden" name="work_types" value="{{ w }}">{% endfor %}</span>
+      <div class="summary">
+        <div class="sum-row"><span>Slides</span><b id="sum-count">{{ picks|length }}</b></div>
+        <div class="sum-row"><span>Gaps flagged</span><b>{{ gaps|length }}</b></div>
+        <div class="sum-row"><span>Matching</span><b style="{{ 'color:var(--teal)' if ai_used else '' }}">{{ 'AI' if ai_used else 'Rules' }}</b></div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:18px"><i class="ti ti-arrow-right"></i> Next: Review &amp; edit</button>
+      <p class="hint" style="font-size:12px;text-align:center;margin:10px 0 0">Edit text, accept AI slides, then preview &amp; download.</p>
+      <a href="/new" class="hint" style="display:block;text-align:center;margin-top:10px;font-size:13px">← Start over</a>
+    </div>
+  </aside>
+</form>
+
+<div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:#2C6E66;border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div style="font-family:'Space Grotesk',Inter,sans-serif;font-weight:700;font-size:18px;color:#111110">Preparing your review…</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:5px">Writing any AI slides for the gaps — a few seconds.</div>
+  </div>
+</div>
+<script>
+ window.SLIDE_TITLES={{ titles|tojson }};
+ window.RESUME={{ 'true' if resume else 'false' }};
+ window.SERVER_CTX={{ ctx|tojson }};
+ window.BUILD_ID={{ build_id|tojson }};
+</script>
+<script src="/static/js/deck-tray.js"></script>
+<script src="/static/js/build.js"></script>

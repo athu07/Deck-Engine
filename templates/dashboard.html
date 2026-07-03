@@ -1,0 +1,67 @@
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:14px 0 26px">
+  <div>
+    <div class="eyebrow">Pre-sales engine</div>
+    <h1 class="display">Welcome back, Athithia</h1>
+    <p class="lede">Turn client context into a tailored, on-brand deck in seconds — pick the right slides, fill the gaps, ship.</p>
+  </div>
+  <a class="btn btn-primary btn-lg" href="/new"><i class="ti ti-sparkles"></i> New deck</a>
+</div>
+
+<div class="grid g-4">
+  <div class="card stat"><div class="iwrap"><i class="ti ti-stack-2"></i></div>
+    <div class="k">Slides in library</div><div class="v">{{ total }}</div>
+    <span class="chip up"><i class="ti ti-arrow-up-right"></i> live</span></div>
+  <div class="card stat"><div class="iwrap"><i class="ti ti-briefcase"></i></div>
+    <div class="k">Case studies</div><div class="v">{{ cases }}</div>
+    <div class="foot">ready to match</div></div>
+  <div class="card stat"><div class="iwrap"><i class="ti ti-template"></i></div>
+    <div class="k">Templates</div><div class="v">{{ templates|length }}</div>
+    <div class="foot">for generated slides</div></div>
+  <div class="card card-dark stat"><div class="iwrap"><i class="ti ti-file-download"></i></div>
+    <div class="k" style="color:#b9b9b4">Decks built</div><div class="v">{{ decks|length }}</div>
+    <span class="chip up"><i class="ti ti-clock"></i> recent</span></div>
+</div>
+
+<div class="section grid g-2">
+  <div class="card">
+    <div class="section-head"><h2 class="sec-title">Library composition</h2><span class="tag">by work type</span></div>
+    <div class="bars">
+      {% for name,c in wt_items %}
+      <div class="bar-row"><span class="lbl">{{ name }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ (c*100//wt_max) if wt_max else 0 }}%"></div></div>
+        <span class="num">{{ c }}</span></div>
+      {% endfor %}
+    </div>
+    <div class="section-head" style="margin:24px 0 12px"><h2 class="sec-title" style="font-size:16px">Top industries</h2></div>
+    <div class="bars">
+      {% for name,c in ind_items %}
+      <div class="bar-row"><span class="lbl">{{ name|title }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ (c*100//ind_max) if ind_max else 0 }}%;background:var(--teal-300)"></div></div>
+        <span class="num">{{ c }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head"><h2 class="sec-title">Recent decks</h2><a class="hint" href="/new" style="font-size:13px">New →</a></div>
+    {% if decks %}
+    <div class="list">
+      {% for d in decks %}
+      <div class="row"><div class="ic"><i class="ti ti-presentation"></i></div>
+        <div class="main"><div class="t">{{ d.name }}</div><div class="s">{{ d.size }}</div></div>
+        <span class="meta"><i class="ti ti-download"></i></span></div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted" style="font-size:14px">No decks yet. Hit <b>New deck</b> to build your first.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="section card card-teal" style="display:flex;align-items:center;justify-content:space-between;gap:20px">
+  <div><div class="eyebrow" style="color:#cfe7e2">Quick start</div>
+    <div class="display" style="font-size:24px;margin-top:4px">Paste a transcript, get matched slides</div>
+    <p style="color:#dceeea;margin:6px 0 0;max-width:520px">Drop in your meeting notes — the engine ranks the right case studies, flags gaps, and you ship a tailored deck.</p></div>
+  <a class="btn btn-lg" href="/new" style="background:#fff;color:var(--teal-700)"><i class="ti ti-arrow-right"></i> Start</a>
+</div>

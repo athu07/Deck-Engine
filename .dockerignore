@@ -9,3 +9,14 @@ venv
 .claude
 err.log
 BUILD_LOG.txt
+HANDOFF.md
+
+# not needed in the runtime image
+archive/
+tests/
+eval/
+.pytest_cache/
+static/renders/
+_titles_dump.txt
+_deck_cases.txt
+~$*

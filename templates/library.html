@@ -1,0 +1,52 @@
+
+<div style="margin:14px 0 6px">
+  <div class="eyebrow">Slide library</div>
+  <h1 class="display" style="font-size:38px">All slides <span class="hint" style="font-size:24px">· <span id="lib-count">{{ total }}</span></span></h1>
+  <p class="lede">Browse, search and filter the whole warehouse. Keywords are what the matcher runs on.</p>
+</div>
+
+<div class="toolbar">
+  <div class="search-box"><i class="ti ti-search"></i>
+    <input class="input" id="lib-search" placeholder="Search title, keywords, ID…"></div>
+  <div class="fchips">
+    <button class="fchip active" data-wtf="">All</button>
+    <button class="fchip" data-wtf="WORKFORCE">Workforce</button>
+    <button class="fchip" data-wtf="AI_POD">AI Pods</button>
+    <button class="fchip" data-wtf="MS">Managed</button>
+  </div>
+  <div class="fchips">
+    <button class="fchip active" data-kindf="">Any kind</button>
+    <button class="fchip" data-kindf="CASE_STUDY">Case study</button>
+    <button class="fchip" data-kindf="STANDARD">Standard</button>
+  </div>
+  <select id="ind-sel" style="width:auto">
+    <option value="">All industries</option>
+    {% for i in industries %}<option value="{{ i }}">{{ i|title }}</option>{% endfor %}
+  </select>
+</div>
+
+<div class="lib-grid" id="lib-grid">
+  {% for s in slides %}
+  <div class="lib-card" data-wt="{{ s.wt }}" data-kind="{{ s.kind }}" data-ind="{{ s.ind }}" data-text="{{ s.search }}">
+    <div class="lib-head"><span class="sid">{{ s.id }}</span>
+      <span class="lib-tags">{{ s.wt.replace('_',' ')|title if s.wt else '—' }} · {{ s.kind|title }}</span></div>
+    <div class="lib-title">{{ s.title }}</div>
+    {% if s.kw %}<div class="kw">{% for k in s.kw %}<span>{{ k }}</span>{% endfor %}</div>{% endif %}
+    <div class="lib-foot" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.ind|title if s.ind else 'No industry' }}{% if s.fn %} · {{ s.fn.replace('_',' ')|title }}{% endif %}</span>
+      <span style="display:flex;gap:6px;flex:none">
+        <button type="button" class="mini deck-add" data-id="{{ s.id }}" onclick="libAdd('{{ s.id }}',this)" title="Add to current deck" aria-label="Add {{ s.id }} to deck"><i class="ti ti-plus"></i></button>
+        <a class="mini" href="/slide/{{ s.id }}/download" title="Download this slide" aria-label="Download {{ s.id }}"><i class="ti ti-download"></i></a>
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="lib-empty" id="lib-empty" style="display:none">No slides match your filters.</div>
+</div>
+
+<a id="deck-pill" href="/deck" style="position:fixed;right:22px;bottom:22px;display:none;align-items:center;gap:8px;background:#111110;color:#fff;padding:11px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:14px;font-weight:600;text-decoration:none;z-index:50">
+  <i class="ti ti-stack-2"></i> Open deck <b id="deck-pill-n" style="background:#2C6E66;border-radius:999px;padding:1px 9px;font-size:13px">0</b>
+</a>
+
+<script src="/static/js/deck-tray.js"></script>
+<script src="/static/js/library.js"></script>

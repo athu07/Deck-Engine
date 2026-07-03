@@ -1,0 +1,74 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Review &amp; edit</div>
+  <h1 class="display" style="font-size:38px">Final touches for {{ client }}</h1>
+  <p class="lede">Edit each slide's title and subtitle. <b>[CLIENT]</b> is filled with the client name. {% if ai_cards %}<b>AI-written slides are below — read each one and Accept or Reject it.</b>{% endif %}</p>
+</div>
+<form method="post" action="/finalize" class="form-layout" onsubmit="var l=document.getElementById('loader');if(l)l.style.display='flex'">
+  <div>
+    {% if ai_cards %}
+    <div class="card" style="border-left:5px solid #2C6E66;background:#f3f8f7;margin-bottom:18px">
+      <h2 class="sec-title" style="margin-bottom:6px"><i class="ti ti-sparkles"></i> AI-written slides — your call</h2>
+      <p class="hint" style="font-size:13px;margin:0">These were written by AI to fill gaps. Edit if you like, then <b>Accept</b> (adds it to the deck &amp; your library, client-ready) or <b>Reject</b> (drops it). Nothing leaves this screen unchecked.</p>
+    </div>
+    {% for a in ai_cards %}
+    <div class="card rev-card" style="border:1px solid #bcdfd8">
+      <div class="rev-head"><span class="sid" style="background:#2C6E66;color:#fff">AI · {{ a.work_type }}</span>
+        <div style="margin-left:auto;display:flex;gap:14px;font-size:14px">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="ai_decision__{{ a.id }}" value="accept" checked> Accept</label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#c0392b"><input type="radio" name="ai_decision__{{ a.id }}" value="reject"> Reject</label>
+        </div>
+      </div>
+      <div class="field"><label>Title</label>
+        <input class="input" name="ai_title__{{ a.id }}" value="{{ a.title }}"></div>
+      <div class="field"><label>Keywords</label>
+        <input class="input" name="ai_keywords__{{ a.id }}" value="{{ a.keywords }}"></div>
+      <div class="field" style="margin-bottom:0"><label>Bullets (one per line)</label>
+        <textarea name="ai_bullets__{{ a.id }}" style="min-height:96px">{{ a.bullets }}</textarea></div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% for c in cards %}
+    <div class="card rev-card">
+      <div class="rev-head"><span class="sid">{{ c.id }}</span></div>
+      {% for idx, label, text in c.fields %}
+      <div class="field" {% if loop.last %}style="margin-bottom:0"{% endif %}>
+        <label>{{ label }}</label>
+        <input class="input" name="edit__{{ c.id }}__{{ idx }}" value="{{ text }}">
+      </div>
+      {% endfor %}
+      {% if c.context %}<div class="rev-ctx">{{ c.context }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <aside class="side-card">
+    <div class="card">
+      <input type="hidden" name="client_name" value="{{ client }}">
+      <input type="hidden" name="order" value="{{ order }}">
+      <input type="hidden" name="ai_ids" value="{{ ai_ids }}">
+      <input type="hidden" name="industry" value="{{ industry }}">
+      <input type="hidden" name="transcript" value="{{ transcript }}">
+      <input type="hidden" name="phase" value="{{ phase }}">
+      <input type="hidden" name="recipient" value="{{ recipient }}">
+      {% for f in functions %}<input type="hidden" name="functions" value="{{ f }}">{% endfor %}
+      {% for w in work_types %}<input type="hidden" name="work_types" value="{{ w }}">{% endfor %}
+      <div class="summary">
+        <div class="sum-row"><span>Library slides</span><b>{{ cards|length }}</b></div>
+        <div class="sum-row"><span>AI slides</span><b style="{{ 'color:var(--teal)' if ai_cards else '' }}">{{ ai_cards|length }}</b></div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:18px"><i class="ti ti-download"></i> Build &amp; download</button>
+      <a href="javascript:history.back()" class="hint" style="display:block;text-align:center;margin-top:14px;font-size:13px">← Back to slides</a>
+    </div>
+  </aside>
+</form>
+
+<div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:#2C6E66;border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div style="font-family:'Space Grotesk',Inter,sans-serif;font-weight:700;font-size:18px;color:#111110">Building your deck…</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:5px">Assembling slides and your download — a few seconds.</div>
+  </div>
+</div>
+<script>window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});</script>
