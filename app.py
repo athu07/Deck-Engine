@@ -31,6 +31,7 @@ import staging
 import meeting_log
 import skills
 import case_library
+import fill_case_study
 import research
 import ai_matcher
 import relevance
@@ -1316,12 +1317,18 @@ def dashboard():
 
 @app.route("/library")
 def library():
+    slides = []
+    # 1) master slides EXCEPT the legacy case-study slides — those are superseded
+    #    by the content store and shown below (rendered via the new branded
+    #    template), so a case study is never the old master version anywhere.
+    legacy = _legacy_case_ids()
     try:
         recs = json.load(open("tagged_library.json", encoding="utf-8"))
     except Exception:
         recs = []
-    slides = []
     for r in recs:
+        if r["slide_id"] in legacy:
+            continue
         t = r.get("tags", {})
         slides.append({
             "id": r["slide_id"], "title": r.get("title", ""),
@@ -1332,6 +1339,20 @@ def library():
             "kw": r.get("keywords", [])[:6],
             "search": (r["slide_id"] + " " + r.get("title", "") + " " +
                        " ".join(r.get("keywords", []))).lower(),
+        })
+    # 2) every content-store case study — these download/add as the NEW branded
+    #    case_study_v2 template (see /slide/<id>/download and finalize).
+    for rec in case_library._load():
+        kws = rec.get("keywords") or []
+        slides.append({
+            "id": rec["id"], "title": rec.get("title", ""),
+            "wt": rec.get("work_type") or "",
+            "kind": "CASE_STUDY",
+            "ind": rec.get("industry") or "",
+            "fn": rec.get("function") or "",
+            "kw": kws[:6],
+            "search": (rec["id"] + " " + rec.get("title", "") + " " +
+                       rec.get("domain", "") + " " + " ".join(kws)).lower(),
         })
     industries = sorted({s["ind"] for s in slides if s["ind"]})
     body = render_template_string(LIBRARY_BODY, slides=slides, industries=industries, total=len(slides))
@@ -1676,6 +1697,16 @@ def slide_download(sid):
     sid = sid.upper()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     path = os.path.join(OUTPUT_DIR, f"Slide_{sid}.pptx")
+    # a content-store case study (AIP/WFS/MSS) -> render fresh from the NEW
+    # branded case_study_v2 template, never the old master version
+    rec = case_library.record(sid)
+    if rec is not None:
+        try:
+            fill_case_study.fill_row(rec, path)
+        except (PermissionError, OSError) as e:
+            return _file_busy_page(str(e))
+        return send_file(path, as_attachment=True, download_name=f"{sid}.pptx")
+    # otherwise a master (standard/structural) slide -> build from the master deck
     kept, _ = assembler.build_deck([sid], out=path)
     if not kept:
         abort(404)

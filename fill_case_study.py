@@ -27,24 +27,72 @@ Or from the CLI (demo on one stored case):
 """
 
 import json
+import math
 import os
 import re
 import sys
 
 from pptx import Presentation
+from pptx.util import Inches
 
 TEMPLATE = "case_study_v2.pptx"
 STORE = "case_study_content_store.json"
 OUT_DIR = "output"
 
+# Item 4 — heading fit. The heading reads "CASE STUDY: <title>" in Oswald 24pt
+# bold across a ~12.2in usable box. If it's too long for one line it wraps to a
+# second line, and we drop the CLIENT|DOMAIN subheading one line so it doesn't
+# collide. (Heuristic: python-pptx can't measure rendered text, so we estimate
+# characters-per-line. Oswald is condensed, hence the generous count.)
+TITLE_CHARS_PER_LINE = 92    # ~chars of the prefixed title that fit on one line
+SUBHEAD_LINE_DROP_IN = 0.34  # how far to move the subheading down per extra line
+
 MARKER_RE = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 
-# headline metric inside a results sentence: 70%, 2.5x, $4M, 13, 24x7, 100+
+# The headline metric inside a results sentence. Ordered most-specific first so
+# a COMPOUND metric (a range, a ratio, an "X out of Y") is captured WHOLE and put
+# on top as one unit — otherwise the caption below would repeat part of it
+# (e.g. "3 out of 3 ..." must not become "3" on top + "out of 3 ..." below).
 _METRIC_RE = re.compile(
-    r"(\d+(?:\.\d+)?\s*%"            # 70%  12.5 %
-    r"|\d+(?:\.\d+)?\s*[xX]\d*"      # 2x  24x7  3.5x
-    r"|\$\s*\d[\d,]*\.?\d*\s*[KMB]?" # $4M  $1,200
-    r"|\b\d[\d,]*\+?)"              # 13  1,200  100+
+    r"("
+    r"\d+(?:\.\d+)?\s*(?:out\s+of|of)\s*\d+(?:\.\d+)?"   # 3 out of 3, 3 of 3
+    r"|\d+\s*/\s*\d+"                                      # 3/3
+    r"|\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?"                 # 8:1
+    r"|\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*%"             # 11-13%
+    r"|\d+(?:\.\d+)?\s*%"                                  # 70%
+    r"|\$\s*\d[\d,]*\.?\d*\s*[KMBkmb]?"                   # $4M
+    r"|\d+(?:\.\d+)?\s*[xX]\s*\d+"                        # 24x7
+    r"|\d+(?:\.\d+)?[xX]\b"                               # 2x, 3.5x
+    r"|\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?"                 # 6-9 (range; unit added below)
+    r"|\d+(?:\.\d+)?\s*to\s*\d+(?:\.\d+)?"               # 3.0 to 4.0, 10 to 5
+    r"|\d[\d,]*\+"                                         # 40+
+    r"|\b\d[\d,]*(?:\.\d+)?\b"                            # 13, 1,200, 3.0
+    r")"
+)
+
+# a qualifier immediately BEFORE the number belongs WITH it ("under 5", ">8:1",
+# "Rs 2 crore")
+_QUALIFIER_RE = re.compile(
+    r"(?:>=?|<=?|~|₹)\s*$"
+    r"|(?:\brs\.?|\binr)\s*$"
+    r"|\b(?:up\s+to|greater\s+than|less\s+than|more\s+than|at\s+least|"
+    r"under|over|nearly|almost|about|around|approx\.?|approximately)\s+$",
+    re.I,
+)
+
+# a unit word immediately AFTER the number belongs WITH it ("5 minutes", "6-9
+# points", "2 crore")
+_TRAIL_UNIT_RE = re.compile(
+    r"\s*(?:percentage\s+points?|points?|pts?|minutes?|mins?|hours?|hrs?|"
+    r"days?|weeks?|months?|years?|yrs?|crores?|lakhs?|lacs?)\b",
+    re.I,
+)
+
+# an "or more"/"+" tail belongs WITH the number ("40 or more", "90%+")
+# (the \b binds only to the word branch — a bare "+" has no following word boundary)
+_TRAIL_MORE_RE = re.compile(
+    r"\s*(?:\+|or\s+(?:more|less|fewer|higher|lower|above|below|greater)\b)",
+    re.I,
 )
 
 _CAP_SEPS = [" — ", " – ", " - ", ": "]
@@ -81,17 +129,39 @@ def anon_client(row):
 def split_result(sentence):
     """Return (highlight, caption) for one result.
 
-    The highlight is the MOST relevant short bit shown big on top — a number
-    if there is one (70%, 24x7, $4M), otherwise the leading key phrase
-    ("Automated", "Single platform"). The rest becomes the caption below."""
+    The highlight (shown big + bold on top) is the WHOLE meaningful metric —
+    a complete number expression if there is one (70%, 11-13%, 3 out of 3, 8:1,
+    Under 5 minutes, $4M), otherwise the leading key phrase ("Automated"). The
+    ENTIRE metric span is removed from the sentence, so the caption below carries
+    only the descriptive rest — never a piece of the number repeated."""
     s = (sentence or "").strip().rstrip(".")
     if not s:
         return "", ""
 
     m = _METRIC_RE.search(s)
     if m:
-        top = re.sub(r"\s+", "", m.group(1))
-        bottom = (s[:m.start()] + " " + s[m.end():])
+        start, end = m.start(1), m.end(1)
+        # pull a leading qualifier ("under", "greater than", ">") into the metric
+        qm = _QUALIFIER_RE.search(s[:start])
+        if qm:
+            start = qm.start()
+        # pull a trailing unit word ("minutes", "points") into the metric
+        um = _TRAIL_UNIT_RE.match(s[end:])
+        if um:
+            end += um.end()
+        # pull a trailing "or more" / "+" into the metric
+        mm = _TRAIL_MORE_RE.match(s[end:])
+        if mm:
+            end += mm.end()
+        top = s[start:end].strip()
+        # drop a connective that merely introduced the metric ("...improved from"
+        # 3.0 to 4.0 -> caption shouldn't keep the dangling "from")
+        left = re.sub(r"\s+(?:from|to|of|by|between)\s*$", "", s[:start], flags=re.I)
+        bottom = left + " " + s[end:]
+        # tidy the highlight: no space before %, no space after $
+        top = re.sub(r"\s+%", "%", top)
+        top = re.sub(r"\$\s+", "$", top)
+        top = re.sub(r"\s{2,}", " ", top).strip()
     else:
         words = s.split()
         first = words[0]
@@ -106,7 +176,7 @@ def split_result(sentence):
 
     bottom = _LEAD_RE.sub("", bottom.strip(" ,–—-"))
     bottom = _TRAIL_RE.sub("", bottom).strip(" ,–—-")
-    bottom = re.sub(r"\s{2,}", " ", bottom)
+    bottom = re.sub(r"\s{2,}", " ", bottom).strip()
     return top, bottom
 
 
@@ -158,6 +228,17 @@ def _apply(text, mapping):
     return MARKER_RE.sub(lambda m: mapping.get(m.group(1), ""), text)
 
 
+def _reflow_subhead(subhead_shape, full_title):
+    """Item 4: if the prefixed heading wraps past one line, move the CLIENT|DOMAIN
+    subheading down so it clears the extra title line(s)."""
+    if subhead_shape is None:
+        return
+    lines = max(1, math.ceil(len(full_title) / TITLE_CHARS_PER_LINE))
+    extra = min(lines - 1, 1)      # cap the drop at one line (box budget)
+    if extra:
+        subhead_shape.top = subhead_shape.top + Inches(SUBHEAD_LINE_DROP_IN * extra)
+
+
 def fill_row(row, out_path, template=TEMPLATE):
     """Build a finished slide from one content row. Returns out_path.
 
@@ -167,13 +248,19 @@ def fill_row(row, out_path, template=TEMPLATE):
     slide = prs.slides[0]
     mapping = build_mapping(row)
 
+    subhead_shape = None
     for shape in slide.shapes:
         if not shape.has_text_frame:
             continue
+        if "CLIENT:" in shape.text_frame.text:
+            subhead_shape = shape
         for para in shape.text_frame.paragraphs:
             for run in para.runs:
                 if "{{" in run.text:
                     run.text = _apply(run.text, mapping)
+
+    # item 4: drop the subheading a line when the heading wraps
+    _reflow_subhead(subhead_shape, "CASE STUDY: " + mapping.get("TITLE", ""))
 
     out_dir = os.path.dirname(out_path)
     if out_dir:

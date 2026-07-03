@@ -32,7 +32,11 @@ C_CARD_BG   = RGBColor(0xF5, 0xF5, 0xF5)
 C_CARD_LINE = RGBColor(0xDE, 0xDE, 0xDE)
 C_BODY      = RGBColor(0x3E, 0x3E, 0x3E)
 
-FONT = "Calibri"
+# Fonts (owner's spec): heading + subheading = Oswald; everything else = Helvetica.
+# (If a font isn't installed on the viewing machine, PowerPoint substitutes a
+# similar one but keeps the name — so it renders correctly wherever it IS installed.)
+FONT_HEAD = "Oswald"       # main title + CLIENT | DOMAIN subheading
+FONT_BODY = "Helvetica"    # all other content
 
 # ---------------------------------------------------------------------------
 # Font sizes (points) — set per owner's spec
@@ -42,8 +46,8 @@ SZ_SUBHEAD    = 15   # CLIENT | DOMAIN line
 SZ_BOX_HEAD   = 13   # "The Challenge" / "The Solution" / capability card titles
 SZ_CAPS_LABEL = 14   # "Key Capabilities Developed"
 SZ_BODY       = 11   # all body paragraph text
-SZ_RESULT_PCT = 34   # big stat numbers in the results bar
-SZ_RESULT_TXT = 9    # caption under each stat
+SZ_RESULT_PCT = 25   # big stat numbers in the results bar (owner: 25, was 34)
+SZ_RESULT_TXT = 12   # caption under each stat (owner: 12)
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +79,8 @@ def _rect(slide, l, t, w, h, fill=None, line=None, lw=0.5):
 
 
 def _txb(slide, l, t, w, h, text, size,
-         bold=False, color=None, align=PP_ALIGN.LEFT, wrap=True, shrink=False):
+         bold=False, color=None, align=PP_ALIGN.LEFT, wrap=True, shrink=False,
+         font=FONT_BODY):
     """Add a text box with a single run.
     shrink=True -> 'Shrink text on overflow' so long content auto-fits the box
     (PowerPoint computes the scale when the file is opened)."""
@@ -89,11 +94,36 @@ def _txb(slide, l, t, w, h, text, size,
     p.alignment = align
     run = p.add_run()
     run.text = text
-    run.font.name = FONT
+    run.font.name = font
     run.font.size = _pt(size)
     run.font.bold = bold
     if color:
         run.font.color.rgb = color
+    return tb
+
+
+def _title_box(slide, l, t, w, h):
+    """The main heading: a red 'CASE STUDY:' label + the black case title, both
+    Oswald bold, on one paragraph so they flow (and wrap) together. The title
+    text is the {{TITLE}} marker the fill script replaces (keeps it black)."""
+    tb = slide.shapes.add_textbox(_in(l), _in(t), _in(w), _in(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_top = tf.margin_bottom = tf.margin_left = tf.margin_right = 0
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    label = p.add_run()
+    label.text = "CASE STUDY: "
+    label.font.name = FONT_HEAD
+    label.font.size = _pt(SZ_TITLE)
+    label.font.bold = True
+    label.font.color.rgb = C_RED
+    title = p.add_run()
+    title.text = "{{TITLE}}"
+    title.font.name = FONT_HEAD
+    title.font.size = _pt(SZ_TITLE)
+    title.font.bold = True
+    title.font.color.rgb = C_BLACK
     return tb
 
 
@@ -113,17 +143,20 @@ def build(out="case_study_v2.pptx"):
     _rect(slide, 0.00, 0.00, SPLIT,         0.10, fill=C_RED)
     _rect(slide, SPLIT, 0.00, 13.33 - SPLIT, 0.10, fill=C_TEAL)
 
-    # ── 1. Red accent bar (left of title) ──────────────────────────────────
-    _rect(slide, 0.25, 0.34, 0.065, 0.55, fill=C_RED)
+    # ── 1. Red accent bar (left of title, spans the header block) ──────────
+    # Header sits a little lower so there's a clear gap under the top split bar
+    # (it was congested right beneath it). Still clears the cards at 1.40.
+    _rect(slide, 0.25, 0.34, 0.065, 0.80, fill=C_RED)
 
-    # ── 2. Main title ──────────────────────────────────────────────────────
-    _txb(slide, 0.44, 0.30, 9.50, 0.60,
-         "{{TITLE}}", SZ_TITLE, bold=True, color=C_BLACK)
+    # ── 2. Main title — "CASE STUDY:" (red) + title (black), Oswald ─────────
+    # Wide box + room for a 2nd line: a short title sits on line 1; a long one
+    # wraps to line 2, and the fill script drops the subheading a line to match.
+    _title_box(slide, 0.44, 0.34, 12.45, 0.80)
 
-    # ── 3. CLIENT | DOMAIN subtitle ────────────────────────────────────────
-    _txb(slide, 0.44, 0.74, 12.50, 0.34,
+    # ── 3. CLIENT | DOMAIN subtitle (Oswald, teal) ─────────────────────────
+    _txb(slide, 0.44, 0.88, 12.45, 0.30,
          "CLIENT: {{CLIENT}}  |  DOMAIN: {{DOMAIN}}",
-         SZ_SUBHEAD, bold=True, color=C_TEAL)
+         SZ_SUBHEAD, bold=True, color=C_TEAL, font=FONT_HEAD)
 
     # ── 4. Challenge card (red left bar + white card) ──────────────────────
     _rect(slide, 0.250, 1.40, 0.065, 2.00, fill=C_RED)
@@ -180,7 +213,10 @@ def build(out="case_study_v2.pptx"):
             n += 1
 
     # ── 8. Results bar (full-width deep teal) ──────────────────────────────
-    BAR_T = 6.00
+    # Starts a little lower than the capability cards (which end ~5.95) so there
+    # is a clear gap above it; the stats inside are positioned relative to BAR_T,
+    # so they move down with the bar.
+    BAR_T = 6.20
     BAR_H = 7.50 - BAR_T          # fills to the bottom of the slide
     COL_W = 13.33 / 3
 
@@ -193,9 +229,9 @@ def build(out="case_study_v2.pptx"):
     ]
     for idx, (pct, txt) in enumerate(results):
         x = idx * COL_W
-        _txb(slide, x + 0.20, BAR_T + 0.14, COL_W - 0.40, 0.66,
+        _txb(slide, x + 0.20, BAR_T + 0.16, COL_W - 0.40, 0.52,
              pct, SZ_RESULT_PCT, bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
-        _txb(slide, x + 0.15, BAR_T + 0.86, COL_W - 0.30, 0.55,
+        _txb(slide, x + 0.15, BAR_T + 0.66, COL_W - 0.30, 0.60,
              txt, SZ_RESULT_TXT, color=C_WHITE, align=PP_ALIGN.CENTER, wrap=True)
 
     # ── 9. Notes tag (engine reads this to identify the template) ──────────

@@ -1514,6 +1514,62 @@ Research path still sizes fine (Schneider MS+all = 5 matched cases).
 NOTE: eval_ericsson.py now under-reports (it calls matcher.plan directly, bypassing
 the app's need-extraction/priority_ids) — the real /build path is representative.
 
+################################################################################
+=== 2026-07-03  CASE-STUDY TEMPLATE REFRESH + 15 new MS cases + library fix ===
+################################################################################
+Six owner asks, done in order (template design first so it could be eyeballed
+before touching data). Backups: case_study_v2.BEFORE_HEADING_CHANGE.pptx,
+Case_Studies_Master_IDed.BEFORE_MS15_20260703.xlsx + .BEFORE_DOCX_IMPORT.xlsx,
+case_study_content_store.BEFORE_MS15.json.
+
+TEMPLATE (create_case_study_template.py -> regenerated case_study_v2.pptx):
+ 1. "CASE STUDY:" prefix — the heading is now two runs: red "CASE STUDY: " +
+    black title (new _title_box()); the fill still only replaces {{TITLE}}.
+ 2. Fonts — heading + CLIENT|DOMAIN subheading = OSWALD; all other text
+    (challenge/solution/cap cards/results) = HELVETICA (new FONT_HEAD/FONT_BODY,
+    _txb gained a `font` arg). Sizes unchanged. NOTE: neither font is installed
+    on this machine, so PowerPoint substitutes locally but renders correctly
+    wherever the fonts ARE installed.
+ 3. Results bar — big number bold on top, caption below; caption 9 -> 12,
+    number 34 -> 25 (owner's later refinement). Bar starts lower (BAR_T 6.00 ->
+    6.20) so there's a clear gap under the capability cards; stats move with it.
+ 4. Heading fit — title box widened to ~12.45in (fits one line like the ref
+    image); if a title is too long it wraps and the CLIENT|DOMAIN subheading
+    drops a line (fill_case_study._reflow_subhead, heuristic ~92 chars/line —
+    python-pptx can't measure text). No current title wraps (longest 86 chars).
+ 5. Header gap (owner follow-up) — whole header moved down (title 0.16 -> 0.34in)
+    so it isn't congested right under the top red+teal split bar.
+
+METRIC SPLIT LOGIC (fill_case_study.split_result) — LOGICAL bug the owner spotted:
+ "3 out of 3 ... prizes" showed "3" big + "out of 3 ..." below = reads "3 ... out
+ of 3" and the bare "3" is meaningless. Rewrote the extractor to capture the WHOLE
+ metric as one unit and remove that entire span from the caption (no number ever
+ repeated). Now handles: 3 out of 3, 11-13%, 8:1, 90%+, 40 or more, Under 5
+ minutes, 3.0 to 4.0, Rs 1-2 crore, $4M, 24x7. Verified across all 525 results
+ (175 cases x 3): 0 empty highlights, 0 broken captions.
+
+ITEM 5 — 15 new MS case studies from New_Case_Study_Portfolio_v2_1_7.docx:
+ - NEW import_docx_cases.py parses the house Word format (CASE STUDY: / Client /
+   Domain / The Challenge / The Solution / Key Capabilities x6 / Results x3) and
+   appends rows to the source Excel with new ids (--dry-run to preview; backs up
+   first). Typographic dashes/quotes normalised to ASCII.
+ - Added MSS081..MSS095 (a stray 4th "TAXONOMY" result on MSS095 dropped, like
+   MSS080). Rebuilt: py build_case_study_store.py (store now 175: AIP 37 / WFS 43
+   / MS 95) + py build_case_embeddings.py (175 vectors). Industry 175/175.
+ - Rendered/verified new cases through the template: 0 leftover markers, correct
+   domain/anon-client, metrics clean (incl. the Rs-crore and 90%+ cases).
+
+ITEM 6 — slide library now serves the NEW template for every case study (app.py):
+ - /library: dropped the legacy master case slides (_legacy_case_ids()) and added
+   all 175 store cases (kind=CASE_STUDY). So a case study is never the old master
+   version anywhere — only standard/structural master slides come from the deck.
+ - /slide/<id>/download: a store id (AIP/WFS/MSS) renders fresh from case_study_v2
+   via fill_case_study.fill_row (new import); other ids still build from the master.
+ - Verified: /library 200 with 175 cases, 0 legacy case ids leaked; MSS081/MSS095
+   download as the new ~35KB slide, CS01 still from the master; end-to-end
+   /finalize deck (CS01, MSS084, MSS095, CS07) renders both MS cases with the
+   "CASE STUDY:" heading and 0 leftover markers.
+
 --- 2026-07-02  "Why this deck matches" now has AI reasoning on EVERY case ---
 Owner: the reasoning lines disappeared (cases just showed the bare "same industry"
 fallback with no AI sentence). ROOT CAUSE (not a bug/dead key — the key works): the
