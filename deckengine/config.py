@@ -52,7 +52,15 @@ ENV_FILE                = _p(".env")
 # Default to PROJECT_ROOT (so they keep matching the docker-compose volume mounts
 # ./output:/app/output etc.), but allow an env override — handy for deployment and
 # for tests that must not touch the real working tree.
-OUTPUT_DIR   = os.environ.get("DECK_OUTPUT_DIR")   or _p("output")
-MEETINGS_DIR = os.environ.get("DECK_MEETINGS_DIR") or _p("meetings")
-STAGING_DIR  = os.environ.get("DECK_STAGING_DIR")  or _p("staging")
-STAGING_JSON = os.path.join(STAGING_DIR, "staging.json")
+OUTPUT_DIR        = os.environ.get("DECK_OUTPUT_DIR")        or _p("output")
+MEETINGS_DIR      = os.environ.get("DECK_MEETINGS_DIR")      or _p("meetings")
+STAGING_DIR       = os.environ.get("DECK_STAGING_DIR")       or _p("staging")
+STAGING_JSON      = os.path.join(STAGING_DIR, "staging.json")
+# per-build context (deep research + profile + full transcript), keyed by build_id,
+# so the AI case-study generator can synthesise from it after /build.
+BUILD_CONTEXT_DIR = os.environ.get("DECK_BUILD_CONTEXT_DIR") or _p("build_context")
+
+# ── AI models ─────────────────────────────────────────────────────────────────
+# Matching / extraction stay on the cheap model; case-study GENERATION uses a
+# stronger model because it is low-volume and quality-critical.
+GEN_MODEL = os.environ.get("DECK_GEN_MODEL") or "gpt-4o"

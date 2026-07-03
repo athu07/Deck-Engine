@@ -90,50 +90,6 @@ def refine(transcript, candidates_by_wt, optional_slides, top_n=3):
     return {"cases": cases, "optional": _ids(data.get("optional"))}
 
 
-def explain_fit(notes, recipient, picks):
-    """One short AI 'why this case fits THIS account' line per picked case.
-
-    Writes a reason for EVERY case, always — grounded in the account context
-    (client/industry/role/work type) that the caller always supplies, plus any
-    meeting notes / research / profile when present. When context is thin, it
-    explains why the case's topic matters to a buyer in this industry/role, so a
-    real reason is produced even for an industry-only match (no bare fallback).
-
-    picks : [{"id","title","blurb"}]  (blurb = a line of the case's challenge)
-    Returns {id: reason}. Fails safe to {} (caller keeps its own reasons)."""
-    if not picks:
-        return {}
-    lines = "\n".join(f"  {p['id']}: {p['title']} — {p.get('blurb','')}" for p in picks)
-    who = recipient.strip() or "the stakeholder"
-    prompt = (
-        f"You are prepping a J2W sales meeting with {who}.\n"
-        "About this account (context may be brief):\n\"\"\"\n" + (notes or "")[:8000] + "\n\"\"\"\n\n"
-        "For EVERY case study below, write ONE short line (max ~20 words) on why it "
-        f"is relevant to {who} / this account — tie it to their role, industry, or a "
-        "priority above. If the context is sparse, explain why this proof point "
-        "matters to a buyer in this industry/role, using the case's own topic. Always "
-        "return a line for every id; never leave one blank or generic. Do NOT invent "
-        "case facts or numbers; frame it in their language.\n"
-        "CASE STUDIES:\n" + lines + "\n\n"
-        'Return ONLY JSON mapping id -> reason: {"AIP001": "...", "MSS002": "..."}'
-    )
-    try:
-        resp = _client().chat.completions.create(
-            model=MODEL, temperature=0.2,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": "You explain why a proof point lands "
-                 "with a specific buyer. Reply with one JSON object only."},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        data = json.loads(resp.choices[0].message.content)
-    except Exception:
-        return {}
-    return {k: str(v).strip() for k, v in data.items() if isinstance(v, (str, int))} \
-        if isinstance(data, dict) else {}
-
-
 def extract_profile(profile_text, max_items=8):
     """From a stakeholder's profile (LinkedIn/bio), pull WHAT THIS PERSON DOES:
     their function, key skills, and above all their CURRENT-ROLE mandate — so we
@@ -275,3 +231,150 @@ def extract_asks(transcript):
             if v:
                 out.append(str(v).strip())
     return out[:6]
+
+
+def extract_brief(research="", profile="", transcript=""):
+    """Structured matching brief from the deep-research brief + stakeholder profile +
+    transcript — the signals the ranker uses DIRECTLY (not just descriptive text):
+
+        {"needs": [{"name","description","domain","use_case"}],
+         "avoid": [{"capability","reason"}],       # the brief's mismatch flags
+         "expressed_interest": ["..."],            # accelerators discussed in the transcript
+         "account": {"industry","role","company_context"}}
+
+    Reference priority: a deep-research brief is PRIMARY; the transcript adds prior
+    interest; profile-only derives needs from the role/company. Fails safe to {} so
+    the caller can fall back to the name-only extractors."""
+    research = (research or "").strip()
+    profile = (profile or "").strip()
+    transcript = (transcript or "").strip()
+    if not (research or profile or transcript):
+        return {}
+    parts = []
+    if research:
+        parts.append("DEEP RESEARCH BRIEF (PRIMARY — includes synergy mapping and "
+                     "mismatch flags):\n\"\"\"\n" + research[:9000] + "\n\"\"\"")
+    if profile:
+        parts.append("STAKEHOLDER PROFILE:\n\"\"\"\n" + profile[:6000] + "\n\"\"\"")
+    if transcript:
+        parts.append("MEETING TRANSCRIPT (prior sales context — expressed interest):"
+                     "\n\"\"\"\n" + transcript[:6000] + "\n\"\"\"")
+    prompt = (
+        "From the sources below, extract a STRUCTURED brief for matching this client to "
+        "a case-study library. Rules:\n"
+        "- needs: capabilities/solution areas this account GENUINELY needs. For each: "
+        "name (1-3 words, a business capability), a 1-2 line description, the DOMAIN / "
+        "industry it applies to, and the specific USE_CASE. Ground every field in the "
+        "text; never invent.\n"
+        "- avoid: MISMATCH FLAGS — capabilities that look related by keyword but are the "
+        "WRONG fit for this account (wrong domain / use-case). Give the capability and a "
+        "one-line reason. Only clear or explicitly-flagged misfits.\n"
+        "- expressed_interest: specific accelerators/topics the CLIENT actually discussed "
+        "(from the transcript). Empty if none.\n"
+        "- account: {industry, role, company_context} from the profile/brief.\n"
+        "Reference priority: if a deep-research brief is present treat it as PRIMARY and "
+        "the transcript as prior-interest only; if only a profile is present, derive needs "
+        "from the role and company context.\n"
+        "- Skip individual tools/languages (Selenium, Python, Docker); name the capability.\n\n"
+        + "\n\n".join(parts) + "\n\n"
+        'Return ONLY this JSON: {"needs":[{"name":"...","description":"...","domain":"...",'
+        '"use_case":"..."}],"avoid":[{"capability":"...","reason":"..."}],'
+        '"expressed_interest":["..."],"account":{"industry":"...","role":"...",'
+        '"company_context":"..."}}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You extract a structured client-matching "
+                 "brief from sales research. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    def _needs(v):
+        out = []
+        for m in (v or []):
+            if isinstance(m, dict) and (m.get("name") or "").strip():
+                out.append({"name": m["name"].strip(),
+                            "description": (m.get("description") or "").strip(),
+                            "domain": (m.get("domain") or "").strip(),
+                            "use_case": (m.get("use_case") or "").strip()})
+        return out[:8]
+
+    def _avoid(v):
+        out = []
+        for m in (v or []):
+            if isinstance(m, dict) and (m.get("capability") or "").strip():
+                out.append({"capability": m["capability"].strip(),
+                            "reason": (m.get("reason") or "").strip()})
+        return out[:8]
+
+    ei = [str(x).strip() for x in (data.get("expressed_interest") or []) if str(x).strip()][:8]
+    acct = data.get("account") if isinstance(data.get("account"), dict) else {}
+    return {"needs": _needs(data.get("needs")), "avoid": _avoid(data.get("avoid")),
+            "expressed_interest": ei,
+            "account": {"industry": (acct.get("industry") or "").strip(),
+                        "role": (acct.get("role") or "").strip(),
+                        "company_context": (acct.get("company_context") or "").strip()}}
+
+
+def explain_picks(brief, items):
+    """Write ONE short line + a signal explaining why each ALREADY-PICKED case fits its
+    client need. The SELECTION is done algorithmically (semantic capability match) — this
+    only EXPLAINS, so the model cannot mis-pick or hallucinate a different case.
+
+    items = [{"need","id","title","blurb"}]. brief supplies account + expressed interest.
+    Returns {case_id: {"reason","signal"}}. Fails safe to {} (caller uses a template)."""
+    items = list(items or [])
+    if not items:
+        return {}
+    brief = brief or {}
+    acct = brief.get("account") or {}
+    ei = brief.get("expressed_interest") or []
+    lines = [
+        "For each PICKED case study below, write ONE short line (max ~18 words) on why it "
+        "fits the client need, and a signal tag. Be specific; do not invent case facts.",
+        "signal: 'capability' (proves the needed capability), 'industry' (also same "
+        "industry), 'interest' (a topic the client discussed), or 'role' (fits the "
+        "stakeholder's function).",
+        "",
+    ]
+    if acct.get("industry") or acct.get("role"):
+        lines.append(f"ACCOUNT: industry={acct.get('industry','')} role={acct.get('role','')}")
+    if ei:
+        lines.append("EXPRESSED INTEREST: " + ", ".join(ei))
+    lines.append("")
+    for it in items:
+        lines.append(f'NEED "{it.get("need","")}" -> {it["id"]}: {it.get("title","")}. '
+                     f'{(it.get("blurb","") or "")[:160]}')
+    lines.append('\nReturn ONLY JSON mapping each case id to '
+                 '{"reason":"one line","signal":"capability|industry|interest|role"}')
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You explain why a proof point fits a client "
+                 "need. Reply with one JSON object only."},
+                {"role": "user", "content": "\n".join(lines)},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    valid = {it["id"] for it in items}
+    out = {}
+    for cid, v in data.items():
+        if cid in valid and isinstance(v, dict):
+            out[cid] = {"reason": (v.get("reason") or "").strip(),
+                        "signal": (v.get("signal") or "").strip().lower()}
+    return out

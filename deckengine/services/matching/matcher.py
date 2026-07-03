@@ -275,11 +275,12 @@ def _capability_gaps(asks, reg, chosen, max_missing=5, max_suggest=6):
     return missing[:max_missing], asked_existing[:max_suggest]
 
 
-def plan(context, top_n=3, use_ai=False, priority_ids=None):
+def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
     """Returns {'picks','gaps','suggestions','ai_used'}. Reads the research/notes,
     ranks the LIBRARY case studies OF THE SELECTED WORK TYPES by how well they match,
     prefers the account's industry, and de-dups. priority_ids = the cases that
-    matched a named research need (ordered) — they LEAD the deck."""
+    matched a named research need (ordered) — they LEAD the deck. avoid = the brief's
+    mismatch flags, used to demote wrong-domain term-matches in the fill."""
     priority_list, _seen = [], set()
     for p in (priority_ids or []):
         pu = str(p).upper()
@@ -329,7 +330,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None):
         transcript_raw, all_case_rows,
         industry=industry, functions=account_functions,
         persona_codes=persona_codes, wanted=wanted, cxo=cxo, use_semantic=use_semantic,
-        research=research_raw)
+        research=research_raw, avoid=avoid)
     ranked = [it for it in ranked if it.get("eligible")]   # drop weak cross-industry
     ai_used = use_semantic and relevance.semantic_available()
     ai_optional = []                     # optional-slide AI selection retired

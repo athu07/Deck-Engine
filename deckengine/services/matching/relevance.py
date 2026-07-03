@@ -193,15 +193,29 @@ def _has_outcome_metrics(row):
     return any(term in text for term in _OUTCOME)
 
 
+# how hard to push down a case that matches a mismatch flag from a DIFFERENT domain
+AVOID_PENALTY = 5.0
+
+
 def rank_cases(transcript, rows, *, industry="", functions=None,
-               persona_codes=(), wanted=None, cxo=False, use_semantic=True, research=""):
+               persona_codes=(), wanted=None, cxo=False, use_semantic=True, research="",
+               avoid=None):
     """Rank every case row (best first). The DEEP RESEARCH drives: a case that
     matches the research outranks one that only matches the generic mail thread.
+    `avoid` = the brief's mismatch flags [{capability,reason}] — a case that is ABOUT
+    a flagged capability but sits in a DIFFERENT industry than the account (a wrong-
+    domain term-match) is pushed down so it can't sneak into the fill.
     Returns dicts {row, score, sem, lex, matched, industry_hit, function_hit,
     eligible, persona_why}. NOTHING is filtered — matcher decides the cut."""
     functions = {f.upper() for f in (functions or set())}
     wanted = {w.upper() for w in (wanted or set())}
     industry = (industry or "").upper()
+    avoid_termsets = []
+    for a in (avoid or []):
+        cap = a.get("capability") if isinstance(a, dict) else str(a)
+        terms = specific_terms(cap or "")
+        if terms:
+            avoid_termsets.append(terms)
 
     terms = transcript_terms((transcript or "") + " " + (research or ""))
     # research asks weigh full; mail asks are down-weighted so the research leads
@@ -247,6 +261,16 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
                  + (W_FUNCTION if fn_hit else 0.0)
                  + W_PERSONA * p_boost
                  + metric)
+
+        # mismatch-flag demotion: a case ABOUT a flagged capability, in a DIFFERENT
+        # industry than the account, is a wrong-domain term-match -> push it down.
+        if avoid_termsets and not ind_hit:
+            head = row.get("_head_tokens")
+            if head is None:
+                head = _tokens(row.get("title", "") + " " + row.get("keywords", ""))
+                row["_head_tokens"] = head
+            if any(len(ts & head) >= max(1, len(ts) // 2) for ts in avoid_termsets):
+                score -= AVOID_PENALTY
 
         out.append({
             "row": row, "score": score, "sem": sem, "lex": weighted,
@@ -327,14 +351,12 @@ def _meta():
     return _case_meta
 
 
-def best_cases(texts, industry="", functions=None, allowed_ids=None):
-    """For each text (a skill/need), the best case. A DIRECT term match — the
-    skill's specific words appearing in the case TITLE/keywords (procurement,
-    contract, gcc) — dominates, because for B2B functional terms it's far more
-    reliable than noisy embedding similarity; semantic + function + industry
-    refine. If allowed_ids is given, only those cases count (work-type aware).
-    Returns [(case_id, adjusted_score, raw_cosine, title_hits)] — title_hits is the
-    strong 'covered' signal (skill term in the case TITLE, not just a keyword)."""
+def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=8):
+    """For each need text (ideally 'name. domain. use_case'), the top_n candidate
+    cases as [{id, adj, cosine, title_hits}] — SEMANTICS + DOMAIN led. The literal
+    term overlap is now only a mild tiebreak (was dominant), and industry/function
+    fit carry real weight, so a right-domain case beats a wrong-domain term-match.
+    Work-type aware via allowed_ids. Used to build the shortlist the LLM re-ranks."""
     embs = _load_case_embeddings()
     meta = _meta()
     heads = _case_head_index()
@@ -342,14 +364,14 @@ def best_cases(texts, industry="", functions=None, allowed_ids=None):
     functions = {f.upper() for f in (functions or set())}
     texts = list(texts or [])
     if not embs or not texts:
-        return [(None, 0.0, 0.0, 0)] * len(texts)
+        return [[] for _ in texts]
     qv = embed_texts(texts)
     if not qv:
-        return [(None, 0.0, 0.0, 0)] * len(texts)
+        return [[] for _ in texts]
     out = []
     for text, v in zip(texts, qv):
-        need = specific_terms(text)                   # the discriminating skill words
-        best = (None, -1.0, 0.0, 0)
+        need = specific_terms(text)                   # discriminating words of the need
+        scored = []
         for cid, cv in embs.items():
             if allowed_ids is not None and cid not in allowed_ids:
                 continue
@@ -358,14 +380,29 @@ def best_cases(texts, industry="", functions=None, allowed_ids=None):
             htoks = heads.get(cid, set())
             direct = len(need & htoks)                # skill term in title/keywords
             direct_title = len(need & ttoks)          # ...and specifically the title
-            adj = (c
-                   + 0.35 * min(3, direct)            # DIRECT term match dominates
-                   + 0.25 * min(2, direct_title)
-                   + (0.10 if fn in functions else 0.0)
-                   + (0.02 if industry and ind == industry else 0.0))  # light tiebreak, not override
-            if adj > best[1]:
-                best = (cid, adj, c, direct_title)
-        out.append(best)
+            adj = (c                                   # meaning (capability) is the primary signal
+                   + 0.12 * min(3, direct)             # literal term = mild tiebreak
+                   + 0.10 * min(2, direct_title)
+                   + (0.10 if fn in functions else 0.0)          # function fit
+                   + (0.08 if industry and ind == industry else 0.0))  # industry = light boost only
+            scored.append({"id": cid, "adj": adj, "cosine": c, "title_hits": direct_title})
+        scored.sort(key=lambda d: -d["adj"])
+        out.append(scored[:top_n])
+    return out
+
+
+def best_cases(texts, industry="", functions=None, allowed_ids=None):
+    """Backward-compatible single-best-per-text: [(id, adj, cosine, title_hits)].
+    Now semantics/domain-led (delegates to shortlist_cases). Returns (None,0,0,0)
+    for a text with no candidate."""
+    lists = shortlist_cases(texts, industry, functions, allowed_ids, top_n=1)
+    out = []
+    for lst in lists:
+        if lst:
+            b = lst[0]
+            out.append((b["id"], b["adj"], b["cosine"], b["title_hits"]))
+        else:
+            out.append((None, 0.0, 0.0, 0))
     return out
 
 

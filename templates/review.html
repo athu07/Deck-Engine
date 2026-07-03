@@ -1,44 +1,76 @@
 
-<div style="margin:14px 0 22px">
+<div style="margin:14px 0 20px">
   <div class="eyebrow">Review &amp; edit</div>
-  <h1 class="display" style="font-size:38px">Final touches for {{ client }}</h1>
-  <p class="lede">Edit each slide's title and subtitle. <b>[CLIENT]</b> is filled with the client name. {% if ai_cards %}<b>AI-written slides are below — read each one and Accept or Reject it.</b>{% endif %}</p>
+  <h1 class="display" style="font-size:38px">Edit your deck</h1>
+  <p class="lede">Every slide is live below — click any text to edit it right on the slide, then build and download. <b>[CLIENT]</b> is replaced with {{ client }}.</p>
 </div>
 <form method="post" action="/finalize" class="form-layout" onsubmit="var l=document.getElementById('loader');if(l)l.style.display='flex'">
-  <div>
-    {% if ai_cards %}
-    <div class="card" style="border-left:5px solid #2C6E66;background:#f3f8f7;margin-bottom:18px">
-      <h2 class="sec-title" style="margin-bottom:6px"><i class="ti ti-sparkles"></i> AI-written slides — your call</h2>
-      <p class="hint" style="font-size:13px;margin:0">These were written by AI to fill gaps. Edit if you like, then <b>Accept</b> (adds it to the deck &amp; your library, client-ready) or <b>Reject</b> (drops it). Nothing leaves this screen unchecked.</p>
-    </div>
-    {% for a in ai_cards %}
-    <div class="card rev-card" style="border:1px solid #bcdfd8">
-      <div class="rev-head"><span class="sid" style="background:#2C6E66;color:#fff">AI · {{ a.work_type }}</span>
-        <div style="margin-left:auto;display:flex;gap:14px;font-size:14px">
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="ai_decision__{{ a.id }}" value="accept" checked> Accept</label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#c0392b"><input type="radio" name="ai_decision__{{ a.id }}" value="reject"> Reject</label>
+  <div class="rev-deck">
+    {% for s in slides %}
+    <div class="rev-slide-card {{ s.kind }}">
+      <div class="rev-slide-index">{{ loop.index }}</div>
+
+      {% if s.kind == 'case' %}
+      <div class="cs-accent"></div>
+      <div class="cs-body">
+        <div class="cs-eyebrow">Case study</div>
+        <input class="se cs-title" name="cs__{{ s.id }}__title" value="{{ s.title }}" placeholder="Case study title">
+        <div class="cs-sub">
+          <span>CLIENT</span> <span class="cs-sub-auto">anonymised</span>
+          <span class="cs-sub-sep">|</span> <span>DOMAIN</span>
+          <input class="se cs-sub-in" name="cs__{{ s.id }}__domain" value="{{ s.domain }}" placeholder="Domain">
+          <span class="cs-sub-sep">|</span> <span>FUNCTION</span>
+          <input class="se cs-sub-in" name="cs__{{ s.id }}__function" value="{{ s.function }}" placeholder="Function">
+        </div>
+        <div class="cs-cols">
+          <div class="cs-col cs-challenge">
+            <div class="cs-h">The Challenge</div>
+            <textarea class="se cs-para" name="cs__{{ s.id }}__challenge" rows="4" placeholder="What was breaking, specific to this domain…">{{ s.challenge }}</textarea>
+          </div>
+          <div class="cs-col cs-solution">
+            <div class="cs-h">The Solution</div>
+            <textarea class="se cs-para" name="cs__{{ s.id }}__solution" rows="4" placeholder="What J2W deployed and how it works…">{{ s.solution }}</textarea>
+          </div>
+        </div>
+        <div class="cs-caps-h">Key Capabilities</div>
+        <div class="cs-caps">
+          {% for cap in s.caps %}
+          <div class="cs-cap">
+            <input class="se cs-cap-t" name="cs__{{ s.id }}__cap{{ loop.index0 }}_t" value="{{ cap[0] }}" placeholder="Capability name">
+            <input class="se cs-cap-b" name="cs__{{ s.id }}__cap{{ loop.index0 }}_b" value="{{ cap[1] }}" placeholder="One line on what it delivers">
+          </div>
+          {% endfor %}
+        </div>
+        <div class="cs-results">
+          {% for res in s.results %}
+          <textarea class="se cs-res" name="cs__{{ s.id }}__res{{ loop.index0 }}" rows="2" placeholder="A concrete result, with a number">{{ res }}</textarea>
+          {% endfor %}
         </div>
       </div>
-      <div class="field"><label>Title</label>
-        <input class="input" name="ai_title__{{ a.id }}" value="{{ a.title }}"></div>
-      <div class="field"><label>Keywords</label>
-        <input class="input" name="ai_keywords__{{ a.id }}" value="{{ a.keywords }}"></div>
-      <div class="field" style="margin-bottom:0"><label>Bullets (one per line)</label>
-        <textarea name="ai_bullets__{{ a.id }}" style="min-height:96px">{{ a.bullets }}</textarea></div>
-    </div>
-    {% endfor %}
-    {% endif %}
 
-    {% for c in cards %}
-    <div class="card rev-card">
-      <div class="rev-head"><span class="sid">{{ c.id }}</span></div>
-      {% for idx, label, text in c.fields %}
-      <div class="field" {% if loop.last %}style="margin-bottom:0"{% endif %}>
-        <label>{{ label }}</label>
-        <input class="input" name="edit__{{ c.id }}__{{ idx }}" value="{{ text }}">
+      {% elif s.kind == 'library' %}
+      <div class="lib-slide">
+        <div class="lib-slide-bar"></div>
+        {% for idx, label, text in s.fields %}
+        {% if loop.first %}
+        <input class="se lib-slide-title" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
+        {% else %}
+        <input class="se lib-slide-sub" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
+        {% endif %}
+        {% endfor %}
+        {% if not s.fields %}<div class="lib-slide-title" style="color:var(--hint)">{{ s.id }} — no editable text</div>{% endif %}
+        <div class="lib-slide-foot">{{ s.id }} · from the library</div>
       </div>
-      {% endfor %}
-      {% if c.context %}<div class="rev-ctx">{{ c.context }}</div>{% endif %}
+
+      {% else %}
+      <div class="skills-slide">
+        <div class="skills-ic"><i class="ti ti-chart-donut"></i></div>
+        <div>
+          <b>Data slide</b>
+          <div class="hint" style="font-size:12.5px">Built live from your delivery footprint (numbers, charts). It updates automatically at build — no text to edit here.</div>
+        </div>
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -47,28 +79,36 @@
     <div class="card">
       <input type="hidden" name="client_name" value="{{ client }}">
       <input type="hidden" name="order" value="{{ order }}">
-      <input type="hidden" name="ai_ids" value="{{ ai_ids }}">
       <input type="hidden" name="industry" value="{{ industry }}">
       <input type="hidden" name="transcript" value="{{ transcript }}">
       <input type="hidden" name="phase" value="{{ phase }}">
       <input type="hidden" name="recipient" value="{{ recipient }}">
       {% for f in functions %}<input type="hidden" name="functions" value="{{ f }}">{% endfor %}
       {% for w in work_types %}<input type="hidden" name="work_types" value="{{ w }}">{% endfor %}
+      <h2 class="sec-title" style="margin-bottom:14px">Your deck</h2>
       <div class="summary">
-        <div class="sum-row"><span>Library slides</span><b>{{ cards|length }}</b></div>
-        <div class="sum-row"><span>AI slides</span><b style="{{ 'color:var(--teal)' if ai_cards else '' }}">{{ ai_cards|length }}</b></div>
+        <div class="sum-row"><span>Slides</span><b>{{ slides|length }}</b></div>
+        <div class="sum-row"><span>Editable</span><b>{{ slides|selectattr('kind','ne','skills')|list|length }}</b></div>
       </div>
       <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:18px"><i class="ti ti-download"></i> Build &amp; download</button>
-      <a href="javascript:history.back()" class="hint" style="display:block;text-align:center;margin-top:14px;font-size:13px">← Back to slides</a>
+      <a href="javascript:history.back()" class="btn btn-block" style="margin-top:10px"><i class="ti ti-arrow-left"></i> Back to slides</a>
+      <div class="side-tip"><i class="ti ti-cursor-text"></i> Click straight onto any title, paragraph or capability to change it. Changes flow into the downloaded .pptx.</div>
     </div>
   </aside>
 </form>
 
 <div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:#2C6E66;border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
-    <div style="font-family:'Space Grotesk',Inter,sans-serif;font-weight:700;font-size:18px;color:#111110">Building your deck…</div>
-    <div style="font-size:13px;color:#6b7280;margin-top:5px">Assembling slides and your download — a few seconds.</div>
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:var(--teal);border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ink)">Building your deck…</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:5px">Assembling slides and your download — a few seconds.</div>
   </div>
 </div>
-<script>window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});</script>
+<script>
+ window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});
+ // auto-grow the editable paragraphs to fit their text
+ document.querySelectorAll('textarea.se').forEach(function(t){
+   function grow(){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
+   t.addEventListener('input',grow); grow();
+ });
+</script>

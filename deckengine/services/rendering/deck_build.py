@@ -39,9 +39,13 @@ def ai_to_store_record(content, industry_code):
     }
 
 
-def assemble(final_ids, path, *, client, industry, work_types, transcript, edits):
+def assemble(final_ids, path, *, client, industry, work_types, transcript, edits, case_edits=None):
     """Build the deck at `path` from `final_ids`, applying edits/tokens and rendering
-    skills slides, content-store cases, and any AI-drafted (NEW:) cases."""
+    skills slides, content-store cases, and any AI-drafted (NEW:) cases. `case_edits`
+    maps a case id -> the fields the user changed on the review slide-view (title,
+    domain, function, challenge, solution, capabilities, results); they override the
+    stored record so the built slide reflects the edits."""
+    case_edits = case_edits or {}
     # "Create with AI" slides ride as NEW:<staging_id>; build them from the staged
     # case-study content into THIS deck (not promoted to the master library).
     create_items = []
@@ -49,13 +53,20 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
         if oid.startswith("NEW:"):
             rec = staging.get(oid[4:])
             if rec:
-                create_items.append({"id": oid, "template": "case_study_v2",
-                                     "record": ai_to_store_record(rec, industry)})
+                record = ai_to_store_record(rec, industry)
+                if case_edits.get(oid):
+                    record.update(case_edits[oid])     # user edits win
+                create_items.append({"id": oid, "template": "case_study_v2", "record": record})
     # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
     # case_study_v2 template, anonymised + dash-clean, into THIS deck.
     store_recs = content_store()
-    store_items = [{"id": oid, "template": "case_study_v2", "record": store_recs[oid]}
-                   for oid in final_ids if oid in store_recs]
+    store_items = []
+    for oid in final_ids:
+        if oid in store_recs:
+            record = dict(store_recs[oid])
+            if case_edits.get(oid):
+                record.update(case_edits[oid])         # user edits win
+            store_items.append({"id": oid, "template": "case_study_v2", "record": record})
     # Skills slides ride along in final_ids (SK:/FP: ids); re-derive their data here.
     skills_cands = skills.candidates({"work_types": work_types, "industry": industry,
                                       "transcript": transcript, "client_name": client})

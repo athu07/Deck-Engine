@@ -197,6 +197,17 @@ CASE_STUDY_RULES = (
     "- No em dashes anywhere. All numbers as numerals. No real company names.\n"
     "- Capability names never reference technology labels (no LLM, RAG, GPT, ML, API, NLP); "
     "name each by business function.\n"
+    "- Capability names must be SPECIFIC and CONCRETE — name the actual asset, mechanism, or "
+    "deliverable (e.g. 'Pre-Trained Bilingual Talent Pipeline', 'Proven Delivery Model "
+    "Lift-and-Scale', 'End-to-End CRM and CTI Integration'). NEVER a generic label like "
+    "'Facilities Management', 'Resource Optimization', 'Data-Driven Insights', 'Operational "
+    "Efficiency', 'Compliance Monitoring', 'Risk Management' or 'X Management'.\n"
+    "- ALIGNMENT: the SOLUTION must directly answer EVERY problem raised in the CHALLENGE — "
+    "each pain point in the challenge has a specific, matching response in the solution.\n"
+    "- Every claim is concrete: name specific scale numbers, phases, sites, tools, workflows "
+    "or outcomes. Never vague ('comprehensive framework', 'streamlined processes', 'enhanced "
+    "efficiency', 'improved operations'). Invent realistic, specific details when the input "
+    "is thin, the way a real proof point reads.\n"
     "- Infer realistic metrics from industry benchmarks if none are provided.\n"
     "- Tone: straight, professional, executive.\n"
     "RESULTS RULES:\n"
@@ -237,27 +248,57 @@ def _normalize_case_study(data, industry=""):
 
 
 def draft_case_study(brief, context=None):
-    """Generate ONE full case study from a salesperson's free-text brief, in the
-    strict format + self-review. Returns the structured fields (+ 'review'). The
-    human supplies the facts in the brief; the model just writes them up."""
+    """Generate ONE full case study in the strict format + self-review, SYNTHESISED
+    from the real client context — the deep-research brief, stakeholder profile and
+    full transcript — not just a definition of the topic. Returns the structured
+    fields (+ 'review'). context keys: industry, recipient, function, notes
+    (full transcript), research (deep-research brief), profile (stakeholder bio)."""
     context = context or {}
     industry = context.get("industry", "")
     recipient = context.get("recipient", "")
     function = context.get("function", "")
     notes = context.get("notes", "")
+    research = context.get("research", "")
+    profile = context.get("profile", "")
     prompt = (
-        "Write ONE proof-point case study for a J2W sales meeting. It must feel "
-        "SPECIFIC and OPERATIONAL to THIS account — never generic, never padded.\n\n"
-        "ACCOUNT CONTEXT — tailor the case to this exact situation:\n"
+        "Write ONE proof-point case study for a J2W sales meeting, grounded in the REAL "
+        "client context below. It must be SPECIFIC and OPERATIONAL to THIS account — a "
+        "SYNTHESIS of the provided research, profile and notes, never a generic "
+        "definition of the topic.\n\n"
+        "ACCOUNT CONTEXT:\n"
         + (f"- Industry / domain: {industry}\n" if industry else "")
         + (f"- Stakeholder we are meeting: {recipient}\n" if recipient else "")
         + (f"- Their function / remit: {function}\n" if function else "")
-        + (f"- Meeting notes / research:\n\"\"\"\n{notes[:1800]}\n\"\"\"\n" if notes else "")
-        + "\nThe capability / use case to prove:\n\"\"\"\n" + (brief or "")[:1500] + "\n\"\"\"\n\n"
-        "Write it as a REAL J2W engagement with an ANONYMISED client in the SAME "
-        "domain as this account, whose situation mirrors what this stakeholder "
-        "personally owns, solving exactly the capability above. Ground every claim "
-        "in that scenario — no boilerplate.\n\n"
+        + (f"\nDEEP RESEARCH BRIEF (background, domain specifics, priorities):\n\"\"\"\n"
+           f"{research[:6000]}\n\"\"\"\n" if research else "")
+        + (f"\nSTAKEHOLDER PROFILE (tone, remit, what they personally own):\n\"\"\"\n"
+           f"{profile[:4000]}\n\"\"\"\n" if profile else "")
+        + (f"\nMEETING TRANSCRIPT / NOTES (prior context, expressed needs):\n\"\"\"\n"
+           f"{notes[:6000]}\n\"\"\"\n" if notes else "")
+        + "\nThe capability / use case to prove (fill THIS gap):\n\"\"\"\n"
+        + (brief or "")[:1500] + "\n\"\"\"\n\n"
+        "SYNTHESISE the sources above into a case that mirrors what THIS stakeholder "
+        "personally owns and the domain described in the research — an anonymised J2W "
+        "engagement in the SAME domain, solving exactly this capability. Ground every "
+        "claim in the provided context. Only where a specific metric is genuinely "
+        "absent from the sources, use a realistic industry benchmark — never leave a "
+        "field vague or generic.\n\n"
+        "QUALITY BAR — match this level of specificity and note how the solution answers "
+        "EACH part of the challenge (this is a DIFFERENT topic; do NOT copy its content):\n"
+        "CHALLENGE: A leading global technology hardware company needed to stand up a "
+        "scalable, high-performance Customer Engagement Center in Cairo for multilingual EMEA "
+        "support at strict SLAs, replicating a proven 900 seat India center in a new geography "
+        "with zero execution risk and a fixed November 1st launch.\n"
+        "SOLUTION: A lift and scale of the proven India model into Cairo, applying the "
+        "identical playbook, tools, workflows and governance already delivering for the "
+        "client. A prime Cairo site was secured with phased capacity from 50 to 400 seats, a "
+        "pre-trained bilingual pool of 50 resources ready day 1, and end to end IT including "
+        "CRM and CTI integration.\n"
+        "CAPABILITIES: Proven Delivery Model Lift-and-Scale; Pre-Trained Bilingual Talent "
+        "Pipeline; End-to-End IT and Infrastructure Setup; Joint Client-J2W Governance; GDPR "
+        "and ISO 27001 Compliance; Innovation Roadmap Integration.\n"
+        "RESULTS: 98% SLA adherence sustained to the India blueprint; 50 resources live day 1 "
+        "scaling to 400 seats; 5 year contractual partnership established.\n\n"
         "Follow these rules exactly:\n" + CASE_STUDY_RULES
         + "\nEach field:\n"
         "- title: a specific, concrete case study title (name the capability, not a slogan).\n"
@@ -280,7 +321,7 @@ def draft_case_study(brief, context=None):
         load_env()
         from openai import OpenAI
         resp = OpenAI().chat.completions.create(
-            model=MODEL, temperature=0.5,
+            model=config.GEN_MODEL, temperature=0.5,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You are a B2B case study writer and sales reviewer "

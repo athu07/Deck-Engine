@@ -76,8 +76,41 @@ h1.display{font-size:46px;margin:6px 0 4px}
 .btn-block{width:100%;justify-content:center}
 
 /* ---- cards ---- */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:22px 24px;box-shadow:var(--shadow)}
+.card-num{position:absolute;top:20px;right:22px;width:24px;height:24px;border-radius:50%;
+  background:var(--teal-soft);color:var(--teal-700);font-family:var(--display);font-weight:600;
+  font-size:12px;display:grid;place-items:center}
+.soft-divider{height:1px;background:var(--line);margin:18px 0}
+
+/* work-type selectable cards (the primary choice) */
+.wt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.wt-card{position:relative;display:flex;flex-direction:column;gap:2px;padding:16px;border:1.5px solid var(--line);
+  border-radius:var(--r-md);cursor:pointer;transition:.15s;background:var(--surface)}
+.wt-card:hover{border-color:var(--teal-300);box-shadow:var(--shadow-sm)}
+.wt-card input{position:absolute;opacity:0;pointer-events:none}
+.wt-card .wt-ic{width:38px;height:38px;border-radius:11px;background:var(--teal-soft);color:var(--teal);
+  display:grid;place-items:center;margin-bottom:8px}
+.wt-card .wt-ic .ti{font-size:20px}
+.wt-card .wt-name{font-weight:600;font-size:15px}
+.wt-card .wt-sub{font-size:12px;color:var(--hint)}
+.wt-card:has(input:checked){border-color:var(--teal);background:var(--teal-soft)}
+.wt-card:has(input:checked) .wt-ic{background:var(--teal);color:#fff}
+@media(max-width:560px){.wt-grid{grid-template-columns:1fr}}
+
+/* attachments */
+.attach-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.attach{border:1px dashed var(--line-2);border-radius:var(--r-md);padding:14px;background:#fbfbfa}
+.attach-h{font-size:13px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.attach-h .ti{font-size:17px;color:var(--teal)}
+.attach p{font-size:12px;color:var(--hint);margin:0 0 9px}
+.attach input[type=file]{font-size:12px;width:100%}
+@media(max-width:560px){.attach-grid{grid-template-columns:1fr}}
+
+/* sidebar tip */
+.side-tip{display:flex;gap:9px;align-items:flex-start;margin-top:16px;padding:12px 14px;
+  border-radius:var(--r-sm);background:var(--teal-soft);color:var(--teal-700);font-size:12.5px;line-height:1.45}
+.side-tip .ti{font-size:17px;flex-shrink:0;margin-top:1px}
 .card-dark{background:var(--black);color:#fff;border-color:var(--black)}
 .card-teal{background:var(--teal);color:#fff;border-color:var(--teal)}
 .grid{display:grid;gap:18px}
@@ -155,7 +188,8 @@ textarea{resize:vertical;min-height:130px;line-height:1.55}
   display:grid;place-items:center;font-size:13px;font-weight:600;flex-shrink:0}
 .step .st{font-size:13px;color:var(--muted);line-height:1.45}
 .step .st b{color:var(--ink);font-weight:500;display:block}
-.form-layout{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start}
+.form-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}
+.form-layout > *{min-width:0}
 .side-card{position:sticky;top:90px}
 @media(max-width:980px){.form-layout{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.side-card{position:static}}
 
@@ -227,7 +261,63 @@ textarea{resize:vertical;min-height:130px;line-height:1.55}
 .thumb:hover{border-color:var(--line-2)}
 .thumb.active{border-color:var(--teal)}
 
-/* ---- review & edit ---- */
+/* ---- review & edit: editable slide view ---- */
+.rev-deck{display:flex;flex-direction:column;gap:20px}
+.rev-slide-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--r-md);
+  box-shadow:var(--shadow);overflow:hidden}
+.rev-slide-index{position:absolute;top:10px;right:12px;z-index:3;font-family:var(--display);font-size:12px;
+  font-weight:600;color:var(--hint);background:rgba(255,255,255,.85);border-radius:6px;padding:2px 7px}
+
+/* editable text that blends into the slide until you click it */
+.se{font-family:inherit;font-size:inherit;color:inherit;width:100%;border:1px solid transparent;border-radius:6px;
+  background:transparent;padding:3px 6px;transition:.12s;resize:none;font-weight:inherit}
+.se:hover{background:rgba(44,110,102,.06)}
+.se:focus{outline:none;background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
+textarea.se{line-height:1.5;overflow:hidden}
+
+/* CASE slide — mirrors the branded case_study_v2 look */
+.cs-accent{height:8px;background:linear-gradient(90deg,var(--neg) 0 42%,var(--teal) 42% 100%)}
+.cs-body{padding:20px 24px 22px}
+.cs-eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--neg);font-weight:700;margin:0 0 3px 6px}
+.cs-title{font-family:var(--display);font-weight:600;font-size:23px;letter-spacing:-.01em;color:var(--ink);margin-bottom:8px}
+.cs-sub{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--teal-700);font-weight:600;margin:0 0 16px 6px}
+.cs-sub-auto{color:var(--hint);font-weight:500;text-transform:none;letter-spacing:0}
+.cs-sub-sep{color:var(--line-2)}
+.cs-sub-in{width:auto;min-width:70px;max-width:220px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--teal-700);font-weight:600;padding:2px 6px}
+.cs-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.cs-col{border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px}
+.cs-challenge{border-left:3px solid var(--neg)}
+.cs-solution{border-left:3px solid var(--teal)}
+.cs-h{font-family:var(--display);font-weight:600;font-size:14px;margin-bottom:5px}
+.cs-para{font-size:13.5px;color:#333;min-height:76px}
+.cs-caps-h{font-family:var(--display);color:var(--teal);font-weight:600;font-size:14px;margin-bottom:9px}
+.cs-caps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.cs-cap{border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;background:#fbfbfa}
+.cs-cap-t{font-weight:600;font-size:12.5px}
+.cs-cap-b{font-size:12px;color:var(--muted);margin-top:1px}
+.cs-results{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:var(--teal);border-radius:var(--r-sm);padding:12px}
+.cs-res{color:#fff;font-size:13px;font-weight:500;text-align:center;min-height:46px}
+.cs-res::placeholder{color:rgba(255,255,255,.6)}
+.cs-res:hover{background:rgba(255,255,255,.14)}
+.cs-res:focus{background:#fff;color:var(--ink)}
+@media(max-width:640px){.cs-cols,.cs-caps,.cs-results{grid-template-columns:1fr}}
+
+/* LIBRARY slide */
+.lib-slide-bar{height:8px;background:var(--teal)}
+.lib-slide-title{font-family:var(--display);font-weight:600;font-size:21px;color:var(--ink);
+  width:calc(100% - 32px);margin:18px 16px 2px}
+.lib-slide-sub{font-size:15px;color:var(--muted);width:calc(100% - 32px);margin:0 16px 2px}
+.lib-slide-foot{font-size:11px;color:var(--hint);padding:12px 24px 14px;border-top:1px solid var(--line);margin-top:14px}
+
+/* SKILLS slide (data-driven, read-only) */
+.skills-slide{display:flex;align-items:center;gap:14px;padding:20px 24px;background:#fbfbfa}
+.skills-ic{width:44px;height:44px;border-radius:12px;background:var(--teal-soft);color:var(--teal);
+  display:grid;place-items:center;flex-shrink:0}
+.skills-ic .ti{font-size:22px}
+
+/* ---- legacy review classes (unused, kept for safety) ---- */
 .rev-card{margin-bottom:16px}
 .rev-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .rev-ctx{font-size:12px;color:var(--hint);white-space:pre-wrap;line-height:1.5;margin-top:12px;

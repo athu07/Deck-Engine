@@ -69,6 +69,7 @@
    if(loader) loader.style.display='block';
    var pct=0; var ticker=setInterval(function(){pct=Math.min(pct+Math.random()*7+3,88);if(bar)bar.style.width=pct+'%';},500);
    var fd=new FormData(); fd.append('brief',brief);
+   fd.append('build_id',BUILD_ID||'');   // server reloads full research/profile/transcript by this
    fd.append('industry',ind);
    fd.append('client_name',(SERVER_CTX&&SERVER_CTX.client_name)||'');
    fd.append('recipient',(SERVER_CTX&&SERVER_CTX.recipient)||'');

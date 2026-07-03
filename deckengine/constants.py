@@ -15,6 +15,12 @@ from deckengine.services.matching import tagger
 # and broad capability areas naturally score ~0.5 against any one specific case.
 COVERAGE_THRESHOLD = 0.50
 
+# A need is "covered" by a case when the top capability match clears this cosine bar
+# (or the need's word is literally in the case title). Below it, the need is an honest
+# gap ("Not in our library"). Lower than COVERAGE_THRESHOLD because the shortlist query
+# is the bare capability, so genuine matches land a touch lower.
+CAPABILITY_COVER = 0.42
+
 # generic management labels that aren't a case-study TOPIC — never pick or flag them
 _GENERIC_NEEDS = {
     "project management", "program management", "budget management", "risk management",

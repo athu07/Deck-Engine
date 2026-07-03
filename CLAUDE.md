@@ -1,56 +1,150 @@
-# CLAUDE.md
+# CLAUDE.md — read this before changing anything, and keep the structure
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file tells any AI assistant (Claude Code, Claude Desktop) how this codebase is
+organised and **where new code must go**. The repo was reorganised into a clean Flask
+package; please keep it that way. Do not put logic back into one big file, and do not
+add loose files at the repo root.
 
 ## What this is
 
-The **J2W Deck Engine** — a locally-run Flask app that assembles a tailored PowerPoint for JoulesToWatts' sales team. A salesperson enters client context (client, industry, deck phase, work type(s), function(s), free-text "more information"); the engine picks the most relevant slides from a master deck, fills data-driven slides from spreadsheets, AI-writes any missing slide, and produces a downloadable `.pptx`. Owner is **Athithia** (a non-developer — explain changes simply and confirm before large or irreversible edits).
+The **J2W Deck Engine** — a self-hosted Flask app that assembles a tailored PowerPoint
+for JoulesToWatts' sales team. A salesperson enters client context (client, industry,
+deck phase, work type(s), function(s), notes) and optional deep-research / stakeholder-
+profile PDFs; the engine picks the most relevant slides, fills data-driven slides,
+AI-writes any missing slide, and produces a downloadable `.pptx`. Owner is **Athithia**
+(a non-developer — explain changes simply, confirm before large or irreversible edits).
 
-`BUILD_LOG.txt` is the owner's running notebook and the authoritative history of decisions/changes — read it for context and **keep it updated** when you make meaningful changes. `HANDOFF.md` is an older session handoff (still useful for rationale, but some specifics are now superseded by `BUILD_LOG.txt`).
+`BUILD_LOG.txt` is the owner's running changelog — read it for history and **append a
+short entry when you make a meaningful change**.
 
-## Running it
+## Project structure (where everything lives)
 
 ```
-py app.py        # Python 3.12 via the `py` launcher; serves http://127.0.0.1:5000
+wsgi.py              Production entrypoint (gunicorn wsgi:app).
+app.py               Dev entrypoint / shim (python app.py). Both just build the app.
+
+deckengine/          THE application package. All code lives under here.
+  __init__.py          create_app() — the Flask app factory; registers the blueprints.
+  config.py            SINGLE source of every file path + AI model ids. Nothing else
+                       hardcodes a path or filename.
+  constants.py         Form vocabularies, labels, matching knobs (INDUSTRIES, PHASES...).
+  web/                 The web layer — ONE blueprint per area:
+    decks.py             / , /new, /build, /review, /finalize, /deck  (the core flow)
+    dashboard.py library.py staging.py templates.py meetings.py
+    output.py            file serving (/output, /slide/<id>/download)
+    api.py               /create_ai (the "Draft with AI" JSON endpoint)
+    view_helpers.py      shell(), the file-busy page, filename slug, dashboard stats
+  services/            Business logic (NO Flask imports here):
+    matching/            matcher, relevance, ai_matcher, personas, synonyms, tagger
+    content/             case_library, content_store, build_library, editor
+    rendering/           assembler, slide_generator, fill_case_study, skills, staging,
+                         deck_build
+    ingest.py            reads uploaded research/profile files (PDF/text)
+    meeting_log.py       one JSON per client+phase on each generate
+    build_context.py     saves a build's research+profile+transcript by build_id
+    infra.py             loads .env / OpenAI key
+
+templates/           Jinja pages: base is _shell.html, one file per page (build.html...).
+static/
+  app.css              the design system (one stylesheet).
+  js/                  deck-tray.js, build.js, library.js, new-form.js (front-end logic).
+
+data/                Runtime data the app READS:
+  *.json               library, tagged_library, case_study_content_store, embeddings
+  decks/               WORKING_COPY_Master_Deck.pptx (the living master)
+  templates/           templates.pptx, skills_templates.pptx, case_study_v2.pptx
+  registry/            the .xlsx registry / footprint / case-source spreadsheets
+
+scripts/             One-off build/maintenance scripts, run by hand from the repo root.
+eval/                Match-quality scorecard.
+tests/               Smoke + fix tests (pytest). Run these after any change.
+archive/             Retired code / backups (kept for reference; don't wire it back in).
+output/ meetings/ staging/ build_context/   Runtime OUTPUT (git-ignored; auto-created).
 ```
 
-- **No auto-reload** (`debug=False`). After *any* code change, kill the process on port 5000 and re-run `py app.py`.
-- No `requirements.txt`. Dependencies already installed: `flask`, `python-pptx`, `openpyxl`, `openai`, `pywin32` (only the rolled-back `renderer.py` uses pywin32).
-- **No test suite.** Verify changes by exercising the real code: either drive the Flask routes with `app.test_client()` (e.g. `c.post('/build', data=...)`) or call the pipeline modules directly (`matcher.plan(...)`, `skills.candidates(...)`, `assembler.build_deck(...)`). Each module also has a `__main__` demo block.
-- AI provider is **OpenAI `gpt-4o-mini`**; key lives in `.env` (`OPENAI_API_KEY`, git-ignored, loaded by `secrets_loader`). AI runs on every `/build` (refine) and every gap generation (cost). The key has been exposed in chat — treat as compromised, rotate before deploy.
+## Structure rules — follow these for EVERY change
 
-## Core architecture
+1. **New page or route** → add it as a Blueprint in `deckengine/web/<area>.py` and
+   register it in `deckengine/__init__.py::create_app`. Do not add routes to `app.py`.
+2. **New matching / scoring logic** → `deckengine/services/matching/`.
+   **New content/data access** → `services/content/`.
+   **New slide building / rendering** → `services/rendering/`.
+   Keep the web layer thin — it should call services, not contain the logic.
+3. **File paths**: never write `open("somefile.json")` or hardcode a path. Add the path
+   to `deckengine/config.py` and import it (`from deckengine import config`). This is
+   what lets the app run from anywhere and on the server.
+4. **HTML** → a Jinja file in `templates/` (extend `_shell.html`), rendered with
+   `render_template`. **Never** put big HTML strings back into Python.
+5. **JavaScript** → `static/js/`. **CSS** → `static/app.css`. Not inline in templates.
+6. **Data files** → `data/` (json at `data/`, decks/templates/registry in their
+   subfolders); then update the matching path in `config.py`.
+7. **One-off scripts** → `scripts/`. Start each with the repo-root bootstrap the others
+   use, and import engine code as `from deckengine.services... import ...`.
+8. **Only `app.py` and `wsgi.py` live at the repo root.** No other loose `.py` files.
+9. **Run the tests after changes:** `python -m pytest tests/ -q` — they must stay green.
 
-**Content-library model, not positional.** Slides are matched by content/tags, never by deck position. Every slide carries a stable `J2W_ID: CSxx` line in its **speaker notes**. `stamp_ids.py` assigns IDs (insert-safe: only un-ID'd slides get `max+1`; existing IDs never renumber). `read_id()` (in `build_library.py`) reads it everywhere.
+## Running / testing / deploying
 
-**The living master is `WORKING_COPY_Master_Deck.pptx`** — this is what the engine reads/writes (`assembler.SOURCE`). The original `Master_Deck_Case_Study_Portfolio.pptx` is a stale pristine backup; never use it as the source or re-stamp IDs from it (that would renumber everything).
+- **Local (dev):** `python app.py` → http://127.0.0.1:5000. No auto-reload — restart
+  after code changes.
+- **Dependencies:** `pip install -r requirements.txt` (Flask, python-pptx, openpyxl,
+  openai, pypdf, PyMuPDF, python-docx, gunicorn). A local `.venv/` is git-ignored.
+- **Tests:** `python -m pytest tests/ -q`. The smoke test drives the real
+  `/build → /review → /finalize` flow and pins matcher output; it is hermetic (no
+  network) — keep it that way.
+- **Deploy:** Docker runs `gunicorn wsgi:app`. `OPENAI_API_KEY` must be set in the
+  server env (it is git-ignored and does NOT travel with the code).
 
-**Two sources of truth drive selection:** the registry `J2W_CaseStudy_Portfolio_Metadata.xlsx` (sheet `Slide Registry`, one row per slide: `include_rule` / `std_group` / `section` / `work_types` / `keywords` / etc.) drives *which* slides; `tagged_library.json` provides slide content/keywords. They align by `CSxx`. The `keywords` column (dot-separated, separator is `·` U+00B7 — your console may mangle it) is the primary matching fuel.
+## Core architecture (unchanged concepts)
 
-**The request flow (one linear path):**
-```
-/ or /new (NEW_FORM_BODY)
-  -> POST /build      matcher.plan() -> picks + gaps + skills; renders BUILD_BODY (the TOC/Suggested panel)
-  -> POST /review     writes AI gap slides as editable Accept/Reject cards (REVIEW_BODY)
-  -> POST /finalize   accept->promote, assemble, fill skills slides; renders PREVIEW_BODY (auto-downloads)
-  -> /output/<file>   serves the .pptx
-```
-`/download` + `_maybe_generate()` + the red "verification banner" in `slide_generator` are **vestigial** (left over from a pre-linear-flow design; the live flow never hits them). `FORM_HTML`, `ai_fallback.py`, and `renderer.py` (a rolled-back PowerPoint-COM renderer) are also dead — do not revive without reason.
+**Content-library model, not positional.** Slides match by content/tags. Every library
+slide carries a stable `J2W_ID: CSxx` line in its speaker notes; `read_id()` (in
+`services/content/build_library.py`) reads it. The living master is
+`data/decks/WORKING_COPY_Master_Deck.pptx` (`assembler.SOURCE`).
 
-**All HTML is inline** in `app.py` as big `*_BODY` string constants rendered with `render_template_string`. There are no template files. Deck-in-progress state is carried in the browser via a localStorage "deck tray" (`j2w_deck`) plus hidden form fields; the slide order is a comma-joined id list that can contain `CSxx`, `SK:<area>`, `FP:<client>`, `NEW:<staging>`, and content-store case ids (`AIP/WFS/MSS`).
+**Request flow (one linear path):** `/` → `/build` (pick slides) → `/review` (edit) →
+`/finalize` (assemble + download). Deck-in-progress state lives in the browser
+(localStorage "deck tray" `j2w_deck`); the slide order is a comma-joined id list that
+can contain `CSxx`, `AIP/WFS/MSS` (content-store cases), `SK:`, `FP:`, `NEW:` items.
 
-## The three ways a slide enters a deck
+**The three ways a slide enters a deck:** (1) picked from the library / content store
+(`services/matching/matcher.plan` → `services/rendering/assembler` + `skills.build_into`
+render content-store cases from `data/templates/case_study_v2.pptx`); (2) AI-drafted to
+fill a gap (`services/rendering/slide_generator.draft_case_study` → staged as `NEW:` →
+rendered at finalize); (3) data-driven skills slides (`services/rendering/skills.py`,
+Workforce + RFI gated).
 
-1. **Picked from the library** (`matcher.py` → `assembler.py` for core/standard slides; `case_library.py` → `skills.build_into` for case studies). `matcher.plan(context, use_ai=True)` returns `{picks, gaps, suggestions, suggested, ai_used}`: always-in core + per-work-type standard blocks (still `CSxx` from the master) + **case studies, which now come from the content store** (`case_library.candidate_rows()` serves store records in the matcher's row shape, so the same transcript/industry/function/persona scoring + `ai_matcher.refine()` apply unchanged — only the source moved off the legacy master case slides). `assembler.build_deck(ids)` builds the `CSxx` slides from a *copy* of the master (drops every non-kept slide incl. ID-less ones, prunes media, atomic save). Then `skills.build_into` **renders each content-store case** (`template == "case_study_v2"`) from the shared `case_study_v2.pptx` via `slide_generator._copy_slide` + `fill_case_study.build_mapping`, and reorders the whole deck to the final id list. The browsable "Case library" optgroup on the build page lets the salesperson add any of the 160 cases by hand (same render path). `ai_matcher.refine()` **must** return plain id strings — it normalizes the model's output to avoid `unhashable dict` crashes.
+## AI (OpenAI) — how matching & generation use it
 
-2. **AI-generated to fill a gap** (`slide_generator.py` + `staging.py`). When a work type has no good case match, `/review` calls `slide_generator.draft(gap, {brief, industry, transcript})` — guided by an editable **brief** (pre-filled by `default_brief()`) and grounded in the **format of similar real slides** (`_similar_slides()`). The draft is staged pending (`staging.add`), shown for Accept/Reject. **Accept = full sign-off**: `staging.promote()` builds the slide into the master, assigns a new `CSxx`, rebuilds `library.json`/`tagged_library.json`, and appends a registry row — so each accept **permanently grows the living master** (back it up before testing this path). Reuse-before-regenerate via `staging.find()`. `/staging` is now a read-only history.
+- Key in `.env` (`OPENAI_API_KEY`), git-ignored, loaded by `services/infra.py`.
+- Models are config constants: `config.GEN_MODEL` (case-study generation, `gpt-4o`) and
+  the cheaper `gpt-4o-mini` for extraction/ranking in `ai_matcher.py`.
+- Every AI call is **fail-safe**: if the API is unavailable, matching degrades to the
+  algorithmic path and generation to a placeholder. Keep new AI calls fail-safe too.
 
-3. **Data-driven skills slides** (`skills.py`, Workforce-only). `skills.candidates(context)` is **gated to a pure-Workforce deck** (`work_types == {WORKFORCE}`); otherwise none. Capability slides match keyword-first (uncapped) plus industry matches capped at `CAP_INDUSTRY=3` (a `STOPWORDS` set keeps generic words like "engineering" from over-matching). Footprint slide is added when the form client matches a Client Footprint row. Data comes from `J2W_Skills_Inventory.xlsx` (only the two *aggregated* sheets — **never** "Consultant Detail"); rows older than 90 days (`last_verified`) get a stale flag. `skills.build_into()` copies the master's `J2W_TEMPLATE: skills` / `J2W_TEMPLATE: company_footprint` slides, fills `{{MARKER}}` tokens, adds a native brand-coloured doughnut into a `{{CHART}}` placeholder if present, and reorders the deck to the final id list.
+### The matching + generation design (do not regress these)
 
-## Non-obvious gotchas
+`/build` runs `ai_matcher.extract_brief()` (one call) → a structured brief:
+`{needs (with domain/use_case), avoid (mismatch flags), expressed_interest, account}`.
+It builds a cheap shortlist per need (`relevance.shortlist_cases`, semantics/domain-led)
+then `ai_matcher.rank_shortlist()` picks the best-fit case per need, **excluding
+mismatch-flagged cases**, with a reason. The mismatch flags also demote wrong-domain
+cases in `relevance.rank_cases(..., avoid=)`. `build_context.save()` persists the deep
+research + profile + full transcript by `build_id` so `/create_ai` can reload them and
+`slide_generator.draft_case_study` **synthesises** them into a grounded case study.
 
-- **Template slides in the master have NO `J2W_ID`** (only a `J2W_TEMPLATE:` notes tag). They are fill-on-demand templates, not library picks — which is why `assembler.build_deck` must drop ID-less slides (else they leak in unfilled).
-- **`slide_generator._copy_slide` copies shape XML but NOT image parts** — pictures in a copied slide become broken-image references. Picture shapes were therefore stripped from the skills templates. Any new template meant for copying should be text/auto-shape only (or `_copy_slide` needs image-part copying).
-- **Marker filling preserves only the first run's formatting** per paragraph (`editor.set_text`, `skills.fill_markers`). Keep markers in their own run/box where formatting matters.
-- The **meeting log** (`meeting_log.py`) auto-writes one JSON per client+phase (`meetings/J2W_<Client>_<PhaseCode>.json`, newest overwrites) on every generate; `/meetings` searches it. Phase codes: PR/FM/SM/PP.
-- The salesperson is captured via `current_salesperson()` in `app.py`, currently a placeholder — the single seam to wire to real login at deploy.
+If you change matching or generation, keep: domain/mismatch-aware selection, the
+research+profile+transcript reaching generation, and the fail-safe fallbacks.
+
+## Gotchas
+
+- **Template slides in the master have NO `J2W_ID`** (only a `J2W_TEMPLATE:` notes tag);
+  `assembler.build_deck` drops ID-less slides so they don't leak in unfilled.
+- **`slide_generator._copy_slide`** copies shape XML + image parts but not charts/OLE;
+  templates meant for copying should be text/auto-shape (or extend the copier).
+- **Marker filling keeps only the first run's formatting** per paragraph — keep
+  `{{MARKER}}`s in their own run/box.
+- **`current_salesperson()`** (in `web/view_helpers.py`) is a placeholder — the seam to
+  wire real login at deploy.
+- Runtime dirs (`output/ meetings/ staging/ build_context/`) are git-ignored and kept
+  via a `.gitkeep`; their contents are regenerated, never source.

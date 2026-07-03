@@ -33,7 +33,8 @@ _TMP = tempfile.mkdtemp(prefix="deck_smoke_")
 os.environ["DECK_OUTPUT_DIR"] = os.path.join(_TMP, "out")
 os.environ["DECK_MEETINGS_DIR"] = os.path.join(_TMP, "meet")
 os.environ["DECK_STAGING_DIR"] = os.path.join(_TMP, "stage")
-for _d in ("out", "meet", "stage"):
+os.environ["DECK_BUILD_CONTEXT_DIR"] = os.path.join(_TMP, "bctx")
+for _d in ("out", "meet", "stage", "bctx"):
     os.makedirs(os.path.join(_TMP, _d), exist_ok=True)
 
 import pytest
@@ -74,8 +75,13 @@ def _run_from_repo_root():
 
 @pytest.fixture(autouse=True)
 def _hermetic_ai(monkeypatch):
-    """Blank the key so all OpenAI calls fail safe to offline defaults (no network)."""
-    monkeypatch.setenv("OPENAI_API_KEY", "")
+    """Force every OpenAI call to fail fast so the app takes its offline fail-safe
+    paths — deterministic, no network, no cost. A non-empty sentinel key stops
+    infra.load_env from repopulating the real key from .env (it only skips keys that
+    are already set to a non-empty value); an unreachable base URL makes any call
+    that is still attempted fail instantly instead of hitting the real API."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-hermetic-test-not-a-real-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:1")
 
 
 @pytest.fixture

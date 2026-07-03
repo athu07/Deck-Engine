@@ -15,19 +15,37 @@ from flask import Blueprint, request, render_template, abort
 from pptx import Presentation
 
 from deckengine import config
-from deckengine.constants import (COVERAGE_THRESHOLD, _GENERIC_NEEDS, INDUSTRIES,
-                                  FUNCTIONS, PHASES)
+from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
+                                  INDUSTRIES, FUNCTIONS, PHASES)
 from deckengine.services.matching import matcher, relevance, ai_matcher
-from deckengine.services.rendering import skills, staging, deck_build
+from deckengine.services.rendering import skills, staging, deck_build, fill_case_study
 from deckengine.services.content import case_library, editor
+from deckengine.services.content.content_store import content_store
 from deckengine.services.content.build_library import read_id
 from deckengine.services.rendering import assembler
 from deckengine.services import ingest as research
 from deckengine.services import meeting_log
+from deckengine.services import build_context
 from .view_helpers import (shell, file_busy_page, safe_filename, current_salesperson,
                            legacy_case_ids as _legacy_case_ids)
 
 bp = Blueprint("decks", __name__)
+
+
+def _is_avoided(rec, avoid):
+    """True if this content-store case is ABOUT a mismatch-flagged capability (so it must
+    not be picked to answer a need)."""
+    if not avoid or not rec:
+        return False
+    kw = rec.get("keywords") or []
+    text = rec.get("title", "") + " " + (" ".join(kw) if isinstance(kw, list) else str(kw))
+    head = relevance._tokens(text)
+    for a in avoid:
+        cap = a.get("capability", "") if isinstance(a, dict) else str(a)
+        terms = relevance.specific_terms(cap)
+        if terms and len(terms & head) >= max(1, len(terms) // 2):
+            return True
+    return False
 
 
 @bp.route("/")
@@ -88,6 +106,15 @@ def build():
     if research_text:
         match_notes = (ctx["transcript"] + "\n\n[DEEP RESEARCH BRIEF]\n"
                        + research_text).strip()
+    # Persist this build's full context (deep research + profile + FULL transcript),
+    # keyed by build_id, so the AI case-study generator can synthesise from it later.
+    build_id = uuid.uuid4().hex
+    build_context.save(build_id, {
+        "research": research_text, "profile": profile_text,
+        "transcript": ctx["transcript"], "industry": ctx["industry"],
+        "recipient": ctx["recipient"], "functions": ctx["functions"],
+        "client_name": ctx["client_name"],
+    })
     # Backstop for the browser's at-least-one-work-type check (e.g. JS disabled).
     if not ctx["work_types"]:
         try:
@@ -106,41 +133,101 @@ def build():
     # find OUR best case OF THE SELECTED WORK TYPES via a DIRECT skill->title match:
     # covered -> that case LEADS the deck; not covered -> a gap ("want to generate").
     priority_ids, missing = [], []
-    profile_needs = []
+    profile_needs = []               # needs (name+description) — feeds lead_research
+    avoid = []                       # the brief's mismatch flags
+    priority_reasons = {}            # case_id -> {"why","signal"} for the rationale
     try:
         wanted = {w.upper() for w in ctx["work_types"]}
         wt_ids = {c["id"] for c in case_library.all_cases()
                   if c.get("work_type", "").upper() in wanted}
-        research_needs = ai_matcher.extract_accelerators(research_text) if research_text else []
-        profile_needs = ai_matcher.extract_profile(profile_text) if profile_text else []
-        if not research_needs and not profile_needs and ctx["transcript"].strip():
-            research_needs = ai_matcher.extract_accelerators(ctx["transcript"])
-        needs = profile_needs + research_needs          # profile + research, balanced
         acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
-        if needs:
-            # match on the skill NAME (the crisp function term), not the prose
-            # description (which adds generic words that match random cases)
-            best = relevance.best_cases([a["name"] for a in needs],
-                                        industry=ctx.get("industry", ""), functions=acct_fns,
-                                        allowed_ids=wt_ids)
-            for a, (bid, _adj, cos, thits) in zip(needs, best):
-                if a["name"].strip().lower() in _GENERIC_NEEDS:
-                    continue                                        # too generic to pick or flag
-                covered = thits >= 1 or cos >= COVERAGE_THRESHOLD   # skill in a TITLE, or strong meaning
-                if covered:
-                    if bid and bid not in priority_ids:
-                        priority_ids.append(bid)
-                else:
-                    missing.append({**a, "sim": round(cos, 2)})
+        # ONE structured pass over research + profile + transcript: needs (with domain/
+        # use-case), mismatch flags, expressed interest, account (honours the reference
+        # priority: research primary, transcript = prior interest, profile-only otherwise).
+        brief = ai_matcher.extract_brief(research_text, profile_text, ctx["transcript"])
+        if brief and brief.get("needs"):
+            avoid = brief.get("avoid") or []
+            expressed = brief.get("expressed_interest") or []
+            needs = brief["needs"]
+            profile_needs = needs                       # names+descriptions for lead_research
+            # expressed-interest topics -> lightweight needs so PRIOR INTEREST is weighted
+            seen_names = {n["name"].lower() for n in needs}
+            all_needs = needs + [{"name": x, "description": "", "domain": "", "use_case": ""}
+                                 for x in expressed if x.lower() not in seen_names]
+            # cheap shortlist per need — query is the bare CAPABILITY NAME (a crisp capability
+            # embeds best; adding the use-case sentence or the client industry drags the match
+            # toward the wrong cases). Industry is applied separately as a light boost.
+            queries = [n["name"] for n in all_needs]
+            shortlists = relevance.shortlist_cases(queries, industry=ctx.get("industry", ""),
+                                                   functions=acct_fns, allowed_ids=wt_ids, top_n=8)
+            sl_by_name = {n["name"]: lst for n, lst in zip(all_needs, shortlists)}
+            recs = {r["id"]: r for r in case_library._load()}
+            expressed_lc = {x.lower() for x in expressed}
+            # SELECTION is algorithmic (the semantic shortlist ranks capability reliably): take
+            # the top candidate that is NOT mismatch-flagged and clears the coverage bar.
+            # covered -> priority pick; nothing clears the bar -> an honest gap.
+            picked = []                       # [{need,id,title,blurb}] for the explainer
+            for n in all_needs:
+                name = n["name"]
+                if name.strip().lower() in _GENERIC_NEEDS:
+                    continue
+                cand = None
+                for item in sl_by_name.get(name, []):
+                    if item["id"] in priority_ids:
+                        continue                        # already used for another need
+                    if _is_avoided(recs.get(item["id"], {}), avoid):
+                        continue                        # skip a mismatch-flagged case
+                    cand = item
+                    break
+                if cand and (cand["cosine"] >= CAPABILITY_COVER or cand["title_hits"] >= 1):
+                    if cand["id"] not in priority_ids:
+                        priority_ids.append(cand["id"])
+                        rc = recs.get(cand["id"], {})
+                        picked.append({"need": name, "id": cand["id"], "title": rc.get("title", ""),
+                                       "blurb": rc.get("challenge", "")})
+                elif name.lower() not in expressed_lc and n.get("description"):
+                    missing.append({"name": name, "description": n["description"],
+                                    "sim": round(cand["cosine"], 2) if cand else 0.0})
             missing = missing[:6]
+            # rich, honest "why this was picked" line per pick (one LLM call; the model only
+            # EXPLAINS the already-chosen case, so it cannot mis-pick). Templated fallback.
+            ex = ai_matcher.explain_picks(brief, picked)
+            for it in picked:
+                r = ex.get(it["id"])
+                if r and r.get("reason"):
+                    priority_reasons[it["id"]] = {"why": r["reason"], "signal": r.get("signal", "")}
+                else:
+                    priority_reasons[it["id"]] = {"why": "Proves " + it["need"].lower(),
+                                                  "signal": "capability"}
+        else:
+            # fail-safe: the old name-only extraction path (offline / brief parse failed)
+            research_needs = ai_matcher.extract_accelerators(research_text) if research_text else []
+            profile_needs = ai_matcher.extract_profile(profile_text) if profile_text else []
+            if not research_needs and not profile_needs and ctx["transcript"].strip():
+                research_needs = ai_matcher.extract_accelerators(ctx["transcript"])
+            needs = profile_needs + research_needs
+            if needs:
+                best = relevance.best_cases([a["name"] for a in needs],
+                                            industry=ctx.get("industry", ""), functions=acct_fns,
+                                            allowed_ids=wt_ids)
+                for a, (bid, _adj, cos, thits) in zip(needs, best):
+                    if a["name"].strip().lower() in _GENERIC_NEEDS:
+                        continue
+                    covered = thits >= 1 or cos >= COVERAGE_THRESHOLD
+                    if covered:
+                        if bid and bid not in priority_ids:
+                            priority_ids.append(bid)
+                    else:
+                        missing.append({**a, "sim": round(cos, 2)})
+                missing = missing[:6]
     except Exception:
-        priority_ids, missing = [], []
+        priority_ids, missing, avoid, priority_reasons = [], [], [], {}
 
     # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
     lead_research = (research_text + "\n"
-                     + " ".join(f"{n['name']}. {n['description']}" for n in profile_needs)).strip()
+                     + " ".join(f"{n['name']}. {n.get('description','')}" for n in profile_needs)).strip()
     result = matcher.plan({**ctx, "transcript": ctx["transcript"], "research": lead_research},
-                          use_ai=True, priority_ids=priority_ids)
+                          use_ai=True, priority_ids=priority_ids, avoid=avoid)
     # Gaps are FLAGS only now (no inline generation) — nothing to pre-fill here.
     titles = matcher._title_lookup()
 
@@ -189,41 +276,18 @@ def build():
                   "why": _why(p["reason"]), "tier": _tier(p["reason"])}
                  for p in result["picks"] if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
 
-    # a stakeholder-specific "why this resonates with THEM" line per case (AI).
-    # We ALWAYS give it the account context (client/industry/role/work type) so a
-    # reason is written for EVERY case even with no notes/research/profile; the
-    # profile, extracted focus areas and notes enrich it when present.
-    account_bits = [
-        "CLIENT: " + (ctx.get("client_name") or "the client"),
-        "INDUSTRY: " + (ctx.get("industry") or "unspecified"),
-        "WORK TYPES: " + (", ".join(ctx.get("work_types") or []) or "unspecified"),
-    ]
-    if ctx.get("functions"):
-        account_bits.append("FUNCTIONS: " + ", ".join(ctx["functions"]))
-    if ctx.get("recipient"):
-        account_bits.append("STAKEHOLDER ROLE: " + ctx["recipient"])
-    person_ctx = "\n\n".join(x for x in [
-        "ACCOUNT:\n" + "\n".join(account_bits),
-        ("STAKEHOLDER PROFILE:\n" + profile_text[:4000]) if profile_text else "",
-        ("THEIR FUNCTION/SKILLS: " + ", ".join(n["name"] for n in profile_needs)) if profile_needs else "",
-        ("MEETING NOTES:\n" + match_notes[:3000]) if match_notes.strip() else "",
-    ] if x)
-    if rationale:
-        _rec = {r["id"]: r for r in case_library._load()}
-        picks_for_ai = [{"id": r["id"], "title": r["title"],
-                         "blurb": (_rec.get(r["id"], {}).get("challenge", "") or "")[:160]}
-                        for r in rationale][:12]
-        try:
-            fit = ai_matcher.explain_fit(person_ctx, ctx.get("recipient", ""), picks_for_ai)
-        except Exception:
-            fit = {}
-        # bare, low-signal fallbacks the AI sentence should replace outright
-        _bare = ("same industry", "related", "related to your notes")
-        for r in rationale:
-            if fit.get(r["id"]):
-                r["fit"] = fit[r["id"]]
-                if r.get("why", "").strip().lower() in _bare:
-                    r["why"] = ""      # AI sentence carries it; hide the bare fallback
+    # "Why this resonates" per case: the LLM re-rank already justified each PRIORITY
+    # pick (domain / prior-interest / role), so surface that as the fit line. Fill
+    # cases (not tied to a specific need) keep their deterministic matcher reason.
+    _bare = ("same industry", "related", "related to your notes")
+    for r in rationale:
+        pr = priority_reasons.get(r["id"])
+        if pr and pr.get("why"):
+            r["fit"] = pr["why"]
+            if pr.get("signal"):
+                r["signal"] = pr["signal"]
+            if r.get("why", "").strip().lower() in _bare:
+                r["why"] = ""          # the re-rank reason carries it; hide the bare fallback
 
     # (priority picks + `missing` were computed before planning, above)
     body = render_template("build.html", ctx=ctx, picks=result["picks"],
@@ -234,7 +298,7 @@ def build():
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
                                   persona_labels=result.get("persona_labels", []),
-                                  resume=False, build_id=uuid.uuid4().hex)
+                                  resume=False, build_id=build_id)
     return shell(body, active="new", crumb="<b>New deck</b> / Suggested slides")
 
 
@@ -246,27 +310,44 @@ def review():
     transcript = request.form.get("transcript", "")
     prs = Presentation(assembler.SOURCE)
     by_id = {read_id(s): s for s in prs.slides if read_id(s)}
+    store = content_store()          # {id: record} for AIP/WFS/MSS store cases
 
-    # ---- existing library slides: editable title/subtitle (as before) ----
-    cards = []
+    def _case_slide(sid, rec):
+        """Editable slide data for a case study (content-store or AI-drafted)."""
+        domain = rec.get("domain") or rec.get("industry") or ""
+        function = rec.get("function") or ""
+        sub = rec.get("subhead") or ""
+        if (not domain or not function) and sub:      # AI drafts carry a 'subhead' string
+            dm = re.search(r"Domain:\s*([^|]+)", sub)
+            fm = re.search(r"Function:\s*([^|]+)", sub)
+            domain = domain or (dm.group(1).strip() if dm else "")
+            function = function or (fm.group(1).strip() if fm else "")
+        caps = fill_case_study._pad(rec.get("capabilities", []), 6)
+        return {"kind": "case", "id": sid, "title": rec.get("title", ""),
+                "domain": domain, "function": function,
+                "challenge": rec.get("challenge", ""), "solution": rec.get("solution", ""),
+                "caps": [fill_case_study.split_capability(c) for c in caps],
+                "results": fill_case_study._pad(rec.get("results", []), 3)}
+
+    # Build one editable "slide" per id, in deck order: library slides (title/subtitle),
+    # case studies (full body editable), and data-driven skills slides (read-only preview).
+    slides = []
     for sid in ids:
-        slide = by_id.get(sid)
-        if not slide:
-            continue
-        fields = [(idx, label, text.replace("[CLIENT]", client))
-                  for idx, label, text in editor.editable_fields(slide)]
-        shown = {f[2] for f in fields}
-        context = "\n".join(t.replace("[CLIENT]", client)
-                            for t in editor.full_text(slide) if t not in shown)
-        cards.append({"id": sid, "fields": fields, "context": context[:400]})
-
-    # Gaps are FLAGS only now — they are never auto-written here. AI slides come
-    # solely from the deliberate "Create a slide with AI" tool (NEW:<id> items).
-    ai_cards, ai_ids = [], []
+        if sid in by_id:                                       # master library slide (CSxx)
+            fields = [(idx, label, text.replace("[CLIENT]", client))
+                      for idx, label, text in editor.editable_fields(by_id[sid])]
+            slides.append({"kind": "library", "id": sid, "fields": fields})
+        elif sid in store:                                     # content-store case
+            slides.append(_case_slide(sid, store[sid]))
+        elif sid.startswith("NEW:"):                           # AI-created case
+            rec = staging.get(sid[4:])
+            if rec:
+                slides.append(_case_slide(sid, rec))
+        elif sid.startswith("SK:") or sid.startswith("FP:"):   # data-driven skills slide
+            slides.append({"kind": "skills", "id": sid})
 
     body = render_template("review.html", client=client, order=",".join(ids),
-                                  cards=cards, ai_cards=ai_cards, ai_ids=",".join(ai_ids),
-                                  industry=industry, transcript=transcript,
+                                  slides=slides, industry=industry, transcript=transcript,
                                   phase=request.form.get("phase", ""),
                                   recipient=request.form.get("recipient", ""),
                                   functions=request.form.getlist("functions"),
@@ -309,19 +390,52 @@ def finalize():
                          len(final_ids))
         final_ids[insert_at:insert_at] = accepted
 
-    # collect inline title/subtitle edits from the review form
+    # collect inline edits from the review slide-view: edit__ = library title/subtitle,
+    # cs__ = case-study body fields (title/domain/function/challenge/solution/caps/results).
     edits = {}
+    raw_cases = {}
     for key, val in request.form.items():
         if key.startswith("edit__"):
             _, sid, idx = key.split("__")
             edits.setdefault(sid, {})[int(idx)] = val
+        elif key.startswith("cs__"):
+            parts = key.split("__")
+            if len(parts) != 3:
+                continue
+            _, sid, field = parts
+            d = raw_cases.setdefault(sid, {"caps": {}, "results": {}})
+            if field in ("title", "domain", "function", "challenge", "solution"):
+                d[field] = val
+            elif field.startswith("cap") and field.endswith("_t"):
+                d["caps"].setdefault(int(field[3:-2]), {})["t"] = val
+            elif field.startswith("cap") and field.endswith("_b"):
+                d["caps"].setdefault(int(field[3:-2]), {})["b"] = val
+            elif field.startswith("res"):
+                d["results"][int(field[3:])] = val
+    case_edits = {}
+    for sid, d in raw_cases.items():
+        ov = {k: d[k] for k in ("title", "domain", "function", "challenge", "solution") if k in d}
+        caps = []
+        for i in sorted(d["caps"]):
+            t = (d["caps"][i].get("t") or "").strip()
+            b = (d["caps"][i].get("b") or "").strip()
+            if t or b:
+                caps.append({"title": t, "body": b})
+        if caps:
+            ov["capabilities"] = caps
+        results = [(d["results"][i] or "").strip() for i in sorted(d["results"])]
+        results = [r for r in results if r]
+        if results:
+            ov["results"] = results
+        if ov:
+            case_edits[sid] = ov
 
     try:
         deck_build.assemble(final_ids, path, client=client,
                             industry=request.form.get("industry", ""),
                             work_types=request.form.getlist("work_types"),
                             transcript=request.form.get("transcript", ""),
-                            edits=edits)
+                            edits=edits, case_edits=case_edits)
     except (PermissionError, BadZipFile) as e:
         return file_busy_page(e)
     meeting_log.save(                          # auto-log this meeting (no extra step)

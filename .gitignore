@@ -30,6 +30,8 @@ node_modules/
 !/meetings/.gitkeep
 /staging/*
 !/staging/.gitkeep
+/build_context/*
+!/build_context/.gitkeep
 /static/renders/
 
 # Logs & scratch dumps
