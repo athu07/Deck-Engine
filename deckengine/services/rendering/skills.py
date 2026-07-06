@@ -554,7 +554,9 @@ def build_into(deck_path, order, cands, master_path=config.MASTER_DECK):
                 continue
             from deckengine.services.rendering import fill_case_study as _fcs
             new = slide_generator._copy_slide(prs, case_tpl["slide"])
-            fill_markers(new, _fcs.build_mapping(c["record"]))
+            # per-run fill (NOT the run-collapsing fill_markers) so the red 'CASE STUDY:'
+            # prefix and the black case title keep their distinct colours in the deck.
+            _fcs.apply_markers(new, _fcs.build_mapping(c["record"]))
             skill_elem[sid] = list(sld_id_lst)[-1]
             continue
 

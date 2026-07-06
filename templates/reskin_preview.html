@@ -1,0 +1,37 @@
+
+<div style="margin:14px 0 20px">
+  <div class="eyebrow">Re-skin</div>
+  <h1 class="display" style="font-size:38px">Re-skinned to J2W</h1>
+  <p class="lede"><b>{{ src_name }}</b> rebranded to the J2W look across {{ nslides }} slides — every word, table, image and chart preserved in place. Preview below, then download.</p>
+</div>
+<div class="form-layout">
+  <div class="reskin-deck">
+    {% if images %}
+      {% for src in images %}
+      <div class="reskin-shot"><img src="{{ src }}" alt="Slide {{ loop.index }}" loading="lazy">
+        <span class="reskin-shot-n">{{ loop.index }}</span></div>
+      {% endfor %}
+    {% else %}
+      <div class="card" style="text-align:center;padding:40px 24px">
+        <i class="ti ti-photo-off" style="font-size:30px;color:var(--hint)"></i>
+        <h2 class="sec-title" style="margin:12px 0 6px">Preview images unavailable here</h2>
+        <p class="hint" style="font-size:13px;max-width:440px;margin:0 auto">The deck was rebranded and is ready to download — this environment just doesn't have the renderer installed to show live slide images.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="side-card">
+    <div class="card">
+      <h2 class="sec-title" style="margin-bottom:14px">Re-skinned deck</h2>
+      <div class="summary"><div class="sum-row"><span>Slides</span><b>{{ nslides }}</b></div></div>
+      <a class="btn btn-primary btn-lg btn-block" href="/output/{{ filename }}?dl=1" style="margin-top:16px"><i class="ti ti-download"></i> Download .pptx</a>
+      <form method="post" action="/template/save_output" style="margin-top:12px">
+        <input type="hidden" name="filename" value="{{ filename }}">
+        <input class="input" name="name" placeholder="Name to save it as…" style="margin-bottom:8px">
+        <button class="btn btn-block" type="submit"><i class="ti ti-bookmark-plus"></i> Save as template</button>
+      </form>
+      <a href="/templates" class="btn btn-block" style="margin-top:10px"><i class="ti ti-arrow-left"></i> Back to templates</a>
+      <div class="side-tip"><i class="ti ti-info-circle"></i> Content is preserved exactly — only fonts, heading colours and the J2W accent bar + wordmark are applied. The original layout is kept, rebranded.</div>
+    </div>
+  </aside>
+</div>

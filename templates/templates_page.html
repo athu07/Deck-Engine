@@ -1,29 +1,66 @@
 
 <div style="margin:14px 0 22px">
-  <div class="eyebrow">Templates</div>
-  <h1 class="display" style="font-size:38px">Slide templates</h1>
-  <p class="lede">When a slide is missing, AI writes the content and the engine pours it into one of these templates by replacing markers. Pluggable — add or swap anytime, no code change.</p>
+  <div class="eyebrow">Templates &amp; decks</div>
+  <h1 class="display" style="font-size:38px">Templates</h1>
+  <p class="lede">Re-skin an existing deck into the J2W look, save decks to reuse later, and see the fill templates the engine writes into.</p>
 </div>
 
-<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
-  {% for t in items %}
-  <div class="card">
-    <div class="lib-head"><span class="sid">{{ t.name }}</span>
-      <span class="chip flat">{{ t.status }}</span></div>
-    <div class="lib-title" style="margin-bottom:10px">For {{ t.name.replace('_',' ') }} slides</div>
-    <p class="hint" style="font-size:12px;margin:0 0 9px">Marker tokens it fills</p>
-    <div class="kw">{% for m in t.markers %}<span>{{ m }}</span>{% endfor %}{% if not t.markers %}<span>none found</span>{% endif %}</div>
+<!-- F2 + F3 · upload actions -->
+<div class="grid g-2-eq" style="margin-bottom:22px">
+  <form class="card upload-card" method="post" action="/template/reskin" enctype="multipart/form-data"
+        onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<i class=\'ti ti-loader\'></i> Re-skinning…'">
+    <div class="upload-ic"><i class="ti ti-wand"></i></div>
+    <h2 class="sec-title" style="margin-bottom:4px">Re-skin a deck to J2W</h2>
+    <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every word, table, image and chart is kept exactly, and the J2W look (fonts, colours, branding) is applied. Preview, then download.</p>
+    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+      <input type="file" name="deck_file" accept=".pptx" required
+             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+    <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
+  </form>
+
+  <form class="card upload-card" method="post" action="/template/save" enctype="multipart/form-data">
+    <div class="upload-ic"><i class="ti ti-bookmark"></i></div>
+    <h2 class="sec-title" style="margin-bottom:4px">Save a deck as a template</h2>
+    <p class="hint" style="font-size:13px;margin:0 0 14px">Keep a deck as a reusable template you can download and start from anytime.</p>
+    <input class="input" name="name" placeholder="Template name (e.g. Q3 Sales Master)" style="margin-bottom:10px">
+    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+      <input type="file" name="deck_file" accept=".pptx" required
+             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+    <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-bookmark-plus"></i> Save template</button>
+  </form>
+</div>
+
+<!-- F3 · saved templates -->
+{% if saved %}
+<div class="section">
+  <div class="section-head"><h2 class="sec-title">Saved templates</h2><span class="hint">{{ saved|length }} saved</span></div>
+  <div class="card" style="padding:8px 18px">
+    {% for t in saved %}
+    <div class="saved-row">
+      <div class="saved-ic"><i class="ti ti-presentation"></i></div>
+      <div class="saved-main"><b>{{ t.name }}</b><div class="hint" style="font-size:12px">{{ t.slides }} slides · {{ t.size_mb }} MB</div></div>
+      <a class="btn" href="/template/saved/{{ t.id }}/download"><i class="ti ti-download"></i> Download</a>
+      <form method="post" action="/template/saved/{{ t.id }}/delete" onsubmit="return confirm('Delete this template?')" style="display:inline">
+        <button class="mini rm" type="submit" title="Delete"><i class="ti ti-trash"></i></button>
+      </form>
+    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
-  {% if not items %}<div class="lib-empty">No templates found.</div>{% endif %}
 </div>
+{% endif %}
 
-<div class="section card card-dark">
-  <h2 class="sec-title" style="color:#fff;margin-bottom:18px">Add or swap a template</h2>
-  <div class="steps">
-    <div class="step"><div class="n">1</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Design the slide</b>Build it in PowerPoint with the real J2W look.</div></div>
-    <div class="step"><div class="n">2</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Add markers</b>Place {{ '{{TITLE}}' }}, {{ '{{KEYWORDS}}' }} and {{ '{{BULLETS}}' }} where text should flow in.</div></div>
-    <div class="step"><div class="n">3</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Tag it</b>In the slide's notes add a line: J2W_TEMPLATE: case_study</div></div>
-    <div class="step"><div class="n">4</div><div class="st" style="color:#bdbdb8"><b style="color:#fff">Drop into templates.pptx</b>The engine picks it up automatically — no code change.</div></div>
+<!-- fill templates the engine writes into -->
+<div class="section">
+  <div class="section-head"><h2 class="sec-title">Fill templates</h2><span class="hint">the engine pours AI-written content into these</span></div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+    {% for t in items %}
+    <div class="card">
+      <div class="lib-head"><span class="sid">{{ t.name }}</span><span class="chip flat">{{ t.status }}</span></div>
+      <div class="lib-title" style="margin-bottom:10px">For {{ t.name.replace('_',' ') }} slides</div>
+      <p class="hint" style="font-size:12px;margin:0 0 9px">Marker tokens it fills</p>
+      <div class="kw">{% for m in t.markers %}<span>{{ m }}</span>{% endfor %}{% if not t.markers %}<span>none found</span>{% endif %}</div>
+    </div>
+    {% endfor %}
+    {% if not items %}<div class="lib-empty">No fill templates found.</div>{% endif %}
   </div>
 </div>

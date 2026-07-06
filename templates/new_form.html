@@ -5,6 +5,31 @@
   <p class="lede">Start with what you're pitching, add the client context, and the engine picks the right slides and flags gaps.</p>
 </div>
 {% if error %}<div class="card" style="border-left:4px solid var(--neg);margin-bottom:18px;color:var(--neg)"><b>{{ error }}</b></div>{% endif %}
+
+<!-- F1 · content shortcut: already have the content? build one case-study slide -->
+<form id="contentForm" method="post" action="/from_content" enctype="multipart/form-data"
+      class="card shortcut-card" style="margin-bottom:20px" onsubmit="return cfSubmit()">
+  <div class="shortcut-head">
+    <span class="shortcut-ic"><i class="ti ti-file-text"></i></span>
+    <div>
+      <h2 class="sec-title" style="margin:0">Already have the content?</h2>
+      <p class="hint" style="font-size:13px;margin:3px 0 0">Paste a full case study (or attach a document) and we'll build one branded slide, then take you straight to editing.</p>
+    </div>
+  </div>
+  <textarea name="content" placeholder="Paste the complete case-study content here — client situation, what was delivered, the numbers…" style="min-height:96px;margin-top:14px"></textarea>
+  <div class="shortcut-actions">
+    <label class="shortcut-file"><i class="ti ti-paperclip"></i>
+      <span id="cf-fname">Attach a document (PDF, Word, text)</span>
+      <input type="file" name="content_file" accept=".pdf,.txt,.md,.docx"
+             onchange="document.getElementById('cf-fname').textContent=this.files[0]?this.files[0].name:'Attach a document (PDF, Word, text)'"></label>
+    <input type="hidden" name="client_name" id="cf-client">
+    <input type="hidden" name="industry" id="cf-industry">
+    <button class="btn btn-primary" type="submit"><i class="ti ti-wand"></i> Build the slide</button>
+  </div>
+</form>
+
+<div class="or-divider"><span>or build a full deck from context</span></div>
+
 <form id="deckForm" method="post" action="/build" class="form-layout" enctype="multipart/form-data">
   <div>
     <!-- 1 · WORK TYPE (the primary choice, first) -->
@@ -61,12 +86,18 @@
         <div class="attach">
           <div class="attach-h"><i class="ti ti-file-search"></i> Deep-research file <span class="hint">— optional</span></div>
           <p class="hint">A research brief (PDF/text) — read alongside the notes to match capabilities and flag gaps.</p>
-          <input type="file" name="research_file" accept=".pdf,.txt,.md">
+          <label class="file-pick"><i class="ti ti-paperclip"></i>
+            <span class="fp-name">Choose a file (PDF, text)</span>
+            <input type="file" name="research_file" accept=".pdf,.txt,.md"
+                   onchange="this.parentNode.querySelector('.fp-name').textContent=this.files[0]?this.files[0].name:'Choose a file (PDF, text)'"></label>
         </div>
         <div class="attach">
           <div class="attach-h"><i class="ti ti-user-search"></i> Stakeholder profile <span class="hint">— optional</span></div>
           <p class="hint">Their LinkedIn/bio — matches case studies to their function and current-role mandate.</p>
-          <input type="file" name="profile_file" accept=".pdf,.txt,.md">
+          <label class="file-pick"><i class="ti ti-paperclip"></i>
+            <span class="fp-name">Choose a file (PDF, text)</span>
+            <input type="file" name="profile_file" accept=".pdf,.txt,.md"
+                   onchange="this.parentNode.querySelector('.fp-name').textContent=this.files[0]?this.files[0].name:'Choose a file (PDF, text)'"></label>
         </div>
       </div>
     </div>
@@ -90,8 +121,8 @@
 <div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:var(--teal);border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
-    <div style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ink)">Generating your deck…</div>
-    <div style="font-size:13px;color:var(--muted);margin-top:5px">The AI is matching the right slides — a few seconds.</div>
+    <div class="loader-title" style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ink)">Generating your deck…</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:5px">The AI is working — a few seconds.</div>
   </div>
 </div>
 <script src="/static/js/new-form.js"></script>

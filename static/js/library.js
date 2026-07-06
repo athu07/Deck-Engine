@@ -24,3 +24,21 @@
    b.parentNode.querySelectorAll('.fchip').forEach(x=>x.classList.remove('active'));
    b.classList.add('active');apply();}));}
  wire('wtf','wt');wire('kindf','kind');
+ // ── bulk download: tick slides, download all selected as one .zip ──
+ (function(){
+   const selected=new Set();
+   const bar=document.getElementById('sel-bar');
+   const nEl=document.getElementById('sel-n');
+   function refresh(){nEl.textContent=selected.size;bar.style.display=selected.size?'flex':'none';}
+   document.querySelectorAll('.lib-sel').forEach(cb=>cb.addEventListener('change',()=>{
+     if(cb.checked)selected.add(cb.value);else selected.delete(cb.value);
+     const card=cb.closest('.lib-card');if(card)card.classList.toggle('sel',cb.checked);
+     refresh();}));
+   document.getElementById('sel-dl').addEventListener('click',()=>{
+     if(!selected.size)return;
+     window.location='/slides/download?ids='+[...selected].map(encodeURIComponent).join(',');});
+   document.getElementById('sel-clear').addEventListener('click',()=>{
+     selected.clear();
+     document.querySelectorAll('.lib-sel').forEach(cb=>{cb.checked=false;const c=cb.closest('.lib-card');if(c)c.classList.remove('sel');});
+     refresh();});
+ })();

@@ -230,6 +230,30 @@ def _apply(text, mapping):
     return MARKER_RE.sub(lambda m: mapping.get(m.group(1), ""), text)
 
 
+def apply_markers(slide, mapping):
+    """Fill {{MARKER}}s on a slide while PRESERVING each run's formatting.
+
+    Markers that sit inside a single run (the normal case in case_study_v2 — e.g. the
+    black '{{TITLE}}' run beside the red 'CASE STUDY: ' run) are filled in place, so
+    their colour/bold survive. Only a paragraph where a marker genuinely spans several
+    runs falls back to collapsing into the first run. This is why it must be used for
+    the branded case template instead of the run-collapsing skills.fill_markers."""
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            for run in para.runs:                      # per-run: keeps colour/bold
+                if "{{" in run.text:
+                    run.text = _apply(run.text, mapping)
+            joined = "".join(r.text for r in para.runs)   # marker that spanned runs?
+            if "{{" in joined and para.runs:
+                filled = _apply(joined, mapping)
+                if filled != joined:
+                    para.runs[0].text = filled
+                    for r in para.runs[1:]:
+                        r.text = ""
+
+
 def _reflow_subhead(subhead_shape, full_title):
     """Item 4: if the prefixed heading wraps past one line, move the CLIENT|DOMAIN
     subheading down so it clears the extra title line(s)."""

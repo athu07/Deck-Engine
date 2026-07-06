@@ -18,7 +18,7 @@ from deckengine import config
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
 from deckengine.services.matching import matcher, relevance, ai_matcher
-from deckengine.services.rendering import skills, staging, deck_build, fill_case_study
+from deckengine.services.rendering import skills, staging, deck_build, fill_case_study, slide_generator
 from deckengine.services.content import case_library, editor
 from deckengine.services.content.content_store import content_store
 from deckengine.services.content.build_library import read_id
@@ -302,35 +302,30 @@ def build():
     return shell(body, active="new", crumb="<b>New deck</b> / Suggested slides")
 
 
-@bp.route("/review", methods=["POST"])
-def review():
-    client = request.form.get("client_name", "Client").strip()
-    ids = [x for x in request.form.get("order", "").split(",") if x]
-    industry = request.form.get("industry", "")
-    transcript = request.form.get("transcript", "")
+def _case_slide(sid, rec):
+    """Editable slide data for a case study (content-store or AI-drafted)."""
+    domain = rec.get("domain") or rec.get("industry") or ""
+    function = rec.get("function") or ""
+    sub = rec.get("subhead") or ""
+    if (not domain or not function) and sub:          # AI drafts carry a 'subhead' string
+        dm = re.search(r"Domain:\s*([^|]+)", sub)
+        fm = re.search(r"Function:\s*([^|]+)", sub)
+        domain = domain or (dm.group(1).strip() if dm else "")
+        function = function or (fm.group(1).strip() if fm else "")
+    caps = fill_case_study._pad(rec.get("capabilities", []), 6)
+    return {"kind": "case", "id": sid, "title": rec.get("title", ""),
+            "domain": domain, "function": function,
+            "challenge": rec.get("challenge", ""), "solution": rec.get("solution", ""),
+            "caps": [fill_case_study.split_capability(c) for c in caps],
+            "results": fill_case_study._pad(rec.get("results", []), 3)}
+
+
+def _build_review_slides(ids, client):
+    """One editable 'slide' per id, in deck order: library slides (title/subtitle),
+    case studies (full body editable), and data-driven skills slides (read-only)."""
     prs = Presentation(assembler.SOURCE)
     by_id = {read_id(s): s for s in prs.slides if read_id(s)}
     store = content_store()          # {id: record} for AIP/WFS/MSS store cases
-
-    def _case_slide(sid, rec):
-        """Editable slide data for a case study (content-store or AI-drafted)."""
-        domain = rec.get("domain") or rec.get("industry") or ""
-        function = rec.get("function") or ""
-        sub = rec.get("subhead") or ""
-        if (not domain or not function) and sub:      # AI drafts carry a 'subhead' string
-            dm = re.search(r"Domain:\s*([^|]+)", sub)
-            fm = re.search(r"Function:\s*([^|]+)", sub)
-            domain = domain or (dm.group(1).strip() if dm else "")
-            function = function or (fm.group(1).strip() if fm else "")
-        caps = fill_case_study._pad(rec.get("capabilities", []), 6)
-        return {"kind": "case", "id": sid, "title": rec.get("title", ""),
-                "domain": domain, "function": function,
-                "challenge": rec.get("challenge", ""), "solution": rec.get("solution", ""),
-                "caps": [fill_case_study.split_capability(c) for c in caps],
-                "results": fill_case_study._pad(rec.get("results", []), 3)}
-
-    # Build one editable "slide" per id, in deck order: library slides (title/subtitle),
-    # case studies (full body editable), and data-driven skills slides (read-only preview).
     slides = []
     for sid in ids:
         if sid in by_id:                                       # master library slide (CSxx)
@@ -345,14 +340,60 @@ def review():
                 slides.append(_case_slide(sid, rec))
         elif sid.startswith("SK:") or sid.startswith("FP:"):   # data-driven skills slide
             slides.append({"kind": "skills", "id": sid})
+    return slides
 
-    body = render_template("review.html", client=client, order=",".join(ids),
-                                  slides=slides, industry=industry, transcript=transcript,
-                                  phase=request.form.get("phase", ""),
-                                  recipient=request.form.get("recipient", ""),
-                                  functions=request.form.getlist("functions"),
-                                  work_types=request.form.getlist("work_types"))
+
+def _render_review(client, ids, *, industry="", transcript="", phase="", recipient="",
+                   functions=None, work_types=None):
+    slides = _build_review_slides(ids, client)
+    body = render_template("review.html", client=client, order=",".join(ids), slides=slides,
+                           industry=industry, transcript=transcript, phase=phase, recipient=recipient,
+                           functions=functions or [], work_types=work_types or [])
     return shell(body, active="new", crumb="<b>New deck</b> / Review &amp; edit")
+
+
+@bp.route("/review", methods=["POST"])
+def review():
+    client = request.form.get("client_name", "Client").strip()
+    ids = [x for x in request.form.get("order", "").split(",") if x]
+    return _render_review(client, ids,
+                          industry=request.form.get("industry", ""),
+                          transcript=request.form.get("transcript", ""),
+                          phase=request.form.get("phase", ""),
+                          recipient=request.form.get("recipient", ""),
+                          functions=request.form.getlist("functions"),
+                          work_types=request.form.getlist("work_types"))
+
+
+@bp.route("/from_content", methods=["POST"])
+def from_content():
+    """F1: the user already has the content for ONE case study — paste it or upload a
+    document. Generate a single branded case-study slide from it and go straight to the
+    editable review, where they can tweak and download."""
+    client = request.form.get("client_name", "Client").strip()
+    industry = request.form.get("industry", "")
+    content = request.form.get("content", "").strip()
+    ftext = research.extract_text(request.files.get("content_file"))
+    if ftext:
+        content = (content + "\n\n" + ftext).strip()
+    if not content:
+        try:
+            lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
+        except Exception:
+            lib_count = 0
+        body = render_template("new_form.html", industries=INDUSTRIES, functions=FUNCTIONS,
+                                      phases=PHASES, library_count=lib_count,
+                                      error="Paste the case-study content or attach a document first.")
+        return shell(body, active="new", crumb="<b>New deck</b> / Context")
+    rec = slide_generator.case_from_content(content, {"industry": industry})
+    rec["kind"] = "user_created"
+    staged = staging.add(rec, "", industry, client)
+    order = "NEW:" + staged["id"]
+    return _render_review(client, [order], industry=industry,
+                          phase=request.form.get("phase", ""),
+                          recipient=request.form.get("recipient", ""),
+                          functions=request.form.getlist("functions"),
+                          work_types=request.form.getlist("work_types"))
 
 
 @bp.route("/finalize", methods=["POST"])

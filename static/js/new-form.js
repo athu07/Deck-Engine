@@ -30,4 +30,18 @@ function fnChanged(){
   var any=[...document.querySelectorAll('#fn-chips input[name="functions"]')].some(function(c){return c.checked;});
   if(any) setAnyActive(false);
 }
+// F1 content shortcut: reuse the client/industry typed in the main form, validate, show loader.
+function cfSubmit(){
+  var cn=document.querySelector('#deckForm [name="client_name"]');
+  var ind=document.querySelector('#deckForm [name="industry"]');
+  var cf=document.getElementById('cf-client'); if(cf&&cn) cf.value=cn.value;
+  var ci=document.getElementById('cf-industry'); if(ci&&ind) ci.value=ind.value;
+  var content=document.querySelector('#contentForm [name="content"]');
+  var file=document.querySelector('#contentForm [name="content_file"]');
+  var hasContent=(content&&content.value.trim()) || (file&&file.files&&file.files.length);
+  if(!hasContent){ alert('Paste the case-study content or attach a document first.'); return false; }
+  var loader=document.getElementById('loader');
+  if(loader){ var t=loader.querySelector('.loader-title'); if(t) t.textContent='Building your slide…'; loader.style.display='flex'; }
+  return true;
+}
 window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});

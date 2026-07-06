@@ -30,6 +30,8 @@ node_modules/
 !/meetings/.gitkeep
 /staging/*
 !/staging/.gitkeep
+/saved_templates/*
+!/saved_templates/.gitkeep
 /build_context/*
 !/build_context/.gitkeep
 /static/renders/

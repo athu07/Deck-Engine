@@ -219,6 +219,61 @@ CASE_STUDY_RULES = (
     "never a throwaway 'hours to minutes'.\n"
 )
 
+# The output-field contract shared by every case-study generator (draft / from-content).
+CASE_FIELDS_SPEC = (
+    "\nEach field:\n"
+    "- title: a specific, concrete case study title (name the capability, not a slogan).\n"
+    "- subhead: 'Client: <generic descriptor, e.g. Leading Manufacturing Enterprise> | "
+    "Domain: <this account's domain> | Function: <the stakeholder's business function>'.\n"
+    "- challenge: 3-4 sentences, plain and operational; who the client is (NEVER a real name) "
+    "and what was breaking, specific to this domain. No solution language. Max 100 words.\n"
+    "- solution: 3-4 sentences; what J2W deployed, how it works operationally, what the client "
+    "can now do. No bullets. No hype. Max 100 words.\n"
+    "- capabilities: EXACTLY 6, each 'Capability Name: one line max 18 words' (name = business function).\n"
+    "- results: EXACTLY 3, following the RESULTS RULES.\n"
+    "Then SELF-REVIEW what you wrote (quality verdict, weakest part, fix).\n"
+    'Return ONLY JSON: {"title":"...","subhead":"...","challenge":"...","solution":"...",'
+    '"capabilities":["six strings"],"results":["three strings"],'
+    '"review":{"quality":"Strong or Needs Revision","weakest":"one sentence or None",'
+    '"fix":"one sentence or None"}}'
+)
+
+
+def case_from_content(content, context=None):
+    """Turn a user's COMPLETE case-study content (pasted text or an uploaded document)
+    into ONE J2W case-study record — preserving THEIR facts, client situation and
+    numbers, only reformatting into our structure. Returns the structured fields
+    (+ 'review'); fails safe to a placeholder record."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        "Below is the COMPLETE content for ONE case study, provided by the user. Restructure "
+        "it into J2W's case-study format. PRESERVE their facts: the client's situation, what "
+        "was delivered, and every real number/metric. Do NOT invent facts, and do NOT drop "
+        "content that fits a field — only reformat, tighten and organise it. Keep the client "
+        "anonymised (never a real company name; only J2W is named).\n\n"
+        + (f"Account domain (use for the Domain if the content doesn't state one): {industry}\n\n" if industry else "")
+        + "CASE STUDY CONTENT:\n\"\"\"\n" + (content or "")[:12000] + "\n\"\"\"\n\n"
+        "Follow these rules exactly:\n" + CASE_STUDY_RULES + CASE_FIELDS_SPEC
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You restructure a client's case-study content "
+                 "into a strict format without losing facts. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        data = {}
+    return _normalize_case_study(data, industry)
+
 
 def _clean(s):
     return str("" if s is None else s).replace("—", "-").replace("–", "-").strip()
@@ -299,22 +354,7 @@ def draft_case_study(brief, context=None):
         "and ISO 27001 Compliance; Innovation Roadmap Integration.\n"
         "RESULTS: 98% SLA adherence sustained to the India blueprint; 50 resources live day 1 "
         "scaling to 400 seats; 5 year contractual partnership established.\n\n"
-        "Follow these rules exactly:\n" + CASE_STUDY_RULES
-        + "\nEach field:\n"
-        "- title: a specific, concrete case study title (name the capability, not a slogan).\n"
-        "- subhead: 'Client: <generic descriptor, e.g. Leading Manufacturing Enterprise> | "
-        "Domain: <this account's domain> | Function: <the stakeholder's business function>'.\n"
-        "- challenge: 3-4 sentences, plain and operational; who the client is (NEVER a real name) "
-        "and what was breaking, specific to this domain. No solution language. Max 100 words.\n"
-        "- solution: 3-4 sentences; what J2W deployed, how it works operationally, what the client "
-        "can now do. No bullets. No hype. Max 100 words.\n"
-        "- capabilities: EXACTLY 6, each 'Capability Name: one line max 18 words' (name = business function).\n"
-        "- results: EXACTLY 3, following the RESULTS RULES.\n"
-        "Then SELF-REVIEW what you wrote (quality verdict, weakest part, fix).\n"
-        'Return ONLY JSON: {"title":"...","subhead":"...","challenge":"...","solution":"...",'
-        '"capabilities":["six strings"],"results":["three strings"],'
-        '"review":{"quality":"Strong or Needs Revision","weakest":"one sentence or None",'
-        '"fix":"one sentence or None"}}'
+        "Follow these rules exactly:\n" + CASE_STUDY_RULES + CASE_FIELDS_SPEC
     )
     try:
         from deckengine.services.infra import load_env

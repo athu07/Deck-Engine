@@ -25,10 +25,28 @@ def extract_text(file_storage, max_chars=60000):
         return ""
     if name.endswith(".pdf"):
         text = _pdf_text(data)
+    elif name.endswith(".docx"):
+        text = _docx_text(data)
     else:                                   # .txt / .md / anything text-ish
         text = data.decode("utf-8", errors="ignore")
     text = (text or "").strip()
     return text[:max_chars]
+
+
+def _docx_text(data):
+    """Extract text (paragraphs + table cells) from a .docx byte string."""
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(data))
+        parts = [p.text for p in doc.paragraphs if p.text.strip()]
+        for tbl in doc.tables:
+            for row in tbl.rows:
+                cells = [c.text.strip() for c in row.cells]
+                if any(cells):
+                    parts.append(" | ".join(cells))
+        return "\n".join(parts)
+    except Exception:
+        return ""
 
 
 def _pdf_text(data):

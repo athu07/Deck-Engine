@@ -1592,3 +1592,41 @@ each with an AI sentence, 0 "same industry"; build WITH notes -> AI sentence + t
 "research match/notes" grey line retained, 0 "same industry".
 NOTE: every /build now makes the explain_fit AI call even with no notes (was skipped
 before) — one small extra gpt-4o-mini call per build; fails safe if the key is down.
+
+------------------------------------------------------------------------------
+2026-07-06  New features (3) + fixes (2) — content->slide, deck re-skin, saved
+            templates, case-study heading colour, content font, bulk download.
+FEATURES:
+  F1 content -> case study -> review: context page has an "Already have the content?"
+     card (paste text or attach PDF/Word/text). slide_generator.case_from_content()
+     turns the full content into ONE branded case study (preserving the user's facts),
+     stages it and opens the editable review directly. New route web/decks.py:/from_content;
+     ingest.py now also reads .docx.
+  F2 deck re-skin (Templates page): upload any .pptx -> reskin.read_slides() extracts
+     ALL content (text, tables, images, charts->data tables) and reskin.build_reskinned()
+     re-lays it into J2W-branded slides (teal band + red accent), re-inserting images and
+     rebuilding tables, flowing to extra slides so nothing is dropped. Preview
+     (reskin_preview.html) then Download / Save as template. Route /template/reskin.
+  F3 save uploaded deck as a template (Templates page): services/saved_templates.py store
+     (dir + JSON index) + Download/Delete; /template/save, /template/saved/<id>/(download|
+     delete), /template/save_output. New runtime dir saved_templates/ (git-ignored).
+FIXES:
+  F4 case-study heading colour: the branded template already had "CASE STUDY:" red +
+     title black, but the deck-build fill collapsed the runs into the red one. Added
+     fill_case_study.apply_markers (per-run fill, preserves colour) and used it for the
+     case path in skills.build_into. Built decks now show red "CASE STUDY:" + black title.
+  Content font -> Raleway: scripts/set_case_content_font.py rewrote the case_study_v2
+     body font Helvetica->Raleway (heading/subhead stay Oswald). reskin body also Raleway.
+     Backup at archive/case_study_v2.BEFORE_RALEWAY.pptx.
+  Library bulk download: tick multiple slides and download them as one .zip of per-slide
+     .pptx. Route output.py:/slides/download?ids=... ; select UI in library.html/.js/.css.
+VERIFIED: 17 pytest green; browser-checked all pages; edits/fonts confirmed in built .pptx.
+
+------------------------------------------------------------------------------
+2026-07-06  F2 re-skin REWORKED — preserve-everything restyle + true image preview.
+  reskin.restyle_deck() rebrands the ORIGINAL deck in place (keeps every shape/table/
+  image/chart + slide size; swaps to Oswald/Raleway, teal headings, teal tables, adds a
+  J2W accent bar + wordmark). reskin.render_pngs() renders it to real page images via
+  LibreOffice+poppler for a WYSIWYG preview. config.RENDERS_DIR added; Dockerfile installs
+  libreoffice-impress + poppler-utils. Verified on Dickinson_Sample_Slides.pptx: images/
+  charts/tables/words all preserved, 9 preview PNGs. 17 pytest green.
