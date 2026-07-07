@@ -1,7 +1,32 @@
+// Industry "Other…" — reveal a free-text box; on submit, turn the typed text
+// into a real <option> on the SAME select (name="industry") so the rest of the
+// form (cfSubmit's industry lookup, the backend) needs no special-casing.
+function indChanged(){
+  var sel = document.getElementById('ind-select');
+  var other = document.getElementById('ind-other');
+  if(!sel || !other) return;
+  var isOther = sel.value === '__OTHER__';
+  other.style.display = isOther ? 'block' : 'none';
+  if(isOther) other.focus();
+}
+
 (function(){
   var f = document.getElementById('deckForm');
   if(!f) return;
   f.addEventListener('submit', function(e){
+    var sel = document.getElementById('ind-select');
+    var other = document.getElementById('ind-other');
+    if(sel && sel.value === '__OTHER__'){
+      var val = other ? other.value.trim() : '';
+      if(!val){
+        e.preventDefault();
+        if(other){ other.style.borderColor = '#c0392b'; other.focus(); }
+        return;
+      }
+      var opt = document.createElement('option');
+      opt.value = val; opt.text = val; opt.selected = true;
+      sel.appendChild(opt);
+    }
     var checked = f.querySelectorAll('input[name="work_types"]:checked').length;
     var warn = document.getElementById('wt-warn');
     if(checked === 0){

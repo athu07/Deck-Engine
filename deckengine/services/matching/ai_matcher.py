@@ -179,6 +179,167 @@ def extract_accelerators(notes, max_items=8):
     return out[:max_items]
 
 
+def extract_client_context(notes):
+    """For the "Client Context" / "Tailored Approach" slide pair (Workforce-only,
+    First/Second stage) -- pull the account's REAL talent-challenge facts from
+    the notes, grounded ONLY in what's actually there. Never invents a number or
+    a challenge/solution that isn't named or clearly implied.
+
+    Returns a dict (see schema below) or None if the notes don't give enough to
+    fill the slides honestly -- FAILS CLOSED: the caller must not build either
+    slide with fewer than 2 real challenges/solutions or no client name (a half-
+    filled template with leftover brackets is worse than no slide at all)."""
+    if not (notes or "").strip():
+        return None
+    prompt = (
+        "From these client meeting notes, extract facts for a 'Client Context' + "
+        "'Tailored Approach' slide pair about their TALENT/HIRING challenges. Ground "
+        "every field ONLY in the notes -- if a fact isn't stated or clearly implied, "
+        "leave it as an empty string. Never invent a number, a client name, or a "
+        "challenge/solution that isn't real.\n"
+        "Return:\n"
+        "- client_name: the client's name.\n"
+        "- date: the discovery session/meeting date, if mentioned (empty if not).\n"
+        "- offer_drop_pct: their offer-drop-rate number as a bare number+unit (e.g. "
+        "'35%'), if mentioned (empty if not).\n"
+        "- org_size, hiring_range, hiring_year, junior_pct, city, hq: short bare "
+        "values if mentioned (e.g. org_size='450', hiring_range='40-60', "
+        "hiring_year='2026', junior_pct='60%', city='Bengaluru', hq='London') -- "
+        "empty string for any not mentioned.\n"
+        "- challenges: up to 4 REAL talent/hiring challenges this account actually "
+        "has, each {\"title\": short heading (3-6 words), \"body\": one factual "
+        "sentence (max ~30 words) explaining it, grounded in the notes}.\n"
+        "- solutions: up to 4 REAL approaches/solutions discussed for those "
+        "challenges, each {\"title\": short heading, \"body\": one factual sentence, "
+        "\"solves\": which challenge(s) it addresses, in a few words}. Order solutions "
+        "to correspond to the challenges list where possible.\n"
+        "If the notes don't give at least 2 real challenges or don't name the "
+        "client, return empty lists / empty client_name -- do NOT pad with "
+        "generic or invented content.\n"
+        "NOTES:\n\"\"\"\n" + notes[:9000] + "\n\"\"\"\n"
+        'Return ONLY this JSON: {"client_name":"...","date":"...","offer_drop_pct":"...",'
+        '"org_size":"...","hiring_range":"...","hiring_year":"...","junior_pct":"...",'
+        '"city":"...","hq":"...","challenges":[{"title":"...","body":"..."}],'
+        '"solutions":[{"title":"...","body":"...","solves":"..."}]}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You extract real, grounded talent-"
+                 "challenge facts for a client-context slide. Reply with one JSON "
+                 "object only. Never invent facts not in the notes."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    def _pairs(key, extra=()):
+        out = []
+        for m in (data.get(key) or []):
+            if isinstance(m, dict) and (m.get("title") or "").strip():
+                rec = {"title": m["title"].strip(), "body": (m.get("body") or "").strip()}
+                for k in extra:
+                    rec[k] = (m.get(k) or "").strip()
+                out.append(rec)
+        return out[:4]
+
+    result = {
+        "client_name": (data.get("client_name") or "").strip(),
+        "date": (data.get("date") or "").strip(),
+        "offer_drop_pct": (data.get("offer_drop_pct") or "").strip(),
+        "org_size": (data.get("org_size") or "").strip(),
+        "hiring_range": (data.get("hiring_range") or "").strip(),
+        "hiring_year": (data.get("hiring_year") or "").strip(),
+        "junior_pct": (data.get("junior_pct") or "").strip(),
+        "city": (data.get("city") or "").strip(),
+        "hq": (data.get("hq") or "").strip(),
+        "challenges": _pairs("challenges"),
+        "solutions": _pairs("solutions", extra=("solves",)),
+    }
+    # fail closed: need a client name + at least 2 real challenges AND solutions
+    if not result["client_name"] or len(result["challenges"]) < 2 or len(result["solutions"]) < 2:
+        return None
+    return result
+
+
+def extract_skill_profile(notes, max_per_category=6):
+    """From the meeting notes ('more information'), pull the SKILLS/requirements
+    the client is hiring/staffing against and categorise each into exactly one of
+    three buckets for the "Target Skill Profile" slide (Workforce-only):
+      - domain_expertise: business/domain knowledge areas (e.g. "Banking Regulation
+        & Compliance", "Financial Services & Lending")
+      - technical_stack: tools/platforms/technologies (e.g. "Cloud & Data Engineering",
+        "Test Automation")
+      - academic_professional: qualifications/experience/soft requirements (e.g.
+        "Engineering & CS Graduates", "0-12 Years Experience")
+
+    Each item is {"name": short heading (2-5 words), "description": one short line}.
+    Returns {} if the notes name no skills/requirements (nothing to show) or on any
+    API error — the caller treats an empty result as "no slide", never a placeholder."""
+    if not (notes or "").strip():
+        return {}
+    prompt = (
+        "From these client meeting notes, identify the SKILLS, technologies, domain "
+        "knowledge, and background the client is hiring / staffing / building a team "
+        "against. This powers a 'Target Skill Profile' slide with three columns.\n"
+        "Categorise EVERY item into exactly one bucket:\n"
+        "- domain_expertise: business/industry/domain knowledge areas (e.g. "
+        "'Banking Regulation & Compliance', 'Financial Services & Lending', "
+        "'Business Process Domain').\n"
+        "- technical_stack: concrete tools, platforms, languages, technologies (e.g. "
+        "'Cloud & Data Engineering', 'Test Automation', 'Security & IAM Tooling').\n"
+        "- academic_professional: qualifications, experience level, certifications, "
+        "soft/behavioural requirements (e.g. 'Engineering & CS Graduates', "
+        "'0-12 Years Experience', 'High Learning Agility').\n"
+        "For each item: name = a short heading (2-5 words), description = one short "
+        "line (max ~8 words) naming the specifics (e.g. tools, standards, range).\n"
+        f"At most {max_per_category} items per bucket. Ground every item in the notes "
+        "— do not invent skills that aren't named or clearly implied. If the notes "
+        "name no skills/requirements at all, return every bucket empty.\n"
+        "NOTES:\n\"\"\"\n" + notes[:9000] + "\n\"\"\"\n"
+        'Return ONLY this JSON: {"domain_expertise": [{"name":"...","description":"..."}], '
+        '"technical_stack": [...], "academic_professional": [...]}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You categorise a client's hiring/staffing "
+                 "requirements into a skill profile. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    def _items(key):
+        out = []
+        for m in (data.get(key) or []):
+            if isinstance(m, dict) and (m.get("name") or "").strip():
+                out.append({"name": m["name"].strip(),
+                            "description": (m.get("description") or "").strip()})
+        return out[:max_per_category]
+
+    result = {
+        "domain_expertise": _items("domain_expertise"),
+        "technical_stack": _items("technical_stack"),
+        "academic_professional": _items("academic_professional"),
+    }
+    if not any(result.values()):
+        return {}
+    return result
+
+
 def extract_asks(transcript):
     """Pull the SPECIFIC capability / skill / technology asks the CLIENT made.
 

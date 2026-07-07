@@ -98,6 +98,118 @@ EXCLUDE = {"CS09", "CS14", "CS17", "CS20", "CS21", "CS35", "CS45"}
 # People / leader slides — never auto-picked; always surfaced for the user to add.
 LEADER_IDS = {"CS61", "CS62"}
 
+# ---------------------------------------------------------------------------
+# STAGE + WORK-TYPE COMPOSITION (SLIDE_SELECTION_BRIEF.md, the 39-slide master)
+# ---------------------------------------------------------------------------
+# "Proposal" decks (and any unrecognised phase) deliberately keep TODAY'S exact
+# behaviour — the registry's `include_rule_legacy` column (a frozen snapshot of
+# each row's include_rule from before this stage logic existed) is evaluated
+# with the ORIGINAL two-pattern logic (ALWAYS / IF work_type includes X), byte-
+# for-byte unchanged. Only Intro/First/Second use the new stage-aware columns
+# (`stage_intro`/`stage_first`/`stage_second`, `composition`, `trigger`).
+_PHASE_TO_STAGE = {
+    "Intro": "intro", "First Meeting": "first", "Second Meeting": "second",
+}
+
+
+def stage_of(phase):
+    """'Intro'/'First Meeting'/'Second Meeting' -> 'intro'/'first'/'second'.
+    Anything else (Proposal, blank, unrecognised) -> None, meaning: use the
+    legacy include_rule_legacy path, unaffected by the brief's new rules."""
+    return _PHASE_TO_STAGE.get((phase or "").strip())
+
+
+def composition_of(work_types):
+    """'pure' (exactly one work type selected) or 'mixed' (more than one)."""
+    n = len({str(w).strip().upper() for w in (work_types or []) if str(w).strip()})
+    return "pure" if n == 1 else "mixed" if n > 1 else None
+
+
+# GCC-adjacent trigger terms (Slides 4/10/11 — "Global Footprint & Industries We
+# Serve", "End to End GCC Build Offerings", "Greenfield & Brownfield Use Cases").
+# Broad-list approach (owner's choice over a literal "GCC"-only match). Extend
+# this list, don't invent a smarter matcher — it's meant to be readable/auditable.
+_GCC_TERMS = [
+    "gcc", "global capability center", "global capability centre",
+    "captive center", "captive centre", "greenfield", "brownfield",
+    "center of excellence", "centre of excellence", "coe",
+    "shared services center", "shared services centre",
+    "in-house capability center", "in-house capability centre",
+]
+_GCC_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in _GCC_TERMS) + r")\b", re.I)
+
+
+def _has_gcc_signal(text):
+    return bool(_GCC_RE.search(text or ""))
+
+
+# Per-slide phrase list for the generic "asked/mentioned in the transcript"
+# trigger (everything else beyond stage+work-type+composition). Slide topics
+# vary, so this is a lookup by the slide's OWN id rather than one shared list.
+_ASKED_KEYWORDS = {
+    "CS12":  ["structural differentiation"],                                    # Structural Differentiation
+    "CS63":  ["what we deploy", "deployment model"],                            # WF - What We Deploy
+    "CS13":  ["big 4", "big4", "large si", "large sis",
+              "competitive positioning", "not the big 4"],                      # Why J2W
+              # NOTE: bare "differentiation" deliberately excluded -- it collides
+              # with CS12's "structural differentiation" trigger phrase
+    "CS140": ["engagement model"],                                              # Our Engagement Model
+    "CS141": ["contract process outsourcing", "process outsourcing", "bpo"],    # CPO Operating Model
+    "CS142": ["strategic hiring", "hiring imperative"],                         # Strategic Hiring Imperative
+    "CS146": ["interview as a service", "interview-as-a-service", "iaas"],      # AI Pods + Interview-as-a-Service
+}
+
+# Two genuinely idiosyncratic slides whose rule can't be expressed as a flat
+# stage/composition/trigger row (see SLIDE_SELECTION_BRIEF.md Slides 8, 28-29).
+# Each function returns True/False given (stage, composition, wanted work types).
+
+def _rule_cs04(stage, composition, wanted):
+    """Slide 8 - What We Offer: in at First/Second always; at Intro only for a
+    MIXED deck (excluded from a pure single-work-type Intro deck)."""
+    if stage in ("first", "second"):
+        return True
+    if stage == "intro":
+        return composition == "mixed"
+    return False
+
+
+def _rule_cs02(stage, composition, wanted):
+    """Slide 2 - Who We Are (full): at First/Second, any work type. At Intro,
+    only for AI Pods / Workforce (a pure-MS Intro deck gets Slide 3/CS02B
+    instead - see _rule_cs02b). Owner-confirmed 2026-07-07."""
+    if stage in ("first", "second"):
+        return True
+    if stage == "intro":
+        return bool(wanted & {"WORKFORCE", "AI_POD"})
+    return False
+
+
+def _rule_cs02b(stage, composition, wanted):
+    """Slide 3 - Who We Are (short): Intro only, pure Managed Services only."""
+    return stage == "intro" and composition == "pure" and "MS" in wanted
+
+
+def _rule_ai_pod_pair(stage, composition, wanted):
+    """Slides 28-29 - AI-First Pod Model + J2W AI Research Wing: pure-AIP-only
+    at Intro/First; ALWAYS included at Second whenever AI Pods is in the deck
+    (pure or mixed)."""
+    if "AI_POD" not in wanted:
+        return False
+    if stage == "second":
+        return True
+    if stage in ("intro", "first"):
+        return composition == "pure"
+    return False
+
+
+_SPECIAL_STAGE_RULES = {
+    "CS04": _rule_cs04,
+    "CS15": _rule_ai_pod_pair,
+    "CS16": _rule_ai_pod_pair,
+    "CS02": _rule_cs02,
+    "CS02B": _rule_cs02b,
+}
+
 
 def _num(slide_id):
     """CS22 -> 22, for ordering."""
@@ -302,18 +414,65 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
     chosen = {}                 # slide_id -> reason
     cases_by_wt = {}            # work_type -> [rows]
 
+    # stage/composition: Intro/First/Second use the new brief-driven rules below;
+    # Proposal (or a blank/unrecognised phase) falls back to include_rule_legacy,
+    # evaluated with the ORIGINAL always/work-type logic, unchanged.
+    stage = stage_of(context.get("phase"))
+    composition = composition_of(wanted)
+    gcc_text = transcript_raw + " " + research_raw
+
     # ---- pass 1: always-in, std blocks, and gather candidate case studies ----
     for row in reg:
         sid = row["slide_id"]
-        rule = (row["include_rule"] or "").strip()
-        kind = row["kind"]
         row_wts = _wts_of(row)
 
+        if stage is None:
+            # legacy path (Proposal / unknown phase) — today's exact behaviour,
+            # from the frozen pre-brief snapshot so Phase 3 never touches Proposal.
+            rule = (row.get("include_rule_legacy") or row.get("include_rule") or "").strip()
+            if rule.upper() == "ALWAYS":
+                chosen[sid] = "core / always"
+            elif rule.startswith("IF work_type includes"):
+                if row_wts & wanted:
+                    chosen[sid] = f"standard block ({'/'.join(sorted(row_wts & wanted))})"
+            continue
+
+        # ---- new stage-aware path (Intro / First / Second) ----
+        if sid in _SPECIAL_STAGE_RULES:
+            if _SPECIAL_STAGE_RULES[sid](stage, composition, wanted):
+                chosen[sid] = f"standard block (stage={stage})"
+            continue
+
+        rule = (row.get("include_rule") or "").strip()
         if rule.upper() == "ALWAYS":
-            chosen[sid] = "core / always"
-        elif rule.startswith("IF work_type includes"):
-            if row_wts & wanted:
-                chosen[sid] = f"standard block ({'/'.join(sorted(row_wts & wanted))})"
+            chosen[sid] = "core / always"      # unconditional across every stage (CS01/06/08)
+            continue
+
+        trig = (row.get("trigger") or "").strip().lower()
+        if trig in ("manual", "client_context", "special"):
+            continue        # never auto via this path — on-demand only, or handled elsewhere
+        # NOTE: an EMPTY trigger is NOT the same as "manual" -- it means "no extra
+        # gate beyond stage+work-type+composition" (e.g. CS02, CS18/19). A row that
+        # was simply never given a Phase-3 rule at all (old legacy rows, CS61/62/68's
+        # untouched OPTIONAL rows) is still excluded below, since its stage_* columns
+        # are all blank -> stage_ok is False regardless of this trigger check.
+        if row_wts and not (row_wts & wanted):
+            continue
+        stage_ok = (row.get(f"stage_{stage}") or "").strip().upper() == "Y"
+        if not stage_ok:
+            continue
+        comp = (row.get("composition") or "").strip().lower()
+        if comp == "pure" and composition != "pure":
+            continue
+        if comp == "mixed" and composition != "mixed":
+            continue
+        if trig == "gcc" and not _has_gcc_signal(gcc_text):
+            continue
+        if trig == "asked":
+            phrases = _ASKED_KEYWORDS.get(sid, [])
+            if phrases and not any(p in transcript for p in phrases):
+                continue
+        chosen[sid] = f"standard block (stage={stage})"
         # NOTE: registry CASE_STUDY rows (legacy master slides) are no longer the
         # source of case studies — they now come from the content store (below).
 

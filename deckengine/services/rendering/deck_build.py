@@ -13,7 +13,9 @@ import re
 from deckengine.services.rendering import assembler
 from deckengine.services.rendering import skills
 from deckengine.services.rendering import staging
+from deckengine.services.rendering import client_context
 from deckengine.services.content import editor
+from deckengine.services.content import case_library
 from deckengine.services.content.content_store import content_store
 
 
@@ -39,15 +41,21 @@ def ai_to_store_record(content, industry_code):
     }
 
 
-def assemble(final_ids, path, *, client, industry, work_types, transcript, edits, case_edits=None):
+def assemble(final_ids, path, *, client, industry, work_types, transcript, edits,
+             case_edits=None, phase=""):
     """Build the deck at `path` from `final_ids`, applying edits/tokens and rendering
     skills slides, content-store cases, and any AI-drafted (NEW:) cases. `case_edits`
     maps a case id -> the fields the user changed on the review slide-view (title,
     domain, function, challenge, solution, capabilities, results); they override the
-    stored record so the built slide reflects the edits."""
+    stored record so the built slide reflects the edits. `phase` drives the Client
+    Context / Tailored Approach pair (Workforce, First/Second stage only)."""
     case_edits = case_edits or {}
-    # "Create with AI" slides ride as NEW:<staging_id>; build them from the staged
-    # case-study content into THIS deck (not promoted to the master library).
+    # "Create with AI" slides ride as NEW:<staging_id>; build them into THIS deck,
+    # AND auto-save each one into the shared content store (owner's choice:
+    # automatic on every accept, no extra step) so it's searchable/reusable on
+    # future projects. Best-effort by design (case_library.promote_ai_case never
+    # raises) -- a save failure never blocks the deck itself.
+    first_wt = (work_types or [None])[0]   # best-effort id-prefix for a mixed deck
     create_items = []
     for oid in final_ids:
         if oid.startswith("NEW:"):
@@ -57,6 +65,10 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
                 if case_edits.get(oid):
                     record.update(case_edits[oid])     # user edits win
                 create_items.append({"id": oid, "template": "case_study_v2", "record": record})
+                try:
+                    case_library.promote_ai_case(record, first_wt, industry)
+                except Exception:
+                    pass    # never let a library-save failure block the deck
     # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
     # case_study_v2 template, anonymised + dash-clean, into THIS deck.
     store_recs = content_store()
@@ -70,10 +82,23 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
     # Skills slides ride along in final_ids (SK:/FP: ids); re-derive their data here.
     skills_cands = skills.candidates({"work_types": work_types, "industry": industry,
                                       "transcript": transcript, "client_name": client})
+    # Client Context / Tailored Approach (CS65/CS66) -- real master-deck ids, but
+    # gated + AI-filled here rather than by the registry (see client_context.py).
+    cc_cands = client_context.candidates({"work_types": work_types, "phase": phase,
+                                          "transcript": transcript})
 
     assembler.build_deck(final_ids, out=path)     # builds the CS slides (skills/NEW ids ignored)
     if edits:
         editor.apply_edits(path, edits)
+    if cc_cands:
+        client_context.fill_into(path, final_ids, cc_cands)
     if client:
-        editor.replace_tokens(path, {"[CLIENT]": client, "[Client]": client, "[client]": client})
+        # bracket-style tokens (legacy convention) + curly-style, single AND double
+        # brace (the new 39-slide master's slide 26 mixes "{{CLIENT}}", "{{client}}"
+        # and a single-brace "{client}") -- same run-level replace either way
+        editor.replace_tokens(path, {
+            "[CLIENT]": client, "[Client]": client, "[client]": client,
+            "{{CLIENT}}": client, "{{Client}}": client, "{{client}}": client,
+            "{CLIENT}": client, "{Client}": client, "{client}": client,
+        })
     skills.build_into(path, final_ids, skills_cands + create_items + store_items)   # fill + slot extras

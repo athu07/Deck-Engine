@@ -37,6 +37,10 @@ CASE_EMBEDDINGS_JSON    = _p("data", "case_embeddings.json")            # semant
 REGISTRY_XLSX           = _p("data", "registry", "J2W_CaseStudy_Portfolio_Metadata.xlsx")
 DELIVERY_FOOTPRINT_XLSX = _p("data", "registry", "J2W_Delivery_Footprint_Organized_Latest.xlsx")
 
+# salesperson-added industries not in the built-in taxonomy (the "Other" field on
+# the New-deck form) -- persisted so they show up in the dropdown from then on
+CUSTOM_INDUSTRIES_JSON  = _p("data", "custom_industries.json")
+
 # template decks used to render new slides
 TEMPLATES_PPTX          = _p("data", "templates", "templates.pptx")
 SKILLS_TEMPLATES_PPTX   = _p("data", "templates", "skills_templates.pptx")

@@ -203,6 +203,11 @@
  window.RESUME={{ 'true' if resume else 'false' }};
  window.SERVER_CTX={{ ctx|tojson }};
  window.BUILD_ID={{ build_id|tojson }};
+ // /deck/reopen pre-seeds the SAME localStorage the browser deck-tray uses, so
+ // the existing resume mechanism below (build.js) just picks it up unchanged.
+ {% if reopen_seed %}
+ try { localStorage.setItem('j2w_deck', JSON.stringify({{ reopen_seed|tojson }})); } catch (e) {}
+ {% endif %}
 </script>
 <script src="/static/js/deck-tray.js"></script>
 <script src="/static/js/build.js"></script>

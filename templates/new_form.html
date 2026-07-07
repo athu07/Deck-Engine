@@ -68,7 +68,13 @@
         <div class="field" style="margin-bottom:0"><label>Client name</label>
           <input class="input" name="client_name" placeholder="Acme Bank" required></div>
         <div class="field" style="margin-bottom:0"><label>Industry</label>
-          <select name="industry" required><option value="">Select…</option>{% for i in industries %}<option>{{ i }}</option>{% endfor %}</select></div>
+          <select name="industry" id="ind-select" required onchange="indChanged()">
+            <option value="">Select…</option>
+            {% for i in industries %}<option>{{ i }}</option>{% endfor %}
+            <option value="__OTHER__">Other…</option>
+          </select>
+          <input class="input" id="ind-other" placeholder="Type the industry" autocomplete="off"
+                 style="display:none;margin-top:8px"></div>
         <div class="field" style="margin-bottom:0"><label>Deck phase</label>
           <select name="phase" required><option value="">Select…</option>{% for p in phases %}<option>{{ p }}</option>{% endfor %}</select></div>
         <div class="field" style="margin-bottom:0"><label>Recipient / stakeholder <span class="hint">— optional</span></label>

@@ -6,7 +6,7 @@ from deckengine import config  # noqa: E402  (repo-root data paths)
 create_skills_templates.py
 Builds skills_templates.pptx from scratch — no source PPT needed.
 
-The 3 data-driven "capability" slides, drawn programmatically with the EXACT
+The 4 data-driven Workforce-only slides, drawn programmatically with the EXACT
 {{PLACEHOLDER}} names + J2W_TEMPLATE notes tags the engine (skills.py) expects.
 
 Design language matches the case-study template (case_study_v2.pptx):
@@ -39,6 +39,12 @@ C_CARD  = RGBColor(0xF5, 0xF5, 0xF5)   # light card fill
 C_LINE  = RGBColor(0xDE, 0xDE, 0xDE)   # hairline border
 C_BODY  = RGBColor(0x3E, 0x3E, 0x3E)   # body text
 C_MUTE  = RGBColor(0x6E, 0x6E, 0x69)   # muted labels
+C_GREY  = RGBColor(0x6E, 0x6E, 0x69)   # neutral grey column header (target_skill_profile)
+
+# tinted card fills for the 3-column target_skill_profile slide (one per column)
+C_TEAL_TINT = RGBColor(0xE9, 0xF4, 0xF2)
+C_RED_TINT  = RGBColor(0xFC, 0xEF, 0xEF)
+C_GREY_TINT = RGBColor(0xF2, 0xF2, 0xF1)
 
 FONT = "Calibri"
 
@@ -94,17 +100,20 @@ def card(slide, l, t, w, h, fill=C_WHITE, line=C_LINE, lw=0.75):
 
 def txt(slide, l, t, w, h, text, size, color,
         bold=False, align=PP_ALIGN.LEFT, italic=False,
-        anchor='t', wrap=True):
+        anchor='t', wrap=True, shrink=False, font=None):
     tb = slide.shapes.add_textbox(I(l), I(t), I(w), I(h))
     tf = tb.text_frame
     tf.word_wrap = wrap
+    if shrink:
+        from pptx.enum.text import MSO_AUTO_SIZE
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     tf._txBody.bodyPr.set('anchor', anchor)
     tf.margin_top = tf.margin_bottom = 0
     p = tf.paragraphs[0]
     p.alignment = align
     r = p.add_run()
     r.text = text
-    r.font.name = FONT
+    r.font.name = font or FONT
     r.font.size = Pt(size)
     r.font.color.rgb = color
     r.font.bold = bold
@@ -113,15 +122,16 @@ def txt(slide, l, t, w, h, text, size, color,
 
 
 # ── Shared chrome (top split bar + title + subtitle) ─────────────────────────
-def header(slide, title, subtitle):
+def header(slide, title, subtitle, title_font=None, subtitle_font=None,
+           title_size=24, subtitle_size=14):
     # top split bar: crimson (left) + teal (right)
     bar(slide, 0.00, 0.00, SPLIT,      0.10, C_RED)
     bar(slide, SPLIT, 0.00, SW - SPLIT, 0.10, C_TEAL)
     # red accent bar left of the title
     bar(slide, 0.25, 0.30, 0.065, 0.52, C_RED)
     # title + subtitle
-    txt(slide, 0.44, 0.26, 12.4, 0.52, title, 24, C_BLACK, bold=True)
-    txt(slide, 0.44, 0.80, 12.6, 0.34, subtitle, 14, C_TEAL, bold=True)
+    txt(slide, 0.44, 0.26, 12.4, 0.52, title, title_size, C_BLACK, bold=True, font=title_font)
+    txt(slide, 0.44, 0.80, 12.6, 0.34, subtitle, subtitle_size, C_TEAL, bold=True, font=subtitle_font)
     # slim teal footer strip for a finished, framed look
     bar(slide, 0.00, SH - 0.10, SW, 0.10, C_TEAL)
 
@@ -273,6 +283,63 @@ def build_slide3(prs):
     print("  Slide 3 (company_footprint): done")
 
 
+# ── SLIDE 4 — target_skill_profile ────────────────────────────────────────────
+#   3 columns (Domain Expertise / Technical Stack / Academic & Professional),
+#   6 card slots each: {{DOM_1_T}}/{{DOM_1_D}} .. {{DOM_6_T}}/{{DOM_6_D}},
+#                      {{TEC_1_T}}/{{TEC_1_D}} .. {{TEC_6_T}}/{{TEC_6_D}},
+#                      {{ACA_1_T}}/{{ACA_1_D}} .. {{ACA_6_T}}/{{ACA_6_D}}
+#   Unfilled slots are blanked (same convention as the case-study capability
+#   cards) rather than removed/reflowed.
+_TSP_COLUMNS = [
+    ("DOM", "DOMAIN EXPERTISE",          C_TEAL, C_TEAL_TINT, C_TEAL),
+    ("TEC", "TECHNICAL STACK",           C_RED,  C_RED_TINT,  C_RED),
+    ("ACA", "ACADEMIC & PROFESSIONAL",   C_GREY, C_GREY_TINT, C_BLACK),
+]
+
+
+def build_slide4(prs):
+    slide = prs.slides.add_slide(_blank_layout(prs))
+    # owner spec for this slide: heading = Oswald 24 (all-caps text, as below);
+    # subheading = Roboto Condensed 15 (title-case text, as below)
+    header(slide, "TARGET SKILL PROFILE",
+           "Domain Knowledge, Technical Stack And Background We're Hiring Against",
+           title_font="Oswald", subtitle_font="Roboto Condensed",
+           title_size=24, subtitle_size=15)
+
+    n_cols  = len(_TSP_COLUMNS)
+    gap     = 0.20
+    col_w   = (SW - 2 * MARGIN - (n_cols - 1) * gap) / n_cols
+    col_hdr_h = 0.48
+    top_hdr   = 1.35
+    top_cards = top_hdr + col_hdr_h + 0.14
+    bottom    = SH - 0.24                 # clears the teal footer strip
+    n_rows    = 6
+    row_gap   = 0.09
+    row_h     = ((bottom - top_cards) - (n_rows - 1) * row_gap) / n_rows
+
+    for i, (prefix, label, hdr_color, tint, heading_color) in enumerate(_TSP_COLUMNS):
+        cl = MARGIN + i * (col_w + gap)
+
+        # column header bar
+        bar(slide, cl, top_hdr, col_w, col_hdr_h, hdr_color)
+        txt(slide, cl, top_hdr, col_w, col_hdr_h, label, 13, C_WHITE,
+            bold=True, align=PP_ALIGN.CENTER, anchor='ctr')
+
+        # 6 tinted card slots — body in Raleway (owner spec): heading 12pt, content 12pt
+        for r in range(1, n_rows + 1):
+            rt = top_cards + (r - 1) * (row_h + row_gap)
+            card(slide, cl, rt, col_w, row_h, fill=tint, line=C_LINE, lw=0.5)
+            txt(slide, cl + 0.14, rt + 0.08, col_w - 0.28, row_h * 0.5,
+                "{{%s_%d_T}}" % (prefix, r), 12, heading_color, bold=True, anchor='t',
+                font="Raleway")
+            txt(slide, cl + 0.14, rt + row_h * 0.5, col_w - 0.28, row_h * 0.5 - 0.08,
+                "{{%s_%d_D}}" % (prefix, r), 12, C_MUTE, anchor='t', shrink=True,
+                font="Raleway")
+
+    set_notes(slide, "J2W_TEMPLATE: target_skill_profile")
+    print("  Slide 4 (target_skill_profile): done")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     prs = Presentation()
@@ -282,6 +349,7 @@ if __name__ == "__main__":
     build_slide1(prs)
     build_slide2(prs)
     build_slide3(prs)
+    build_slide4(prs)
 
     prs.save(OUT)
     print(f"\nSaved: {OUT}  ({len(prs.slides)} slides)")

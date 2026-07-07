@@ -50,7 +50,7 @@ GOLDEN = {
          "work_types": ["MS"], "functions": [], "recipient": "CTO",
          "transcript": "We need test automation, predictive maintenance and "
                        "digital twin for our plants."},
-        ['CS01', 'CS02', 'CS03', 'CS04', 'CS05', 'CS06', 'CS18', 'CS19',
+        ['CS01', 'CS02', 'CS03', 'CS04', 'CS05', 'CS06', 'CS18', 'CS19', 'CS147',
          'MSS012', 'MSS005', 'MSS034', 'CS07', 'CS08'],
     ),
     "wf_health": (
@@ -58,7 +58,7 @@ GOLDEN = {
          "work_types": ["WORKFORCE"], "functions": [], "recipient": "Head of Talent",
          "transcript": "Looking for RPO and cloud migration staffing for healthcare IT."},
         ['CS01', 'CS02', 'CS03', 'CS04', 'CS05', 'CS06', 'CS10', 'CS11', 'CS12',
-         'CS13', 'WFS022', 'WFS004', 'WFS002', 'CS07', 'CS08'],
+         'CS13', 'CS147', 'WFS022', 'WFS004', 'WFS002', 'CS07', 'CS08'],
     ),
 }
 
@@ -114,7 +114,7 @@ def test_build_review_finalize(client):
         "industry": ctx["industry"],
         "work_types": ctx["work_types"],
         "functions": ctx["functions"],
-        "phase": "First meeting",
+        "phase": "First Meeting",
         "recipient": ctx["recipient"],
         "transcript": ctx["transcript"],
     }
@@ -130,11 +130,13 @@ def test_build_review_finalize(client):
     assert r.status_code == 200, r.status_code
 
     # /finalize — assembles the real .pptx (core slides + MSS store cases rendered)
+    # naming convention: "Joulestowatts_<Client> FV<version>.pptx" for First Meeting
     r = client.post("/finalize", data={**form, "order": order})
     assert r.status_code == 200, r.status_code
-    assert b"Tailored_Deck_Smoke_Test_Co.pptx" in r.data
+    expected_name = "Joulestowatts_Smoke Test Co FV1.pptx"
+    assert expected_name.encode() in r.data
 
-    built = pathlib.Path(client.application._smoke_out_dir) / "Tailored_Deck_Smoke_Test_Co.pptx"
+    built = pathlib.Path(client.application._smoke_out_dir) / expected_name
     assert built.exists(), f"deck not written to {built}"
     assert len(Presentation(str(built)).slides) > 0
 

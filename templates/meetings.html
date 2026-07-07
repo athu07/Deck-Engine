@@ -35,7 +35,8 @@
     <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e6e6e3">
       <th style="padding:8px 10px">Client</th><th style="padding:8px 10px">Salesperson</th>
       <th style="padding:8px 10px">Recipient</th><th style="padding:8px 10px">Date</th>
-      <th style="padding:8px 10px">Phase</th><th style="padding:8px 10px">Deck</th>
+      <th style="padding:8px 10px">Phase</th><th style="padding:8px 10px">Version</th>
+      <th style="padding:8px 10px">Deck</th><th style="padding:8px 10px"></th>
     </tr></thead>
     <tbody>
       {% for r in rows %}
@@ -45,7 +46,13 @@
         <td style="padding:9px 10px">{{ r.recipient or '—' }}</td>
         <td style="padding:9px 10px;white-space:nowrap">{{ r.generated_at }}</td>
         <td style="padding:9px 10px"><span class="chip flat">{{ r.phase or '—' }}</span></td>
+        <td style="padding:9px 10px">v{{ r.version }}{% if r.is_latest %} <span class="hint" style="font-size:11px">(latest)</span>{% endif %}</td>
         <td style="padding:9px 10px"><a href="/output/{{ r.deck_file }}">{{ r.deck_file }}</a></td>
+        <td style="padding:9px 10px;white-space:nowrap">
+          {% if r.is_latest %}
+          <a class="btn" style="padding:4px 10px;font-size:12px" href="/deck/reopen?client={{ r.client|urlencode }}&phase={{ r.phase|urlencode }}"><i class="ti ti-edit"></i> Reopen to edit</a>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

@@ -32,6 +32,9 @@ _GENERIC_NEEDS = {
 OUTPUT_DIR = config.OUTPUT_DIR
 CONTENT_STORE = config.CONTENT_STORE_JSON
 
+# INDUSTRIES = the built-in matching TAXONOMY (codes tagger/relevance score against —
+# an industry-boost, cross-industry threshold, and the skills-slide Excel mapping all
+# key off these exact 8 codes). Never append a salesperson's free-typed industry here.
 INDUSTRIES = list(tagger.INDUSTRY.keys())
 FUNCTIONS = list(tagger.FUNCTION.keys())
 WORK_TYPES = ["WORKFORCE", "AI_POD", "MS"]
@@ -42,8 +45,18 @@ WT_LABELS = {"WORKFORCE": "Workforce", "AI_POD": "AI Pods", "MS": "Managed servi
 
 # Deck phase — fixed list, pick exactly one, in this order.
 PHASES = [
-    "Pre-read",        # sent to the client before a meeting, as preparation
+    "Intro",           # sent to the client before a meeting, as preparation
     "First Meeting",   # introductory — industry-specific, tuned to the stakeholder
     "Second Meeting",  # focused on the specific thing the client showed interest in
     "Proposal",        # formal proposal stage
 ]
+
+
+def all_industries():
+    """The built-in taxonomy PLUS any salesperson-added "Other" industries, for the
+    dropdown only. Called fresh per-request (not cached) so a newly-added custom
+    industry shows up immediately, no restart needed. NOTE: a custom industry is a
+    display label only — it does not get the industry-boost matching weight the 8
+    built-in codes get (see industries.py)."""
+    from deckengine.services.content import industries as _custom
+    return INDUSTRIES + [i for i in _custom.load() if i not in INDUSTRIES]

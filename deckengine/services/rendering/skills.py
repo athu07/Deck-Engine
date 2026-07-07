@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-skills.py  --  Three data-driven slides for Workforce-only + RFI decks.
+skills.py  --  Four data-driven slides for Workforce-only decks.
 
 Source data = J2W_Delivery_Footprint_Organized_Latest.xlsx
   Sheet: "Clean - Co x Func x Skill"
   Columns: Industry | Company | Function Delivered | Normalized Skill | Count
 
-Gate: candidates() returns [] unless BOTH hold:
-  1. Work type = pure Workforce (no other type selected)
-  2. Transcript/notes mentions "RFI" or "request for information"
+Gate: candidates() returns [] unless work type = pure Workforce (no other type
+selected). Slides 1-3 additionally require the transcript/notes to mention "RFI"
+or "request for information"; slide 4 has no RFI requirement.
 
-Three slide types (templates live in templates.pptx):
-  industry_strength   -- overview of J2W's presence in the deck's industry
-  skill_deepdive      -- one combined slide for all skills matched in the notes
-  company_footprint   -- existing relationship if client fuzzy-matches a company
+Four slide types (templates live in skills_templates.pptx):
+  industry_strength     -- overview of J2W's presence in the deck's industry (RFI)
+  skill_deepdive        -- one combined slide for all skills matched in the notes (RFI)
+  company_footprint     -- existing relationship if client fuzzy-matches a company (RFI)
+  target_skill_profile  -- AI-categorised 3-column skill profile (domain expertise /
+                           technical stack / academic & professional) from whatever
+                           skills the notes name — no RFI requirement
 """
 
 import re
@@ -294,64 +297,97 @@ def _company_slide_data(rows, client_name):
 # Public API
 # ------------------------------------------------------------------ #
 def candidates(context):
-    """Return slide candidates. Returns [] unless Workforce + RFI gate passes."""
+    """Return slide candidates. All are Workforce-only. Slides 1-3 (industry
+    strength / skill deep-dive / company footprint, sourced from the delivery-
+    footprint Excel) additionally require the RFI gate. Slide 4 (target skill
+    profile, AI-categorised from the notes) has no RFI requirement — it triggers
+    whenever the notes name skills/requirements to hire against."""
     wts = {str(w).upper() for w in (context.get("work_types") or [])}
     if wts != {"WORKFORCE"}:
         return []
     transcript = context.get("transcript", "")
-    if not _is_rfi(transcript):
-        return []
+    out = []
 
-    rows          = _load()
-    industry_lbl  = _industry_label(context.get("industry", ""))
-    client        = (context.get("client_name", "") or "").strip()
-    out           = []
+    if _is_rfi(transcript):
+        rows          = _load()
+        industry_lbl  = _industry_label(context.get("industry", ""))
+        client        = (context.get("client_name", "") or "").strip()
 
-    # Slide 1: Industry Strength
-    ind_data = _industry_slide_data(rows, industry_lbl)
-    if ind_data:
-        out.append({
-            "id":       "SK:industry",
-            "kind":     "industry_strength",
-            "label":    f"Industry strength - {industry_lbl}",
-            "template": "industry_strength",
-            "data":     ind_data,
-            "stale":    False,
-        })
-
-    # Slide 2: Combined Skill Deep-dive
-    all_skills = list({r["skill"] for r in rows})
-    matched    = _match_skills(transcript, all_skills)
-    if matched:
-        sk_data = _skill_slide_data(rows, matched)
-        if sk_data:
-            names = [s["skill"] for s in sk_data[:3]]
-            label = "Skills deployed - " + "  ·  ".join(names)
-            if len(sk_data) > 3:
-                label += f"  +{len(sk_data)-3} more"
+        # Slide 1: Industry Strength
+        ind_data = _industry_slide_data(rows, industry_lbl)
+        if ind_data:
             out.append({
-                "id":       "SK:skills",
-                "kind":     "skill_deepdive",
-                "label":    label,
-                "template": "skill_deepdive",
-                "data":     sk_data,
+                "id":       "SK:industry",
+                "kind":     "industry_strength",
+                "label":    f"Industry strength - {industry_lbl}",
+                "template": "industry_strength",
+                "data":     ind_data,
                 "stale":    False,
             })
 
-    # Slide 3: Company Relationship
-    if client:
-        co_data = _company_slide_data(rows, client)
-        if co_data:
-            out.append({
-                "id":       f"FP:{co_data['company']}",
-                "kind":     "company_footprint",
-                "label":    f"Client relationship - {co_data['company']}",
-                "template": "company_footprint",
-                "data":     co_data,
-                "stale":    False,
-            })
+        # Slide 2: Combined Skill Deep-dive
+        all_skills = list({r["skill"] for r in rows})
+        matched    = _match_skills(transcript, all_skills)
+        if matched:
+            sk_data = _skill_slide_data(rows, matched)
+            if sk_data:
+                names = [s["skill"] for s in sk_data[:3]]
+                label = "Skills deployed - " + "  ·  ".join(names)
+                if len(sk_data) > 3:
+                    label += f"  +{len(sk_data)-3} more"
+                out.append({
+                    "id":       "SK:skills",
+                    "kind":     "skill_deepdive",
+                    "label":    label,
+                    "template": "skill_deepdive",
+                    "data":     sk_data,
+                    "stale":    False,
+                })
+
+        # Slide 3: Company Relationship
+        if client:
+            co_data = _company_slide_data(rows, client)
+            if co_data:
+                out.append({
+                    "id":       f"FP:{co_data['company']}",
+                    "kind":     "company_footprint",
+                    "label":    f"Client relationship - {co_data['company']}",
+                    "template": "company_footprint",
+                    "data":     co_data,
+                    "stale":    False,
+                })
+
+    # Slide 4: Target Skill Profile — AI-categorised from the notes, no RFI gate
+    tsp = _target_skill_profile_candidate(transcript)
+    if tsp:
+        out.append(tsp)
 
     return out
+
+
+def _target_skill_profile_candidate(transcript):
+    """Whenever the notes name skills/requirements to hire against, AI-categorise
+    them into the 3-column Target Skill Profile slide. Returns None if the notes
+    name nothing (never a placeholder slide) or the AI call fails (fail-safe)."""
+    if not (transcript or "").strip():
+        return None
+    from deckengine.services.matching import ai_matcher
+    try:
+        profile = ai_matcher.extract_skill_profile(transcript)
+    except Exception:
+        return None
+    if not profile:
+        return None
+    total = sum(len(profile.get(k) or []) for k in
+                ("domain_expertise", "technical_stack", "academic_professional"))
+    return {
+        "id":       "TSP:skills",
+        "kind":     "target_skill_profile",
+        "label":    f"Target skill profile - {total} skill" + ("s" if total != 1 else ""),
+        "template": "target_skill_profile",
+        "data":     profile,
+        "stale":    False,
+    }
 
 
 def by_id(context, sid):
@@ -427,6 +463,24 @@ def _mapping_company(data):
         "ENGAGEMENT_TYPE":   "Existing client",
         "FUNCTION_BREAKDOWN": fn_lines,
     }
+
+
+# id-prefix -> profile dict key, for the 3-column target_skill_profile slide
+_TSP_PREFIX = {"DOM": "domain_expertise", "TEC": "technical_stack",
+              "ACA": "academic_professional"}
+
+
+def _mapping_target_skill_profile(profile, n_slots=6):
+    """6 card slots per column; unfilled slots are blanked (same convention as
+    the case-study capability cards) rather than removed/reflowed."""
+    mapping = {}
+    for prefix, key in _TSP_PREFIX.items():
+        items = (profile.get(key) or [])[:n_slots]
+        for i in range(1, n_slots + 1):
+            item = items[i - 1] if i <= len(items) else None
+            mapping[f"{prefix}_{i}_T"] = item["name"] if item else ""
+            mapping[f"{prefix}_{i}_D"] = item["description"] if item else ""
+    return mapping
 
 
 # ------------------------------------------------------------------ #
@@ -586,6 +640,9 @@ def build_into(deck_path, order, cands, master_path=config.MASTER_DECK):
             fn_names = [fn for fn, _ in data["fn_breakdown"]]
             fn_vals  = [cnt for _, cnt in data["fn_breakdown"]]
             _add_bar(new, fn_names, fn_vals)
+
+        elif kind == "target_skill_profile":
+            fill_markers(new, _mapping_target_skill_profile(data))
 
         skill_elem[sid] = list(sld_id_lst)[-1]
 

@@ -1630,3 +1630,305 @@ VERIFIED: 17 pytest green; browser-checked all pages; edits/fonts confirmed in b
   LibreOffice+poppler for a WYSIWYG preview. config.RENDERS_DIR added; Dockerfile installs
   libreoffice-impress + poppler-utils. Verified on Dickinson_Sample_Slides.pptx: images/
   charts/tables/words all preserved, 9 preview PNGs. 17 pytest green.
+
+------------------------------------------------------------------------------
+2026-07-07  NEW SLIDE — "Target Skill Profile" (4th Workforce-only skills slide,
+AI-categorised, no RFI gate required)
+------------------------------------------------------------------------------
+Owner ask: a new slide, matching the case-study/skills design language, where
+whenever the "more information" notes name skills/requirements, AI categorises
+them into a 3-column skill profile (reference image: DOMAIN EXPERTISE / TECHNICAL
+STACK / ACADEMIC & PROFESSIONAL, teal/red/grey columns, 6 cards each). Workforce-
+only; unlike the other 3 skills slides, it does NOT require the RFI keyword.
+
+BUILT (fits entirely into the existing skills.py / SK:-FP: pipeline — no new
+route or web plumbing needed):
+  - scripts/create_skills_templates.py: added a 4th slide "target_skill_profile"
+    to skills_templates.pptx, reusing the exact same header()/bar()/card()/txt()
+    helpers as the other 3 (top red+teal split bar, red accent + black Oswald-
+    style title, teal subtitle). 3 columns (teal/red/grey headers matching the
+    reference), 6 tinted card slots per column, each a {{PREFIX_n_T}}/{{PREFIX_n_D}}
+    heading+description pair (DOM/TEC/ACA prefixes). Unfilled slots blank (same
+    convention as the case-study capability cards) rather than being removed/
+    reflowed. Description boxes get shrink-to-fit for safety on longer AI text.
+  - ai_matcher.extract_skill_profile(notes): one gpt-4o-mini call, categorises
+    every skill/requirement named in the notes into domain_expertise /
+    technical_stack / academic_professional (max 6 each), grounded only in the
+    text; returns {} (no slide) if the notes name nothing or the API errors.
+  - skills.py: candidates() restructured — the Workforce-only gate is now shared,
+    but the RFI requirement applies ONLY to the original 3 slides (industry/
+    skill_deepdive/company_footprint); the new target_skill_profile slide
+    triggers independently, any time the AI extraction returns at least one item.
+    New _target_skill_profile_candidate() + _mapping_target_skill_profile();
+    build_into() dispatches kind=="target_skill_profile" (no chart, just marker
+    fill). id = "TSP:skills".
+  - web/decks.py: TSP: id treated as a "skills" card in review (same as SK:/FP:);
+    build-panel chip "TSP" + reason "auto-added — skills mentioned: target skill
+    profile slide" (no RFI wording, since it isn't RFI-gated).
+VERIFIED: extract_skill_profile on a banking-hiring sample -> 6/6/6 correctly
+bucketed items matching the reference categories; candidates() confirms Workforce-
+only + no-RFI-needed gating (mixed work types -> []; pure Workforce, no "RFI" in
+notes -> only TSP:skills fires); full /build -> /review -> /finalize via
+test_client produced a real deck with the slide rendered, 0 leftover markers;
+17 pytest green after the change (no regressions).
+
+--- 2026-07-07  Target Skill Profile — font refinement + messy-data stress test ---
+Owner spec, applied to THIS slide only (slides 1-3's Calibri look is untouched):
+  - Heading: Oswald 24 (text already all-caps: "TARGET SKILL PROFILE").
+  - Subheading: Roboto Condensed 15 (text already title-case).
+  - Card body: Raleway — heading 14pt bold, content 12pt.
+create_skills_templates.py: txt() gained an optional `font` override (defaults to
+the existing Calibri constant, so slides 1-3 are byte-for-byte unchanged); header()
+gained optional title_font/subtitle_font/title_size/subtitle_size (same safe
+defaults). build_slide4() passes Oswald/Roboto Condensed for the header and
+Raleway 14/12 for the card title/description. Regenerated skills_templates.pptx;
+confirmed via python-pptx that slide 1 (skill_deepdive) kept Calibri 24/11/10
+exactly, while slide 4 now shows Oswald 24 / Roboto Condensed 15 / Raleway 14+12.
+STRESS TEST (owner ask: try unstructured "worst case" data): fed extract_skill_
+profile a deliberately rambling, typo-ridden paragraph with no bullets/headers,
+mixing real requirements with irrelevant chatter (kid's school admission, budget
+sheet, notice period). Correctly extracted only the real asks and bucketed them:
+Manufacturing Environment/Predictive Maintenance/Lean/Six Sigma -> domain;
+SCADA/PLC/Python/Azure IoT/AWS Greengrass/electrical schematics -> technical;
+Diploma-or-ITI/BE/3-8 yrs/NEBOSH/spoken English -> academic - all noise correctly
+dropped. Rendered end-to-end with the new fonts, 0 leftover markers. 17 pytest
+green after the change.
+
+################################################################################
+=== 2026-07-07  NEW 39-SLIDE MASTER DECK + SLIDE_SELECTION_BRIEF.md (Phases 1-3) ===
+################################################################################
+Owner supplied a new master deck (checking_Master deck 2.pptx, 39 slides) and a
+full slide-selection brief (SLIDE_SELECTION_BRIEF.md) specifying, per slide,
+which meeting STAGE (Intro/First/Second) + WORK-TYPE COMPOSITION (pure/mixed
+deck) + optional TRIGGER (GCC keywords / "asked in transcript" / manual-only) it
+belongs in. Backups of the old master/library/registry are in
+backups/master_deck_swap/. Four owner decisions locked in before building:
+  1. GCC trigger = a broad adjacent-term list (not literal "GCC" only).
+  2. Every deck VERSION's file is kept on disk forever (Phase 4, not yet built).
+  3. "Create with AI" case studies auto-save to the shared library on every
+     accept (Phase 5, not yet built).
+  4. "Proposal" phase (not covered by the brief) stays on TODAY's exact
+     registry logic, untouched by any of this.
+
+PHASE 1 — swap in the new master deck (scripts/swap_master_deck_39slide.py):
+  - Slide 3 duplicated slide 2's J2W_ID (both CS02) -- gave slide 3 its own
+    CS02B. 13 slides had NO J2W_ID at all (today's assembler silently drops any
+    ID-less slide) -- stamped CS137-CS149, seeded from the GLOBAL max CS number
+    already in use (136), NOT this file's own internal max (68), so nothing
+    collides with old registry rows referencing the previous 136-slide master.
+  - New master saved to data/decks/WORKING_COPY_Master_Deck.pptx;
+    library.json/tagged_library.json rebuilt (39 records).
+  - Full deck scan for EVERY marker style before touching anything: found slide
+    26 actually mixes THREE client-name token styles -- "{{CLIENT}}",
+    "{{client}}", AND a bare single-brace "{client}" -- not just one. All three
+    added to deck_build.assemble()'s token-replace map (editor.replace_tokens),
+    alongside the existing "[CLIENT]" bracket convention. Verified 0 leftover.
+  - Registry write was blocked ~40 minutes by the file being open in Excel;
+    queued rows were written once closed (folded into Phase 3's script below).
+
+PHASE 2 — form refinements (constants.py, meeting_log.py, new_form.html/js):
+  - "Pre-read" renamed to "Intro" (PHASES list + PHASE_CODES, PR->IN).
+  - "Other" industry: new deckengine/services/content/industries.py persists a
+    free-typed industry to data/custom_industries.json; constants.all_industries()
+    merges it into every dropdown from then on (computed fresh per-request, no
+    restart needed). Deliberately NOT added to the matching taxonomy (tagger.
+    INDUSTRY) -- a custom industry is a display label only, no industry-boost
+    weight. Form: select gets an "Other..." option revealing a text box; JS
+    turns the typed text into a real <option> on the SAME select before submit,
+    so cfSubmit()'s industry lookup and the backend need no special-casing.
+    Verified: persists once, no duplicate on resubmit, shows in the dropdown
+    on the next page load.
+
+PHASE 3 — the stage x work-type x trigger selection logic (the brief itself):
+  Registry schema migration (scripts/phase3_registry_rules.py, also finishes
+  Phase 1's queued rows): new columns include_rule_legacy / stage_intro /
+  stage_first / stage_second / composition / trigger.
+    - include_rule_legacy = a FROZEN SNAPSHOT of every row's include_rule from
+      BEFORE this script ran. Proposal-stage decks (or any unrecognised phase)
+      are evaluated against ONLY this column, with the ORIGINAL always/work-
+      type logic byte-for-byte unchanged -- verified a Proposal/pure-MS deck
+      produces the EXACT same picks as pre-Phase-3 code.
+    - stage_intro/first/second ("Y"/blank), composition (blank/pure/mixed),
+      trigger (blank/gcc/asked/manual/client_context) drive the NEW path for
+      Intro/First/Second decks only.
+  matcher.py: new stage_of()/composition_of() helpers; pass-1 branches on
+  whether a stage was recognised (legacy path) or not (new stage-aware path).
+  _GCC_TERMS (broad list: GCC, Global Capability Center/Centre, captive center,
+  greenfield, brownfield, center of excellence/CoE, shared services center) for
+  the Slide 4/10/11 GCC trigger. _ASKED_KEYWORDS (per-slide phrase lists) for
+  the "mentioned in transcript" trigger (Slides 12,63,13,140,141,142,146).
+  Two slides couldn't fit a flat stage/composition/trigger row and are hand-
+  coded exceptions in _SPECIAL_STAGE_RULES: Slide 8 (What We Offer -- in at
+  First/Second always, but excluded from Intro unless the deck is MIXED
+  work-type) and Slides 28-29 (AI-First Pod Model pair -- pure-AIP-only at
+  Intro/First, but ALWAYS included at Second whenever AI Pods is in the deck).
+  Slide 35 ("Case Studies" divider) is ALWAYS, the one deliberate exception
+  among dividers (12/27/32/39 stay hard-excluded via the existing matcher.
+  EXCLUDE set, unaffected).
+  BUG FOUND + FIXED while verifying: the pass-1 trigger check treated an EMPTY
+  trigger ("no extra gate needed", e.g. CS02/CS18/CS19) the same as "manual"
+  (never auto-include) -- caused CS02B and several plain stage-gated slides to
+  wrongly vanish. Fixed (blank trigger now falls through correctly; untouched
+  legacy rows are still excluded via their blank stage_* columns regardless).
+  Also fixed a phrase collision: CS13's ("Why J2W") asked-keyword list included
+  bare "differentiation", which fired on CS12's own trigger phrase ("structural
+  differentiation") -- removed the bare word, kept the specific phrases.
+
+  Slides 18/19 (Client Context / Tailored Approach) -- NOT registry-driven at
+  all; these need a whole AI extraction (client name + stats + up to 4 real
+  talent challenges/solutions) to fill their `[BRACKET]`-style markers (a THIRD
+  marker convention alongside {{CURLY}} and the master's existing editor
+  tokens). New ai_matcher.extract_client_context() (grounded only in the
+  notes, FAILS CLOSED -- returns None unless it gets a client name + >=2 real
+  challenges AND >=2 real solutions). New deckengine/services/rendering/
+  client_context.py: candidates() gate = Workforce + First/Second stage only;
+  fill_into() replaces every bracket + blanks anything not supplied (never
+  leaves a literal bracket or the illustrative "e.g. ..." example text in a
+  client deck). Wired into web/decks.py (build-panel "CC" chip, review page
+  renders them read-only since the real fill only happens at finalize) and
+  deck_build.assemble() (new `phase` param, calls fill_into after assembly).
+  Verified: realistic notes -> 9/9 fields extracted correctly (client name,
+  date, 4 offer/org/hiring stats, 4 challenges, 4 solutions matched to them);
+  thin notes / Intro stage / non-Workforce work type all correctly return no
+  slide (fails closed); full deck build -> 0 leftover bracket markers.
+
+  VERIFIED across the full stage/composition matrix via matcher.plan(): pure-MS
+  Intro (CS02B in, CS02/CS04 out), mixed Intro (CS04 in), First-meeting WF with
+  GCC+"structural differentiation" mentioned (CS12/137/138/139 correctly fire,
+  CS13 correctly does NOT), Second-meeting pure/mixed AI Pod (CS15/16 always in
+  at Second), First-meeting pure AI Pod (CS15/16 in, since pure), Proposal (byte-
+  identical to pre-Phase-3 picks, confirming the legacy path is untouched).
+  Golden pytest fixtures (test_matcher_golden) updated to include the new
+  always-on CS147 divider (the only diff -- everything else unchanged, proving
+  the legacy path preserves history exactly). 17/17 pytest green.
+
+RESOLVED same day: owner confirmed Slide 2 (CS02) also shows at Intro, but only
+for AI Pods/Workforce (not MS, which gets Slide 3/CS02B instead) -- moved CS02
+into _SPECIAL_STAGE_RULES alongside CS02B (both now genuinely composition- and
+work-type-conditional, not flat rows). Verified: pure-WF/AIP Intro -> CS02;
+pure-MS Intro -> CS02B; mixed Intro -> CS02 (via whichever of WF/AIP is
+present), never CS02B (requires pure composition). 17/17 pytest green.
+
+################################################################################
+=== 2026-07-07  PHASE 4 -- naming convention + version history + reopen/edit ===
+################################################################################
+Owner's naming convention:
+  Intro          -> "Joulestowatts_{Client} Intro.pptx" (v1), "...Intro V2.pptx" (v2+)
+  First Meeting  -> "Joulestowatts_{Client} FV{n}.pptx"  (n = 1, 2, 3...)
+  Second Meeting -> "Joulestowatts_{Client} SV{n}.pptx"
+  Proposal (not specified by the owner) -> "...PV{n}.pptx", extending the same
+    scheme for consistency -- flag if this guess is wrong.
+Every version's OWN .pptx file is kept on disk forever (owner's choice) --
+finalize never overwrites a prior version's file; each version gets its own.
+
+meeting_log.py REWRITTEN (the old docstring explicitly said "newest deck
+OVERWRITES the previous record, only the latest kept" -- a deliberate reversal
+of that original decision, per the owner):
+  - One JSON per client+phase as before, but now holds a `versions` LIST, not a
+    single record. save_version() APPENDS (never overwrites); next_version_
+    number() = len(existing)+1; deck_filename() implements the naming scheme
+    above (client name kept as-is for the .pptx name, only OS-illegal chars
+    stripped -- NOT run through the aggressive safe_filename() that used to
+    turn spaces into underscores, so "Acme Bank" reads naturally in the file).
+  - all_meetings() now flattens to ONE ROW PER VERSION (not per client+phase),
+    newest first, so every historical deck stays visible/downloadable on
+    /meetings. all_latest() = one row per client+phase (the newest version
+    only) -- used to decide which row gets a "Reopen to edit" link.
+web/decks.py /finalize: computes the next version + filename instead of a
+fixed name; calls save_version() with the finalized order + edits + case_edits
+so a later reopen can restore exactly what was chosen (not just the ids).
+
+REOPEN-AND-EDIT (the "add one more slide/case study to an already-downloaded
+deck" ask): a NEW /deck/reopen?client=&phase= route loads the LATEST version's
+saved order + context via meeting_log.latest_version(), then renders the SAME
+build.html page the existing /deck (browser-tray resume) uses -- reusing 100%
+of the existing add/remove/reorder UI, zero new frontend work. The bridge: a
+tiny inline script pre-seeds localStorage's j2w_deck key (the SAME shape the
+browser's own deck-tray already uses) BEFORE build.js's resume logic runs, so
+that unchanged client-side code just picks it up as if the browser had it all
+along. Reopening always continues from the LATEST version (never forks an
+older one); finalizing again produces the next version, e.g. FV1 -> FV2.
+/meetings (deck repository) now shows a Version column and a "Reopen to edit"
+link on each client+phase's newest row only.
+LIMITATION (acknowledged, not fixed here): reopening restores the SLIDE
+SELECTION (order) exactly, but not previously-typed inline text EDITS (title/
+subtitle tweaks, case-study body edits) -- those aren't part of the browser
+deck-tray's shape and would need to be re-entered on /review if changed again.
+Scoped this way deliberately (matches the owner's stated need -- add/remove a
+slide -- without building a full edit-history/diffing system speculatively).
+
+VERIFIED end-to-end via test_client: two /finalize calls for the same
+client+"First Meeting" -> FV1.pptx then FV2.pptx, BOTH files kept on disk,
+version number correctly incremented; a separate Intro finalize -> "...
+Intro.pptx" (no version suffix, as specified); /deck/reopen's embedded seed
+matched the LATEST version's order exactly (tested with two versions carrying
+DIFFERENT slide lists, confirming it reads the newest, not an earlier one);
+/meetings renders the Version column + Reopen link correctly.
+BUG CAUGHT BY THE SUITE (not a live bug, a stale test): test_build_review_
+finalize hardcoded the OLD fixed filename AND passed phase="First meeting"
+(lowercase "m" -- harmless before phase was wired into anything, since nothing
+read it; now that it drives both matching and naming, the casing matters).
+Fixed the casing to "First Meeting" and updated the expected filename to the
+new "Joulestowatts_Smoke Test Co FV1.pptx". 17/17 pytest green.
+
+################################################################################
+=== 2026-07-07  PHASE 5 -- auto-save "Create with AI" case studies to the library ===
+################################################################################
+Owner's decision: automatic on every accept, no separate "save to library"
+step -- every "Create with AI" case that makes it into a finalized deck is now
+ALSO saved into the shared content store (searchable/reusable on future
+projects), reversing the prior deliberate "this deck only" design.
+
+case_library.py gained promote_ai_case(content, work_type_code, industry_code):
+  - Mints the next free AIP/WFS/MSS id (scans the live store for the highest
+    existing number under that prefix).
+  - Tags it the SAME way the Excel importer does (function via tagger._score,
+    personas via personas.tag_slide, keywords via synonyms.expand on distinctive
+    title/capability words) -- reused the exact taxonomy tools, not reinvented.
+    Simpler than the Excel importer in one respect: Create-with-AI already
+    carries a clean form INDUSTRY CODE (e.g. "MANUFACTURING"), so no fragile
+    domain-string-to-code inference is needed here at all.
+  - Capabilities are normalised to {title, body} dicts (the same shape every
+    other store entry uses) via fill_case_study.split_capability() -- handles
+    BOTH a fresh AI draft's plain "Title: body" strings AND a salesperson's
+    edited {title,body} dicts from the /review page transparently.
+  - Appends to THREE places: the live JSON store (in-process cache invalidated
+    so the SAME build sees the new case immediately, no restart), the source
+    Excel (reflowed to its "Title: description" per-line convention, so a
+    from-scratch rebuild reproduces it), and case_embeddings.json (one OpenAI
+    embedding call, so it's semantically matchable right away, not just by
+    keyword, without waiting for a full py build_case_embeddings.py rebuild).
+  - Excel-append and embedding-append are BEST-EFFORT (try/except, never raise)
+    -- a locked Excel file or a down OpenAI API never blocks the deck itself;
+    relevance.py's embedding lookups are already .get()-based, so a case
+    without a vector yet just scores on keyword/lexical signals until the next
+    rebuild. Only skips entirely (returns None) if work_type_code is blank/
+    unrecognised -- never guesses a work-type prefix.
+deck_build.py: wired into assemble()'s existing NEW:<id> loop -- calls
+promote_ai_case() with the SAME merged record (post case_edits) used to render
+the slide into this deck, using the deck's FIRST selected work type as the
+id-prefix (best-effort for a mixed-work-type deck; documented, not hidden).
+
+VERIFIED end-to-end via test_client (backed up store/Excel/embeddings first,
+restored after): /build -> /create_ai (real AI draft: "Predictive Quality
+Control for Injection Molding") -> /finalize with that NEW: id in the order.
+Result: MSS096 appended to the store (176 total) with correct work_type/
+domain/industry, auto-tagged function (DATA_AI_PLATFORM) + personas (CIO_CTO,
+DATA_AI_LEAD) + keywords, capabilities normalised to dicts, ai_generated=True;
+matching Excel row appended; one embedding vector appended (176 total);
+immediately matchable via case_library.candidate_rows(['MS']) in the SAME
+process, no restart. 17/17 pytest green. Test entry then removed from the live
+library (restored from backup) since it was synthetic test data, not a real
+case.
+
+################################################################################
+ALL FIVE PHASES OF THE 2026-07-07 REBUILD ARE NOW COMPLETE:
+  1. New 39-slide master deck swapped in, IDs stamped, registry updated.
+  2. "Intro" phase rename + persisted "Other" industry.
+  3. Full stage x work-type x trigger slide-selection logic (the brief).
+  4. Naming convention + persistent version history + reopen-and-edit.
+  5. Auto-save "Create with AI" case studies to the shared library.
+Remaining open item: none blocking -- the only unresolved note is the
+Proposal-phase filename convention (PV{n}), which the owner never specified;
+flagged in the Phase 4 entry above, change if it's wrong.
+################################################################################

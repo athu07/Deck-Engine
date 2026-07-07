@@ -15,10 +15,12 @@ from flask import Blueprint, request, render_template, abort
 from pptx import Presentation
 
 from deckengine import config
+from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
+from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher
-from deckengine.services.rendering import skills, staging, deck_build, fill_case_study, slide_generator
+from deckengine.services.rendering import skills, staging, deck_build, fill_case_study, slide_generator, client_context
 from deckengine.services.content import case_library, editor
 from deckengine.services.content.content_store import content_store
 from deckengine.services.content.build_library import read_id
@@ -26,7 +28,7 @@ from deckengine.services.rendering import assembler
 from deckengine.services import ingest as research
 from deckengine.services import meeting_log
 from deckengine.services import build_context
-from .view_helpers import (shell, file_busy_page, safe_filename, current_salesperson,
+from .view_helpers import (shell, file_busy_page, current_salesperson,
                            legacy_case_ids as _legacy_case_ids)
 
 bp = Blueprint("decks", __name__)
@@ -55,16 +57,16 @@ def home():
         lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
     except Exception:
         lib_count = 0
-    body = render_template("new_form.html", industries=INDUSTRIES, functions=FUNCTIONS,
+    body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
                                   phases=PHASES, library_count=lib_count, error="")
     return shell(body, active="new", crumb="<b>New deck</b> / Context")
 
 
-@bp.route("/deck")
-def deck_resume():
-    """Re-open the deck-in-progress (held in the browser's deck tray). The list and
-    context are hydrated client-side from localStorage; the server just supplies
-    the slide catalogue."""
+def _resume_page(reopen_seed=None):
+    """Shared render for /deck (empty browser-tray resume) and /deck/reopen
+    (server-persisted version reload) — both hydrate the SAME client-side
+    resume mechanism (build.js reads localStorage j2w_deck); reopen_seed just
+    pre-seeds that storage before build.js's init() runs (see build.html)."""
     titles = matcher._title_lookup()
     all_slides = sorted(((sid, t) for sid, t in titles.items()
                          if sid not in _legacy_case_ids()),
@@ -78,8 +80,44 @@ def deck_resume():
                                   suggestions=[], suggested=[], ai_used=False,
                                   persona_labels=[], rationale=[], missing=[],
                                   research_read=False, research_failed=False,
-                                  resume=True, build_id="")
+                                  resume=True, build_id="", reopen_seed=reopen_seed)
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
+
+
+@bp.route("/deck")
+def deck_resume():
+    """Re-open the deck-in-progress (held in the browser's deck tray). The list and
+    context are hydrated client-side from localStorage; the server just supplies
+    the slide catalogue."""
+    return _resume_page()
+
+
+@bp.route("/deck/reopen")
+def deck_reopen():
+    """Re-open an already-finalized, already-downloaded deck for further editing
+    (add/remove/reorder a slide, e.g. one more case study), continuing from its
+    LATEST version. Finalizing again produces the next version — nothing is
+    overwritten. If no version exists yet for this client+phase, falls back to
+    a plain empty resume (same as /deck)."""
+    client = request.args.get("client", "").strip()
+    phase = request.args.get("phase", "").strip()
+    rec, latest = meeting_log.latest_version(client, phase)
+    if not latest:
+        return _resume_page()
+    seed = {
+        "ctx": {
+            "client_name": client,
+            "industry": rec.get("industry", ""),
+            "transcript": "",           # not persisted per-version; re-enter if needed
+            "phase": phase,
+            "recipient": latest.get("recipient", ""),
+            "functions": latest.get("functions", []),
+            "work_types": latest.get("work_types", []),
+        },
+        "order": latest.get("slide_ids", []),
+        "active": True,
+    }
+    return _resume_page(reopen_seed=seed)
 
 
 @bp.route("/build", methods=["POST"])
@@ -94,6 +132,10 @@ def build():
         "salesperson": current_salesperson(),
         "transcript": request.form.get("transcript", "").strip(),
     }
+    # a free-typed "Other" industry (not in the built-in taxonomy) is remembered
+    # so it shows up in the dropdown for every build after this one
+    if ctx["industry"] and ctx["industry"].lower() not in {i.lower() for i in constants.all_industries()}:
+        custom_industries.add(ctx["industry"])
     # optional deep-research file (PDF/text) -> read alongside the notes for matching
     research_text = research.extract_text(request.files.get("research_file"))
     research_given = bool(request.files.get("research_file") and
@@ -121,7 +163,7 @@ def build():
             lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
         except Exception:
             lib_count = 0
-        body = render_template("new_form.html", industries=INDUSTRIES, functions=FUNCTIONS,
+        body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
                                       phases=PHASES, library_count=lib_count,
                                       error="Please select at least one work type.")
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
@@ -242,18 +284,35 @@ def build():
                              len(picks))
         sk_picks = []
         _chip = {"industry_strength": "IND", "skill_deepdive": "SKL",
-                 "company_footprint": "FOOT"}
+                 "company_footprint": "FOOT", "target_skill_profile": "TSP"}
         for c in sk:
             titles[c["id"]] = c["label"]
             reason = {
                 "industry_strength": "auto-added — RFI: industry strength slide",
                 "skill_deepdive":    "auto-added — RFI: skills deployed slide",
                 "company_footprint": "auto-added — RFI: existing client relationship",
+                "target_skill_profile": "auto-added — skills mentioned: target skill profile slide",
             }.get(c["kind"], "auto-added — RFI data slide")
             sk_picks.append({"slide_id": c["id"], "reason": reason, "skill": True,
                              "tag": _chip.get(c["kind"], "SKL"),
                              "label": c["label"]})
         picks[insert_at:insert_at] = sk_picks
+
+    # --- Client Context + Tailored Approach (Workforce, First/Second only):
+    #     a real AI extraction from the notes, fails closed (see client_context.py) ---
+    cc = client_context.candidates(ctx)
+    if cc:
+        insert_at = next((i for i, p in enumerate(result["picks"]) if p["reason"].startswith("case")), None)
+        if insert_at is None:
+            insert_at = next((i for i, p in enumerate(result["picks"]) if p["slide_id"] in matcher.PIN_TO_END),
+                             len(result["picks"]))
+        cc_picks = []
+        for c in cc:
+            titles[c["id"]] = c["label"]
+            cc_picks.append({"slide_id": c["id"], "reason": "auto-added — client context drawn from your notes",
+                             "skill": True, "tag": "CC", "label": c["label"]})
+        result["picks"][insert_at:insert_at] = cc_picks
+
     all_slides = sorted(((sid, t) for sid, t in titles.items()
                          if sid not in _legacy_case_ids()),
                         key=lambda kv: matcher._num(kv[0]))
@@ -298,7 +357,7 @@ def build():
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
                                   persona_labels=result.get("persona_labels", []),
-                                  resume=False, build_id=build_id)
+                                  resume=False, build_id=build_id, reopen_seed=None)
     return shell(body, active="new", crumb="<b>New deck</b> / Suggested slides")
 
 
@@ -328,7 +387,12 @@ def _build_review_slides(ids, client):
     store = content_store()          # {id: record} for AIP/WFS/MSS store cases
     slides = []
     for sid in ids:
-        if sid in by_id:                                       # master library slide (CSxx)
+        if sid in (client_context.CS_CONTEXT, client_context.CS_APPROACH):
+            # Client Context / Tailored Approach: filled from an AI extraction at
+            # FINALIZE time (see deck_build.assemble), not editable here — showing
+            # the raw [BRACKET] placeholders as "editable fields" would be confusing.
+            slides.append({"kind": "skills", "id": sid})
+        elif sid in by_id:                                       # master library slide (CSxx)
             fields = [(idx, label, text.replace("[CLIENT]", client))
                       for idx, label, text in editor.editable_fields(by_id[sid])]
             slides.append({"kind": "library", "id": sid, "fields": fields})
@@ -338,7 +402,7 @@ def _build_review_slides(ids, client):
             rec = staging.get(sid[4:])
             if rec:
                 slides.append(_case_slide(sid, rec))
-        elif sid.startswith("SK:") or sid.startswith("FP:"):   # data-driven skills slide
+        elif sid.startswith("SK:") or sid.startswith("FP:") or sid.startswith("TSP:"):   # data-driven skills slide
             slides.append({"kind": "skills", "id": sid})
     return slides
 
@@ -381,7 +445,7 @@ def from_content():
             lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
         except Exception:
             lib_count = 0
-        body = render_template("new_form.html", industries=INDUSTRIES, functions=FUNCTIONS,
+        body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
                                       phases=PHASES, library_count=lib_count,
                                       error="Paste the case-study content or attach a document first.")
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
@@ -399,12 +463,16 @@ def from_content():
 @bp.route("/finalize", methods=["POST"])
 def finalize():
     client = request.form.get("client_name", "Client").strip()
+    phase = request.form.get("phase", "")
     ids = [x for x in request.form.get("order", "").split(",") if x]
     if not ids:
         abort(400)
     import os
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-    filename = f"Tailored_Deck_{safe_filename(client)}.pptx"
+    # every version gets its own file, never overwritten (owner: keep every
+    # version forever) -- e.g. "Joulestowatts_Acme Bank FV1.pptx", then FV2...
+    version = meeting_log.next_version_number(client, phase)
+    filename = meeting_log.deck_filename(client, phase, version)
     path = os.path.join(config.OUTPUT_DIR, filename)
 
     # ---- AI slides: apply edits, then ACCEPT (promote -> library) or REJECT ----
@@ -476,19 +544,22 @@ def finalize():
                             industry=request.form.get("industry", ""),
                             work_types=request.form.getlist("work_types"),
                             transcript=request.form.get("transcript", ""),
-                            edits=edits, case_edits=case_edits)
+                            edits=edits, case_edits=case_edits,
+                            phase=request.form.get("phase", ""))
     except (PermissionError, BadZipFile) as e:
         return file_busy_page(e)
-    meeting_log.save(                          # auto-log this meeting (no extra step)
+    meeting_log.save_version(                  # auto-log this version (no extra step)
         client=client,
         industry=request.form.get("industry", ""),
         functions=request.form.getlist("functions"),
         work_types=request.form.getlist("work_types"),
-        phase=request.form.get("phase", ""),
+        phase=phase,
         recipient=request.form.get("recipient", ""),
         salesperson=current_salesperson(),
         slide_ids=final_ids,
         deck_file=filename,
+        edits=edits,
+        case_edits=case_edits,
     )
     count = len(list(Presentation(path).slides))
     body = render_template("preview.html", client=client, filename=filename, count=count)
