@@ -30,10 +30,11 @@ from lxml import etree
 
 OUT = config.SKILLS_TEMPLATES_PPTX
 
-# ── J2W brand palette (identical to create_case_study_template.py) ────────────
+# ── J2W brand palette (identical to create_case_study_template.py) — matched
+# to the WORKING master deck's own title slide (pixel-extracted, 2026-07-07) ──
 C_BLACK = RGBColor(0x11, 0x11, 0x10)
-C_RED   = RGBColor(0xC0, 0x20, 0x26)   # CRIMSON RED
-C_TEAL  = RGBColor(0x3A, 0x8B, 0x82)   # DEEP TEAL
+C_RED   = RGBColor(0xD6, 0x28, 0x39)   # master-deck red
+C_TEAL  = RGBColor(0x2A, 0x9D, 0x8F)   # master-deck teal
 C_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 C_CARD  = RGBColor(0xF5, 0xF5, 0xF5)   # light card fill
 C_LINE  = RGBColor(0xDE, 0xDE, 0xDE)   # hairline border
@@ -46,7 +47,11 @@ C_TEAL_TINT = RGBColor(0xE9, 0xF4, 0xF2)
 C_RED_TINT  = RGBColor(0xFC, 0xEF, 0xEF)
 C_GREY_TINT = RGBColor(0xF2, 0xF2, 0xF1)
 
-FONT = "Calibri"
+# Fonts (owner's spec, 2026-07-07, applied to ALL FOUR slides): heading =
+# Oswald; subheading = Roboto Condensed; everything else (content) = Raleway.
+FONT = "Raleway"
+FONT_HEAD = "Oswald"
+FONT_SUBHEAD = "Roboto Condensed"
 
 # ── Slide dimensions (13.33" x 7.50" widescreen) ─────────────────────────────
 SW, SH = 13.33, 7.50
@@ -54,7 +59,9 @@ EMU    = 914400
 I      = lambda v: int(v * EMU)
 
 # ── Shared layout constants ───────────────────────────────────────────────────
-SPLIT   = 6.40    # where the red top bar ends / teal begins
+# Top-bar split matches the master deck's own title-slide bar exactly (red
+# covers the first ~2/3, teal the last ~1/3).
+SPLIT   = 8.89    # where the red top bar ends / teal begins
 MARGIN  = 0.30
 PAD     = 0.16
 
@@ -122,11 +129,13 @@ def txt(slide, l, t, w, h, text, size, color,
 
 
 # ── Shared chrome (top split bar + title + subtitle) ─────────────────────────
-def header(slide, title, subtitle, title_font=None, subtitle_font=None,
-           title_size=24, subtitle_size=14):
-    # top split bar: crimson (left) + teal (right)
-    bar(slide, 0.00, 0.00, SPLIT,      0.10, C_RED)
-    bar(slide, SPLIT, 0.00, SW - SPLIT, 0.10, C_TEAL)
+def header(slide, title, subtitle, title_font=FONT_HEAD, subtitle_font=FONT_SUBHEAD,
+           title_size=24, subtitle_size=15):
+    # top split bar: crimson (left) + teal (right) — 0.083in ("very less"),
+    # matching the master deck's own title-slide bar exactly
+    BAR_H_TOP = 0.083
+    bar(slide, 0.00, 0.00, SPLIT,      BAR_H_TOP, C_RED)
+    bar(slide, SPLIT, 0.00, SW - SPLIT, BAR_H_TOP, C_TEAL)
     # red accent bar left of the title
     bar(slide, 0.25, 0.30, 0.065, 0.52, C_RED)
     # title + subtitle
@@ -141,7 +150,7 @@ def section_label(slide, l, t, w, label):
     bar(slide, l + PAD, t + PAD + 0.30, w - PAD * 2, 0.022, C_TEAL)
 
 
-def text_panel(slide, l, t, w, h, accent, label, marker, body_size=10):
+def text_panel(slide, l, t, w, h, accent, label, marker, body_size=13):
     """White card + left accent bar + section label + a marker body box."""
     card(slide, l, t, w, h)
     bar(slide, l, t, 0.06, h, accent)                 # left accent
@@ -248,7 +257,7 @@ def build_slide2(prs):
         txt(slide, ll + PAD, ct, badge_w, ch, f"#{j+1}", 14, C_WHITE,
             bold=True, align=PP_ALIGN.CENTER, anchor='ctr')
         txt(slide, ll + PAD + badge_w + 0.12, ct + 0.06, lw - PAD * 2 - badge_w - 0.18,
-            ch - 0.12, marker, 11, C_BODY, wrap=True, anchor='ctr')
+            ch - 0.12, marker, 13, C_BODY, wrap=True, anchor='ctr')
 
     # right: function distribution pie
     chart_panel(slide, rl, top, rw, h, "FUNCTION DISTRIBUTION")

@@ -1932,3 +1932,341 @@ Remaining open item: none blocking -- the only unresolved note is the
 Proposal-phase filename convention (PV{n}), which the owner never specified;
 flagged in the Phase 4 entry above, change if it's wrong.
 ################################################################################
+
+################################################################################
+=== 2026-07-07  BRAND CORRECTION -- colors/bar/fonts matched to the real master deck ===
+################################################################################
+Owner supplied 3 real client decks (IQVIA Talent Onboarding, ADM_POD Delivery
+Model, Fintellix Cold Intro) + the master deck, asking every generated template
+to match "the front page ... from the master deck" exactly, with a specific
+typography spec. Investigated all 4 files (shape geometry, exact pixel colors,
+fonts) before touching anything -- found the brand colors we'd been using all
+session were CLOSE but not exact:
+
+  Pixel-extracted from the master deck's own title-slide top-bar images:
+    red  = #D62839  (was using #C02026)
+    teal = #2A9D8F  (was using #3A8B82)
+    bar height = 0.083in (owner: "very less" -- we were at 0.10in)
+    split = red:teal ~= 8.89:4.44 (~67%:33%), NOT the ~50/50 we'd been using
+
+Applied uniformly to BOTH template generators (create_case_study_template.py,
+create_skills_templates.py -- all 4 skills slides including Target Skill
+Profile), so case studies and skills slides now share one exact palette:
+  - Colors + bar height + split corrected to the numbers above.
+  - Fonts (owner's spec): heading = Oswald 24 (title text is already stored/
+    generated in caps, e.g. "AI-FIRST POD DELIVERY"); subheading = Roboto
+    Condensed 15, title-case; content = Raleway. Previously the subheading was
+    Oswald (case_study_v2) or fell back to Calibri (skills slides 1-3 never
+    got the font fix Target Skill Profile got) -- now ALL FOUR skills slides +
+    case_study_v2 use the same three-font system, not a patchwork.
+  - Content sizing bumped 11->13-14 (case_study_v2 challenge/solution/capability
+    body text, results caption; skills' text_panel body + ranked skill-card
+    text). Deliberately did NOT bump: chart-placeholder text (invisible, gets
+    replaced by a native chart), tiny stat-tile captions under big numbers
+    (9pt, a structural micro-label not paragraph content -- same category as
+    the big stat numbers themselves, left alone), and Target Skill Profile's
+    card text (kept at the owner's own explicit 12pt from earlier the same
+    session -- its 18-card dense grid has less room per card than case_study_v2's
+    6 cards, so bumping risked overflow; flagged rather than silently changed).
+  create_skills_templates.py's header() now defaults title_font/subtitle_font
+  to Oswald/Roboto Condensed (was None -> Calibri) so slides 1-3 need no
+  per-call override to get this right, same as slide 4 already had.
+
+VERIFIED: regenerated both template files; confirmed via python-pptx that
+every slide's top bar is exactly L=0/W=8.89/H=0.083/#D62839 then L=8.89/
+W=4.44/H=0.083/#2A9D8F; headings Oswald 24, subheadings Roboto Condensed 15,
+content Raleway 13(-14); rendered a live case-study sample (AIP001) and a
+Target Skill Profile sample with the corrected design, 0 leftover markers.
+17/17 pytest green (no regressions -- this was a pure design pass, no logic
+changed).
+
+TEMPLATIZE FEATURE (the bigger ask -- auto-learn a template from any uploaded
+deck): reviewed but NOT built yet. Read all 3 new decks in full: IQVIA (24
+slides) and ADM_POD (12 slides) both contain slides that map directly onto
+existing master-deck content (IQVIA slide 10 is literally titled "TARGET
+SKILL PROFILE" -- independent validation that the slide we built earlier this
+session matches the owner's real usage; ADM_POD slide 7 = "The J2W AI Research
+Wing" = master deck's CS16). This confirms real client decks share a lot of
+structural DNA with the master deck already, which is a good sign for
+feasibility -- but the hard part (automatically deciding WHICH box on an
+arbitrary uploaded slide means "challenge" vs "stat" vs "decoration") still
+needs a human-confirms-the-mapping step before it's safe to build; explained
+to the owner, awaiting a go/no-go before starting (this is a large, separate
+build from the corrections above).
+
+--- 2026-07-07  reskin.py brought into line + a real gap fixed (owner test deck) ---
+Owner asked to "templatise" a new deck (ExpenseIQ-Overview.pptx, a 10x5.625in
+product-pitch deck, NOT the 13.33x7.5in J2W standard) into "our format." The
+full auto-detect templatize system isn't built yet (see above) -- used the
+EXISTING re-skin feature instead (upload -> rebrand colors/fonts in place,
+content untouched, /template/reskin), since that's what "make this look like
+ours" concretely means with what's live today. Told the owner explicitly which
+capability this used, to avoid the two features being conflated.
+
+reskin.py had NOT been touched by any of this session's brand corrections
+(it's a separate module from the two template generators) -- found it was
+carrying a THIRD, different palette (teal #2C6E66 = the UI sidebar teal, not
+the master-deck teal; red #C02026 = the old pre-correction case-study red).
+Fixed to the same #D62839/#2A9D8F as everywhere else. Also found two real
+design bugs while reading it, unrelated to the color drift:
+  1. The top bar was backwards (teal-dominant full-width bar with a small red
+     corner segment) instead of red-first/larger like every other J2W surface
+     -- fixed to the same red|teal split, and bar height cut from 0.13in to
+     0.083in to match "very less."
+  2. The red segment was a FIXED 1.7in regardless of slide width -- correct
+     proportion (~67%) on a 13.33in deck, wrong proportion on anything else.
+     Switched to a percentage of the actual slide width, verified correct on
+     this 10in-wide deck (6.67in/10in = 66.7%, matches).
+  3. No distinct subheading font existed (subtitles got the same Oswald as
+     headings) -- added SUB_FONT="Roboto Condensed", matching the rest of the
+     brand system.
+
+REAL GAP FOUND BY TESTING (not by inspection): ExpenseIQ's title "ExpenseIQ"
+rendered in Raleway (body font), not Oswald. Cause: this deck has NO native
+PowerPoint title/subtitle placeholders at all -- every text box is a generic
+"Text 1"/"Text 2" shape (common for decks built outside PowerPoint's own
+template system, e.g. exported from a design tool). reskin's role-detection
+only recognised placeholders + shapes literally named "title"/"subtitle",
+which this deck has neither of.
+FIX: added a conservative per-slide FONT-SIZE fallback (_slide_sizes() +
+updated _role()) -- when a shape has no placeholder/name signal, the single
+largest text on its OWN slide gets treated as the heading, the next distinct
+size tier as the subheading, everything else stays body. Deliberately
+conservative: only fires above a minimum size (>=20pt for head, 13-20pt for
+sub) so a slide with no real heading (uniform small text) never gets one
+invented. NOTE: this is a much SAFER, narrower version of the same idea
+behind the bigger templatize ask (auto-detect role from evidence on the
+slide) -- proves the general direction works, but this only classifies
+head/sub/body, not the richer "which box is a challenge vs a stat vs an icon
+slot" the full system would need.
+VERIFIED: re-ran on ExpenseIQ -- "ExpenseIQ" now Oswald; big stat numbers
+("100%", "80%", "5-10") picked up as headings too (reasonable -- they ARE the
+biggest text on their slides, and a bold display face on a big stat number is
+a normal design choice); card sub-labels ("Policy Compliance Agent" etc.)
+correctly got the subheading tier. All 7 slides/original content preserved,
+deck size unchanged (10x5.625in, reskin never resizes). 17/17 pytest green.
+
+################################################################################
+=== 2026-07-07  THE TEMPLATIZE SYSTEM -- learn a template from any deck ===
+################################################################################
+Owner said go. Built the full "propose then confirm" system scoped earlier:
+upload a deck -> pick one slide -> AI proposes which box means what (title /
+challenge / solution / capability / result) -> owner confirms or fixes it ->
+saved as a reusable template -> once ACTIVATED, real case-study content (store
+picks AND "Create with AI") renders into it instead of the built-in
+case_study_v2. Deliberately scoped to the case-study content schema only (not
+an open-ended content-type system) and deliberately NOT fully automatic -- the
+AI only proposes, a human confirms, same gate every other AI-touched surface
+in this engine already has.
+
+NEW MODULE deckengine/services/rendering/templatize.py:
+  - ROLE_VOCAB: title / subtitle / challenge_body / solution_body /
+    capability_title / capability_body / result_stat / result_caption / skip.
+    Maps 1:1 onto the existing case-study record schema (title/domain/client_
+    descriptor/challenge/solution/capabilities[]/results[]) so no new content
+    model was needed -- reused split_capability()/split_result() from
+    fill_case_study.py for the same highlight/caption splitting every other
+    surface already uses.
+  - shapes_of(): every text-bearing shape on one slide, reading order.
+  - propose_roles(): ONE AI call (same model tier as the rest of the engine),
+    fails safe to all "skip" on any error.
+  - save_learned_template(): extracts the ONE taught slide into its own
+    single-slide .pptx (full fidelity -- shapes/images/fonts/positions exactly
+    preserved, via slide_generator._copy_slide, same routine used for skills/
+    AI slides) + registers its role map.
+  - fill_into(): copies the learned slide into a real deck and pours a case-
+    study record into it by role (repeatable roles like capability_title
+    distribute across however many boxes exist, in order; challenge/solution
+    accept either a single string OR a list, degrading gracefully either way).
+  - ONE active template at a time (radio-button, set_active()/deactivate())
+    -- matches the owner's stated goal ("every deck of mine follows the same
+    box, same colours") rather than building per-content-shape auto-routing
+    across multiple templates, which she didn't ask for.
+
+PROMPT TUNING (real, measured improvement): first pass on a real IQVIA slide
+("THE CHALLENGE & THE OPPORTUNITY" -- 4 pain-point bullets vs 4 J2W-advantage
+bullets vs a 3-stat turnaround row) confused SECTION LABELS ("CURRENT PAIN
+POINTS", "J2W ADVANTAGE") with actual capability_title content, and put the
+solution bullets in capability_body instead of solution_body. Added an
+explicit rule ("a short ALL-CAPS heading above a group of boxes is almost
+always a section label, not a role itself -- look at what's grouped under it")
+-- re-ran: title/4-challenge/4-solution/3-stat-pairs all correct, every
+section label correctly "skip". Concretely demonstrates why propose-then-
+confirm is the right architecture, not propose-and-trust: even after tuning,
+a re-run of the SAME slide (temperature=0, but the model isn't perfectly
+deterministic) produced a slightly different, slightly worse mapping on a
+second call -- exactly the variance a human confirm screen exists to catch.
+
+WEB UI (deckengine/web/templates.py, 3 new routes + 2 new pages): a 3rd
+upload card on /templates ("Learn a template from a deck") -> /templatize/
+pick/<token> (list slides, pick one) -> /templatize/review/<token>/<n> (AI's
+proposed role per box in an editable dropdown table, nothing saved yet) ->
+POST /templatize/save. Uploaded bytes held in a temp file keyed by a random
+token while the owner steps through pick -> review (large files, can't fit in
+a cookie/hidden field) -- swept opportunistically on the next upload if
+abandoned >6h (no scheduled job needed for this low-traffic flow). Templates
+page also gained a "Learned templates" list with Activate / Deactivate /
+Delete per template.
+
+REAL BUG FOUND AND FIXED (shared code, affects every _copy_slide() caller,
+not just this feature): building a real deck with the learned template active
+raised `UserWarning: Duplicate name: 'ppt/media/image2.png'` -- slide_
+generator._copy_slide()'s image-copying related the DESTINATION slide
+directly to the SOURCE package's image PART OBJECT (`dest_part.relate_to(rel.
+_target, ...)`), which still belongs to the source deck's own package
+bookkeeping. When the destination deck independently numbers its OWN image
+parts too (e.g. it already has images from master-deck slides in the same
+build), both can land on the same sequential filename -- a genuine duplicate
+zip entry, which is exactly why skills_templates.pptx had ALL its images
+deliberately stripped out in an earlier session rather than fixed (BUILD_LOG,
+26 June: "Stripped ALL picture shapes... would become broken-image boxes").
+This feature is the first to actually need image-rich source decks (the whole
+point is preserving the owner's real design), so the underlying bug needed
+fixing, not working around again. FIX: use python-pptx's own get_or_add_
+image_part(bytes) to register a genuinely NEW image part IN the destination
+package (correctly, uniquely numbered there) instead of reusing the foreign
+part object. VERIFIED: rebuilt with -W error::UserWarning (treats the warning
+as a hard failure) -- clean build, zero duplicate zip entries, zip.testzip()
+clean, all 13 original IQVIA images still present and correctly linked. This
+fix is a genuine improvement to shared infrastructure -- means a FUTURE
+template design could safely include images again too, if ever wanted.
+
+VERIFIED end-to-end via test_client: full upload -> pick -> review -> save ->
+activate flow on the real IQVIA deck; a real deck build (deck_build.assemble)
+correctly rendered a store case (WFS038) into the learned layout instead of
+case_study_v2; the single-slide /slide/<id>/download route also correctly
+picks up the active template (deckengine/web/output.py). 17/17 pytest green
+after the shared _copy_slide fix (no regressions in skills/AI-slide paths
+that also use it). Test template deleted after verification -- the app is
+back to the built-in case_study_v2 by default; the owner should teach + confirm
+her own template through the real UI, not inherit a test artifact.
+learned_templates/ added to .gitignore (runtime data, same pattern as output/
+meetings/staging/saved_templates, kept via .gitkeep).
+
+------------------------------------
+7 July 2026 -- Reskin: restyle an uploaded deck's OWN slides in place
+------------------------------------
+CORRECTION of direction: "templatize" (above) LEARNS a reusable layout from
+one slide of a reference deck, for OUR content to pour into later. The owner
+clarified that is not what she wanted for a client deck like ExpenseIQ-
+Overview.pptx -- she wants that deck's OWN 7 slides converted in place to our
+house look: our exact heading/subheading/body fonts+sizes, our box/badge
+colours, our top bar -- same slide count, same content, same layout, just
+reskinned. That is a different, existing module: reskin.py. Deepened it well
+past the old top-bar-only overlay:
+  - headings -> Oswald 24, ALL CAPS (owner's spec); subheadings -> Roboto
+    Condensed 15; body -> Raleway 13 with shrink-to-fit as an overflow guard
+    (uploaded boxes weren't sized for our exact numbers).
+  - "box" shapes (solid-filled, no text of their own -- card containers, icon/
+    badge holders) now recoloured too, not just skipped: small square ones ->
+    our red accent-badge fill; larger ones -> our light-card fill + hairline
+    border. A near-full-slide shape is left alone (assumed background).
+  - role detection for decks with no native PowerPoint placeholders (every
+    text box is generic "Text N") falls back to a size heuristic. Found and
+    fixed a real bug here on ExpenseIQ slide 2: a genuine section heading
+    ("The problem", 32pt) was losing the "heading" role to the SAME slide's
+    even-bigger stat numbers (36pt "100%"/"80%"), because the old rule only
+    granted "head" to the single largest text on the slide and the "sub"
+    fallback range (13-20pt) didn't cover a 32pt second heading either -- it
+    fell through to plain body styling. Fixed: any text >=20pt now gets the
+    heading treatment regardless of whether something else on the slide is
+    bigger (a slide can legitimately have a real heading AND separately-large
+    stat numbers; both are heading-scale and both should look like it).
+VERIFIED: restyled ExpenseIQ-Overview.pptx (7 slides) end to end -- every
+heading correctly Oswald 24 caps, every subheading Roboto Condensed 15, every
+body run Raleway 13, every card/badge box recoloured to our palette, top bar
+correct on all 7 slides, table/text content and slide count/order untouched.
+Zip integrity clean (no duplicate parts), 17/17 pytest green (updated the one
+pinned reskin fixture, which pre-dated the new "headings are uppercased"
+behaviour and still asserted the old mixed-case string).
+
+------------------------------------
+7 July 2026 -- Reskin refinement round 2: colour rules, bookend slides, bar
+------------------------------------
+Owner refinement pass on reskin.py, all six points:
+  - Background is now ALWAYS forced to plain white -- both the real pptx
+    slide-background property and any full-bleed shape standing in for one (an
+    export pattern that was previously just left alone as "probably a
+    background"; now it's whitened too, same rule either way).
+  - Heading colour is now unconditionally black (was: conditionally teal if
+    dark). Subheading colour is now unconditionally teal AND Title Case (each
+    word's first letter capitalised) -- new _title_case() helper, acronyms of
+    2+ letters (AI, ROI, ERP, J2W) are left alone rather than flattened to one
+    capital.
+  - If the ORIGINAL deck's background read as dark (checked BEFORE anything is
+    touched, via new _slide_is_dark()), any body-text run authored light-on-
+    dark is flipped to ink -- otherwise it would go invisible once the
+    background is forced white. A light-background slide's body text is left
+    exactly as authored (no unnecessary colour changes).
+  - New small red vertical accent bar to the left of each slide's own heading
+    -- added next to only the FIRST head-role shape in document order (not
+    every >=20pt shape -- a slide can have a real heading plus separately-
+    large stat numbers, see the July 7 role-fallback fix above; only the real
+    heading gets the bar). Grouped shapes are skipped for bar placement (their
+    coordinates are relative to the group, not the slide -- placing a bar with
+    them directly would misplace it).
+  - Every reskinned deck is now bookended with OUR OWN slides, pulled verbatim
+    from the real master deck: CS01 (title) prepended as slide 1, CS08
+    ("Let's win together") appended as the last slide. Reuses the same
+    _copy_slide() the rest of the app already uses for skills/AI slides, then
+    proportionally rescales the copied slide's top-level shapes (geometry +,
+    for non-group shapes, font size) to fit the uploaded deck's own canvas
+    size -- these two are pulled from a 13.33x7.5in master and most uploads
+    won't match that. Group shapes only need their outer extent rescaled;
+    PowerPoint scales their children (position, size, AND rendered text size)
+    automatically from that, so only non-group shapes need their fonts scaled
+    by hand. These two slides are copied as-is, no restyling/overlay applied
+    -- they're already fully on-brand by construction.
+VERIFIED: re-ran the full ExpenseIQ-Overview.pptx reskin end to end -- 9
+slides out (7 original + 2 bookends), every heading black, every subheading
+teal + Title Case, every heading has its accent bar (exactly one per slide,
+not one per stat number), every background forced white, zip integrity clean,
+bookend slide shapes correctly scaled and in-bounds (the only 2 "out of
+bounds" shapes on the closing slide are large decorative circles that already
+bleed past the canvas edge in the master deck's OWN slide 38 by design -- not
+an artifact of scaling). Also verified the dark-background path directly with
+a synthetic dark-bg slide (since ExpenseIQ itself has no dark slides to
+exercise it): white-on-dark body text correctly flips to ink once the
+background goes white; a light-background slide's body colour is left
+untouched. 17/17 pytest green.
+
+------------------------------------
+7 July 2026 -- Reskin: background/text legibility rule (contrast-aware fix)
+------------------------------------
+Owner spotted a real bug in a screenshot: on the step-badge slide, the number
+inside each red circle badge ("1".."6") was rendering in TEAL -- because
+_restyle_box correctly colours the badge red, and separately the "subheadings
+are always teal" rule (above) correctly colours a 15pt label teal, but neither
+rule knew about the OTHER -- red bg + teal text is a genuinely illegible
+pairing (WCAG contrast ratio ~1.5, checked -- see below). Owner's rule: red
+vs teal/green, either direction, is not legible; red+white and green+white
+both read fine.
+Added as real, reusable metadata alongside the palette constants (TEAL, RED,
+etc. -- not a one-off patch): _MIN_CONTRAST + a genuine WCAG-style relative-
+luminance contrast-ratio calculation (gamma-corrected sRGB), plus a small
+_NAMED_SAFE_TEXT override so red/teal boxes specifically always get WHITE text
+(matches the owner's literal rule, even though for teal ink scores a hair
+higher on raw contrast math). New _fix_text_on_box_contrast() runs as a second
+pass per slide, AFTER box fills and role colours are both already set: for
+every text shape, find which coloured box it visually sits on top of (by
+rect overlap) and, if the current text colour reads under _MIN_CONTRAST
+against that box, flip it to a legible one.
+Two real bugs found and fixed along the way (not hypothetical -- caught by
+testing against the actual ExpenseIQ deck):
+  1. A text shape can overlap MULTIPLE boxes at once (e.g. a small badge
+     nested inside a larger card behind it). The first version matched
+     whichever box came first in document order and got the outer CARD_BG
+     grey instead of the badge red sitting directly underneath -- contrast
+     against grey read as fine, so nothing got fixed. Now picks the
+     SMALLEST-area overlapping box (the immediately-underlying shape).
+  2. The same general contrast check also caught an unrelated pre-existing
+     issue: a pill/banner box recoloured to our light CARD_BG still had its
+     ORIGINAL white text (authored for whatever colour the box used to be),
+     which is a WCAG ratio of ~1.1 against F5F5F5 -- effectively invisible.
+     That's now flipped to ink automatically, same mechanism, no special case
+     needed -- confirms the general contrast-ratio approach (vs. a fixed
+     lookup table) is the right shape for this rule, since it also caught a
+     bug the owner didn't report or screenshot.
+VERIFIED: all 6 step-badge numbers now correctly white-on-red; the "80%
+auto-cleared / 20% flagged" banner text now correctly ink-on-card instead of
+invisible white-on-card; zip integrity clean; 17/17 pytest green.

@@ -1,0 +1,52 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Learn a template</div>
+  <h1 class="display" style="font-size:38px">Confirm the mapping</h1>
+  <p class="lede">The engine's best guess for what each box on this slide means — nothing is saved until you confirm. Fix anything that's wrong, then name and save it. "Skip" boxes keep their original wording forever (section labels, logos, decoration).</p>
+</div>
+
+<form method="post" action="/templatize/save">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="slide_index" value="{{ slide_index }}">
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="field" style="margin-bottom:0">
+      <label>Template name</label>
+      <input class="input" name="name" placeholder="e.g. Challenge vs Advantage layout" required>
+    </div>
+  </div>
+
+  <div class="card" style="padding:8px 18px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e6e6e3">
+        <th style="padding:8px 10px;width:44%">Text on the slide</th>
+        <th style="padding:8px 10px">Role</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr style="border-bottom:1px solid #f0f0ee">
+          <td style="padding:9px 10px;vertical-align:top">
+            <div style="max-height:64px;overflow:auto">{{ r.text }}</div>
+            <div class="hint" style="font-size:11px;margin-top:2px">box at {{ r.left }}, {{ r.top }}in</div>
+          </td>
+          <td style="padding:9px 10px;vertical-align:top">
+            <select class="input" name="role__{{ r.idx }}" style="width:auto;min-width:280px">
+              {% for role in role_vocab %}
+              <option value="{{ role }}" {{ 'selected' if role == r.role else '' }}>{{ role_labels.get(role, role) }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not rows %}
+        <tr><td colspan="2" class="muted" style="padding:14px 10px">No text boxes found on this slide.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:18px">
+    <button class="btn btn-primary btn-lg" type="submit"><i class="ti ti-bookmark-plus"></i> Save this template</button>
+    <a class="btn btn-lg" href="/templates"><i class="ti ti-x"></i> Cancel</a>
+  </div>
+</form>

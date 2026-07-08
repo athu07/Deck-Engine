@@ -8,9 +8,11 @@ import zipfile
 
 from flask import Blueprint, request, send_file, abort
 
+from pptx import Presentation
+
 from deckengine.constants import OUTPUT_DIR
 from deckengine.services.content import case_library
-from deckengine.services.rendering import assembler, fill_case_study
+from deckengine.services.rendering import assembler, fill_case_study, templatize
 from .view_helpers import file_busy_page
 
 bp = Blueprint("output", __name__)
@@ -18,11 +20,19 @@ bp = Blueprint("output", __name__)
 
 def _render_slide(sid, path):
     """Render one slide id to `path` as its own .pptx. Content-store cases (AIP/WFS/MSS)
-    render from the branded case_study_v2 template; master ids build from the master deck.
-    Returns True on success, False if the id yields no slide."""
+    render from the owner's ACTIVE learned template if one exists, else the built-in
+    case_study_v2; master ids build from the master deck. Returns True on success,
+    False if the id yields no slide."""
     rec = case_library.record(sid)
     if rec is not None:
-        fill_case_study.fill_row(rec, path)
+        active = templatize.active_template()
+        if active:
+            prs = Presentation()
+            prs.slide_width, prs.slide_height = active["slide_w"], active["slide_h"]
+            templatize.fill_into(prs, active, rec)
+            prs.save(path)
+        else:
+            fill_case_study.fill_row(rec, path)
         return True
     kept, _ = assembler.build_deck([sid], out=path)
     return bool(kept)

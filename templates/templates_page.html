@@ -5,7 +5,7 @@
   <p class="lede">Re-skin an existing deck into the J2W look, save decks to reuse later, and see the fill templates the engine writes into.</p>
 </div>
 
-<!-- F2 + F3 · upload actions -->
+<!-- F2 + F3 + F4 · upload actions -->
 <div class="grid g-2-eq" style="margin-bottom:22px">
   <form class="card upload-card" method="post" action="/template/reskin" enctype="multipart/form-data"
         onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<i class=\'ti ti-loader\'></i> Re-skinning…'">
@@ -28,6 +28,49 @@
              onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
     <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-bookmark-plus"></i> Save template</button>
   </form>
+</div>
+
+<!-- F4 · learn a template (auto-detect + confirm) -->
+<form class="card upload-card" method="post" action="/templatize/upload" enctype="multipart/form-data" style="margin-bottom:22px">
+  <div class="upload-ic"><i class="ti ti-target-arrow"></i></div>
+  <h2 class="sec-title" style="margin-bottom:4px">Learn a template from a deck</h2>
+  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload a deck, pick one slide, and the engine proposes which box is the title, challenge, capabilities, results, etc. You confirm or fix it before it's saved. Once activated, new case studies render in this look instead of the built-in one.</p>
+  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+    <input type="file" name="deck_file" accept=".pptx" required
+           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-target-arrow"></i> Upload &amp; pick a slide</button>
+</form>
+
+<!-- F4 · learned templates -->
+<div class="section">
+  <div class="section-head"><h2 class="sec-title">Learned templates</h2><span class="hint">{{ learned|length }} learned{% if learned %} — one active at a time{% endif %}</span></div>
+  {% if learned %}
+  <div class="card" style="padding:8px 18px">
+    {% for t in learned %}
+    <div class="saved-row">
+      <div class="saved-ic"><i class="ti ti-target-arrow"></i></div>
+      <div class="saved-main">
+        <b>{{ t.name }}</b>
+        {% if t.active %}<span class="chip flat" style="background:#2C6E66;color:#fff;margin-left:6px">Active</span>{% endif %}
+      </div>
+      {% if t.active %}
+      <form method="post" action="/templatize/{{ t.id }}/deactivate" style="display:inline">
+        <button class="btn" type="submit"><i class="ti ti-power"></i> Deactivate</button>
+      </form>
+      {% else %}
+      <form method="post" action="/templatize/{{ t.id }}/activate" style="display:inline">
+        <button class="btn btn-primary" type="submit"><i class="ti ti-check"></i> Activate</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/templatize/{{ t.id }}/delete" onsubmit="return confirm('Delete this template?')" style="display:inline">
+        <button class="mini rm" type="submit" title="Delete"><i class="ti ti-trash"></i></button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><p class="muted" style="margin:0">No learned templates yet — upload a deck above to teach the engine your own case-study layout.</p></div>
+  {% endif %}
 </div>
 
 <!-- F3 · saved templates -->

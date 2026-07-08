@@ -25,32 +25,36 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 
 # ---------------------------------------------------------------------------
-# J2W brand colours
+# J2W brand colours — matched to the WORKING master deck's own title slide
+# (extracted pixel-exact from its top-bar images, 2026-07-07): red #D62839,
+# teal #2A9D8F. Every J2W template should share these, not a close approximation.
 # ---------------------------------------------------------------------------
 C_BLACK     = RGBColor(0x11, 0x11, 0x10)
-C_RED       = RGBColor(0xC0, 0x20, 0x26)   # CRIMSON RED
-C_TEAL      = RGBColor(0x3A, 0x8B, 0x82)   # DEEP TEAL
+C_RED       = RGBColor(0xD6, 0x28, 0x39)   # master-deck red
+C_TEAL      = RGBColor(0x2A, 0x9D, 0x8F)   # master-deck teal
 C_WHITE     = RGBColor(0xFF, 0xFF, 0xFF)
 C_CARD_BG   = RGBColor(0xF5, 0xF5, 0xF5)
 C_CARD_LINE = RGBColor(0xDE, 0xDE, 0xDE)
 C_BODY      = RGBColor(0x3E, 0x3E, 0x3E)
 
-# Fonts (owner's spec): heading + subheading = Oswald; everything else = Helvetica.
+# Fonts (owner's spec, 2026-07-07): heading = Oswald; subheading = Roboto
+# Condensed; everything else (body/content) = Raleway.
 # (If a font isn't installed on the viewing machine, PowerPoint substitutes a
 # similar one but keeps the name — so it renders correctly wherever it IS installed.)
-FONT_HEAD = "Oswald"       # main title + CLIENT | DOMAIN subheading
-FONT_BODY = "Helvetica"    # all other content
+FONT_HEAD    = "Oswald"            # main title only
+FONT_SUBHEAD = "Roboto Condensed"  # CLIENT | DOMAIN subheading
+FONT_BODY    = "Raleway"           # all other content
 
 # ---------------------------------------------------------------------------
 # Font sizes (points) — set per owner's spec
 # ---------------------------------------------------------------------------
 SZ_TITLE      = 24   # main heading
 SZ_SUBHEAD    = 15   # CLIENT | DOMAIN line
-SZ_BOX_HEAD   = 13   # "The Challenge" / "The Solution" / capability card titles
+SZ_BOX_HEAD   = 14   # "The Challenge" / "The Solution" / capability card titles
 SZ_CAPS_LABEL = 14   # "Key Capabilities Developed"
-SZ_BODY       = 11   # all body paragraph text
+SZ_BODY       = 13   # all body paragraph text (owner 2026-07-07: content = 13-14)
 SZ_RESULT_PCT = 25   # big stat numbers in the results bar (owner: 25, was 34)
-SZ_RESULT_TXT = 12   # caption under each stat (owner: 12)
+SZ_RESULT_TXT = 13   # caption under each stat (owner 2026-07-07: content = 13-14)
 
 
 # ---------------------------------------------------------------------------
@@ -142,9 +146,13 @@ def build(out=config.CASE_TEMPLATE_PPTX):
     slide = prs.slides.add_slide(prs.slide_layouts[6])   # blank layout
 
     # ── 0. Top split bar — crimson (left) + teal (right) ───────────────────
-    SPLIT = 6.40                                  # where red ends / teal begins
-    _rect(slide, 0.00, 0.00, SPLIT,         0.10, fill=C_RED)
-    _rect(slide, SPLIT, 0.00, 13.33 - SPLIT, 0.10, fill=C_TEAL)
+    # Proportions + thickness match the master deck's own title-slide bar
+    # exactly (extracted from its embedded images, 2026-07-07): red covers the
+    # first ~2/3, teal the last ~1/3, both only 0.083in tall ("very less").
+    SPLIT = 8.89                                  # where red ends / teal begins
+    BAR_H_TOP = 0.083
+    _rect(slide, 0.00, 0.00, SPLIT,         BAR_H_TOP, fill=C_RED)
+    _rect(slide, SPLIT, 0.00, 13.33 - SPLIT, BAR_H_TOP, fill=C_TEAL)
 
     # ── 1. Red accent bar (left of title, spans the header block) ──────────
     # Header sits a little lower so there's a clear gap under the top split bar
@@ -156,10 +164,10 @@ def build(out=config.CASE_TEMPLATE_PPTX):
     # wraps to line 2, and the fill script drops the subheading a line to match.
     _title_box(slide, 0.44, 0.34, 12.45, 0.80)
 
-    # ── 3. CLIENT | DOMAIN subtitle (Oswald, teal) ─────────────────────────
+    # ── 3. CLIENT | DOMAIN subtitle (Roboto Condensed, teal) ────────────────
     _txb(slide, 0.44, 0.88, 12.45, 0.30,
          "CLIENT: {{CLIENT}}  |  DOMAIN: {{DOMAIN}}",
-         SZ_SUBHEAD, bold=True, color=C_TEAL, font=FONT_HEAD)
+         SZ_SUBHEAD, bold=True, color=C_TEAL, font=FONT_SUBHEAD)
 
     # ── 4. Challenge card (red left bar + white card) ──────────────────────
     _rect(slide, 0.250, 1.40, 0.065, 2.00, fill=C_RED)

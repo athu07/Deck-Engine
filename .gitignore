@@ -32,6 +32,8 @@ node_modules/
 !/staging/.gitkeep
 /saved_templates/*
 !/saved_templates/.gitkeep
+/learned_templates/*
+!/learned_templates/.gitkeep
 /build_context/*
 !/build_context/.gitkeep
 /static/renders/

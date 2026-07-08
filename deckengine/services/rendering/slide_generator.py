@@ -409,8 +409,19 @@ def _copy_slide(dest_prs, src_slide):
     for shp in list(new.shapes):
         shp._element.getparent().remove(shp._element)
 
-    # Copy image relationships: for each image part in the source slide,
-    # relate it to the new slide so r:embed rIds resolve in the destination.
+    # Copy image relationships: for each image part in the source slide, add
+    # its BYTES as a new image part in the DESTINATION package (get_or_add_
+    # image_part) rather than relating directly to the source's part object.
+    # The latter used to leave a part that still belongs to the source
+    # package's bookkeeping attached to the destination -- harmless for a
+    # single copy, but when the destination package independently numbers its
+    # OWN image parts too (e.g. it already has images from other slides),
+    # both can be assigned the same sequential filename (image2.png etc.),
+    # producing a genuine duplicate-name zip entry on save (silently broken
+    # or wrong images, depending on the reader). get_or_add_image_part()
+    # registers a real part IN the destination package, so its filename is
+    # correctly unique there.
+    import io as _io
     src_part  = src_slide._part
     dest_part = new._part
     rId_map   = {}
@@ -419,7 +430,7 @@ def _copy_slide(dest_prs, src_slide):
         if rel.is_external:
             continue
         if '/image' in (rel.reltype or ''):
-            new_rId = dest_part.relate_to(rel._target, rel.reltype)
+            image_part, new_rId = dest_part.get_or_add_image_part(_io.BytesIO(rel._target.blob))
             if new_rId != rId:
                 rId_map[rId] = new_rId
 

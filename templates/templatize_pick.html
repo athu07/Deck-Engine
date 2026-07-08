@@ -1,0 +1,20 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Learn a template</div>
+  <h1 class="display" style="font-size:38px">Pick a slide to teach</h1>
+  <p class="lede">Pick ONE slide whose look you want new case studies to follow. The engine will propose which box is the title, challenge, capabilities, etc. — you confirm or fix that on the next screen before anything is saved.</p>
+</div>
+
+<div class="card" style="padding:8px 18px">
+  {% for s in slides %}
+  <div class="saved-row">
+    <div class="saved-ic"><i class="ti ti-layout-2"></i></div>
+    <div class="saved-main">
+      <b>Slide {{ s.index + 1 }}</b>
+      <div class="hint" style="font-size:12px">{{ s.shape_count }} text box{{ '' if s.shape_count==1 else 'es' }} — {{ s.preview|join(' · ') }}</div>
+    </div>
+    <a class="btn btn-primary" href="/templatize/review/{{ token }}/{{ s.index }}"><i class="ti ti-wand"></i> Teach this slide</a>
+  </div>
+  {% endfor %}
+  {% if not slides %}<p class="muted" style="margin:0">No slides found in that file.</p>{% endif %}
+</div>

@@ -65,6 +65,8 @@ STAGING_JSON      = os.path.join(STAGING_DIR, "staging.json")
 BUILD_CONTEXT_DIR = os.environ.get("DECK_BUILD_CONTEXT_DIR") or _p("build_context")
 # user-uploaded decks saved as reusable templates (Templates page).
 SAVED_TEMPLATES_DIR = os.environ.get("DECK_SAVED_TEMPLATES_DIR") or _p("saved_templates")
+# "learn a template from a deck" -- one slide extracted + its role-map (Templates page).
+LEARNED_TEMPLATES_DIR = os.environ.get("DECK_LEARNED_TEMPLATES_DIR") or _p("learned_templates")
 # rendered slide-preview images (served from /static/renders/); regenerated on demand.
 RENDERS_DIR = os.environ.get("DECK_RENDERS_DIR") or _p("static", "renders")
 

@@ -598,8 +598,15 @@ def build_into(deck_path, order, cands, master_path=config.MASTER_DECK):
 
     skill_elem = {}
     for sid, c in cand_by_id.items():
-        # ── content-store case study: render from the shared case_study_v2 template ──
+        # ── content-store case study: the owner's ACTIVE learned template wins if
+        #    one exists (see templatize.py); else the built-in case_study_v2 ──
         if c.get("template") == "case_study_v2":
+            from deckengine.services.rendering import templatize as _templatize
+            active = _templatize.active_template()
+            if active:
+                _templatize.fill_into(prs, active, c["record"])
+                skill_elem[sid] = list(sld_id_lst)[-1]
+                continue
             if not case_tpl["loaded"]:
                 case_tpl["slide"] = find_template(Presentation(CASE_TEMPLATE), "case_study_v2")
                 case_tpl["loaded"] = True

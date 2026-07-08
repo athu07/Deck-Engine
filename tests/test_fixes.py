@@ -109,11 +109,11 @@ def test_reskin_preserves_content(tmp_path):
     text = " ".join(sh.text_frame.text for sl in r.slides for sh in sl.shapes if sh.has_text_frame)
     cells = " ".join(c.text for sl in r.slides for sh in sl.shapes if sh.has_table
                      for row in sh.table.rows for c in row.cells)
-    assert "Hello Deck" in text          # title preserved
+    assert "HELLO DECK" in text          # title preserved (headings are uppercased by design)
     assert "ZZZVAL" in cells             # table data preserved untouched
     # J2W branding applied: the title run is now Oswald
     title_fonts = {run.font.name for sl in r.slides for sh in sl.shapes
-                   if sh.has_text_frame and "Hello Deck" in sh.text_frame.text
+                   if sh.has_text_frame and "HELLO DECK" in sh.text_frame.text
                    for p in sh.text_frame.paragraphs for run in p.runs}
     assert "Oswald" in title_fonts
 
