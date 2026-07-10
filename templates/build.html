@@ -1,13 +1,14 @@
 
-<div style="margin:14px 0 18px">
-  <div class="eyebrow">Suggested deck</div>
-  <h1 class="display" style="font-size:38px">Deck for <span id="deck-client">{{ ctx.client_name }}</span></h1>
-  <div class="ctx-chips">
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Deck for <span id="deck-client">{{ ctx.client_name }}</span></h1>
+    <div class="ctx-chips" style="margin-top:8px">
     {% if ctx.industry %}<span class="ctx-chip">Industry <b>{{ ctx.industry }}</b></span>{% endif %}
     {% if ctx.work_types %}<span class="ctx-chip">Work <b>{{ ', '.join(ctx.work_types) }}</b></span>{% endif %}
     {% if ctx.functions %}<span class="ctx-chip">Function <b>{{ ', '.join(ctx.functions) }}</b></span>{% endif %}
     {% if persona_labels %}<span class="ctx-chip">Persona <b>{{ ', '.join(persona_labels) }}</b></span>{% endif %}
     {% if ai_used %}<span class="ai-badge"><i class="ti ti-sparkles"></i> AI-refined from your info</span>{% endif %}
+    </div>
   </div>
 </div>
 

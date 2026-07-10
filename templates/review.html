@@ -1,9 +1,10 @@
 {% from "_slide_editor.html" import slide_editor %}
 
-<div style="margin:14px 0 20px">
-  <div class="eyebrow">Review &amp; edit</div>
-  <h1 class="display" style="font-size:38px">Edit your deck</h1>
-  <p class="lede">Every slide is live below — click any text to edit it right on the slide, then build and download. <b>[CLIENT]</b> is replaced with {{ client }}.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Review &amp; edit</h1>
+    <p class="page-sub">Every slide is live below — click any text to edit it right on the slide, then build and download. <b>[CLIENT]</b> is replaced with {{ client }}.</p>
+  </div>
 </div>
 <form method="post" action="/finalize" class="form-layout" onsubmit="var l=document.getElementById('loader');if(l)l.style.display='flex'">
   <div class="rev-deck">
@@ -50,17 +51,34 @@
       </div>
 
       {% elif s.kind == 'library' %}
+      {# The real slide, rendered. Before this the card showed only the title and the
+         subtitle -- the two fields the engine can edit -- so the bullets, tables, charts
+         and diagrams on a library slide were invisible until the .pptx was downloaded. #}
       <div class="lib-slide">
         <div class="lib-slide-bar"></div>
-        {% for idx, label, text in s.fields %}
-        {% if loop.first %}
-        <input class="se lib-slide-title" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
-        {% else %}
-        <input class="se lib-slide-sub" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
+        <div class="slide-preview">
+          <img src="/slide/{{ s.id }}/preview.png" alt="Slide {{ s.id }}" loading="lazy"
+               onerror="this.closest('.slide-preview').classList.add('unavailable')">
+          <div class="slide-preview-fallback">
+            <i class="ti ti-photo-off"></i>
+            <span>This server can&#39;t render slide previews. The slide is still in your deck &mdash; download it to see it.</span>
+          </div>
+        </div>
+        {% if s.fields %}
+        <div class="lib-edit">
+          <div class="lib-edit-label">Editable on this slide</div>
+          {% for idx, label, text in s.fields %}
+          {% if loop.first %}
+          <input class="se lib-slide-title" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
+          {% else %}
+          <input class="se lib-slide-sub" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
+          {% endif %}
+          {% endfor %}
+        </div>
         {% endif %}
-        {% endfor %}
-        {% if not s.fields %}<div class="lib-slide-title" style="color:var(--hint)">{{ s.id }} — no editable text</div>{% endif %}
-        <div class="lib-slide-foot">{{ s.id }} · from the library</div>
+        <div class="lib-slide-foot">
+          <span class="sid">{{ s.id }}</span> from the library{% if s.fields %} &middot; the preview shows the slide as it stands today; your edits above are applied when you build{% endif %}
+        </div>
       </div>
 
       {% elif s.kind in shape_kinds %}

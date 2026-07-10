@@ -1,46 +1,76 @@
 
-<div style="margin:14px 0 22px">
-  <div class="eyebrow">Templates &amp; decks</div>
-  <h1 class="display" style="font-size:38px">Templates</h1>
-  <p class="lede">Re-skin an existing deck into the J2W look, teach the engine a layout, and see the fill templates it writes into.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Templates <span class="count">{{ items|length }}</span></h1>
+    <p class="page-sub">The slide shapes your content is designed into, plus the tools that bring an outside deck into the J2W look.</p>
+  </div>
 </div>
 
-<!-- F2 · re-skin an uploaded deck -->
-<form class="card upload-card" method="post" action="/template/reskin" enctype="multipart/form-data" style="margin-bottom:22px"
-      onsubmit="return submitWithLoader(this,'Re-skinning your deck…','Restyling fonts, colours and branding — a few seconds.')">
-  <div class="upload-ic"><i class="ti ti-wand"></i></div>
-  <h2 class="sec-title" style="margin-bottom:4px">Re-skin a deck to J2W</h2>
-  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every word, table, image and chart is kept exactly, and the J2W look (fonts, colours, branding) is applied. Preview, then download.</p>
-  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
-    <input type="file" name="deck_file" accept=".pptx" required
-           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
-  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
-</form>
+<!-- The three deck tools: one compact row, not three full-width cards. The slide
+     templates below are the subject of this page. -->
+<div class="tool-row">
+  <form class="card tool" method="post" action="/template/reskin" enctype="multipart/form-data"
+        onsubmit="return submitWithLoader(this,'Re-skinning your deck…','Restyling fonts, colours and branding — a few seconds.')">
+    <div class="upload-ic"><i class="ti ti-wand"></i></div>
+    <h3>Re-skin a deck</h3>
+    <p>Every word, table, image and chart is kept exactly; the J2W look is applied on top.</p>
+    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+      <input type="file" name="deck_file" accept=".pptx" required
+             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+    <button class="btn btn-primary btn-block" type="submit"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
+  </form>
 
-<!-- F5 · recreate an uploaded deck in J2W's own layouts -->
-<form class="card upload-card" method="post" action="/template/recreate" enctype="multipart/form-data" style="margin-bottom:22px"
-      onsubmit="return submitWithLoader(this,'Recreating your deck…','Reading each slide and rebuilding it in a J2W layout — this can take a minute.')">
-  <div class="upload-ic"><i class="ti ti-layout-grid"></i></div>
-  <h2 class="sec-title" style="margin-bottom:4px">Recreate with AI</h2>
-  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every fact and number is kept, but each slide is rebuilt in a fresh J2W layout matched to its own content (stats overview, capability deep-dive, phased roadmap, data table…), not just recoloured in place. A slide that doesn't fit any layout is restyled as-authored instead.</p>
-  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
-    <input type="file" name="deck_file" accept=".pptx" required
-           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
-  <input type="text" class="input" name="industry" placeholder="Industry (optional — sharpens the AI's wording)" style="margin-top:10px">
-  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Recreate &amp; preview</button>
-</form>
+  <form class="card tool" method="post" action="/template/recreate" enctype="multipart/form-data"
+        onsubmit="return submitWithLoader(this,'Recreating your deck…','Reading each slide and rebuilding it in a J2W layout — this can take a minute.')">
+    <div class="upload-ic"><i class="ti ti-layout-grid"></i></div>
+    <h3>Recreate with AI</h3>
+    <p>Every fact is kept, but each slide is rebuilt in the J2W layout that fits its own content — not just recoloured.</p>
+    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+      <input type="file" name="deck_file" accept=".pptx" required
+             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+    <input type="text" class="input" name="industry" placeholder="Industry — optional" style="margin-bottom:8px;font-size:12.5px">
+    <button class="btn btn-primary btn-block" type="submit"><i class="ti ti-sparkles"></i> Recreate &amp; preview</button>
+  </form>
 
-<!-- F4 · learn a template (auto-detect + confirm) -->
-<form class="card upload-card" method="post" action="/templatize/upload" enctype="multipart/form-data" style="margin-bottom:22px"
-      onsubmit="return submitWithLoader(this,'Reading your deck…','Finding slides to learn a layout from — a few seconds.')">
-  <div class="upload-ic"><i class="ti ti-target-arrow"></i></div>
-  <h2 class="sec-title" style="margin-bottom:4px">Learn a template from a deck</h2>
-  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload a deck, pick one slide, and the engine proposes which box is the title, challenge, capabilities, results, etc. You confirm or fix it before it's saved. Once activated, new case studies render in this look instead of the built-in one.</p>
-  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
-    <input type="file" name="deck_file" accept=".pptx" required
-           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
-  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-target-arrow"></i> Upload &amp; pick a slide</button>
-</form>
+  <form class="card tool" method="post" action="/templatize/upload" enctype="multipart/form-data"
+        onsubmit="return submitWithLoader(this,'Reading your deck…','Finding slides to learn a layout from — a few seconds.')">
+    <div class="upload-ic"><i class="ti ti-target-arrow"></i></div>
+    <h3>Learn a template</h3>
+    <p>Pick one slide from a deck and teach the engine your own case-study layout. You confirm the mapping before it saves.</p>
+    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+      <input type="file" name="deck_file" accept=".pptx" required
+             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+    <button class="btn btn-block" type="submit"><i class="ti ti-target-arrow"></i> Upload &amp; pick a slide</button>
+  </form>
+</div>
+
+<!-- every slide shape the engine can build (the CONTENT_TEMPLATES registry) -->
+<div class="section" style="margin-top:0">
+  <div class="section-head">
+    <h2 class="sec-title">Slide templates</h2>
+    <span class="hint">available in the builder, in a pasted document, and to Recreate with AI</span>
+  </div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+    {% for t in items %}
+    <div class="card">
+      <div class="lib-head">
+        <span class="sid">{{ t.key }}</span>
+        <span class="chip flat">{{ t.fields }} field{{ '' if t.fields == 1 else 's' }}</span>
+      </div>
+      <div class="lib-title" style="margin-bottom:6px">{{ t.label }}</div>
+      <p class="hint" style="font-size:12.5px;margin:0 0 10px">{{ t.what }}</p>
+      {% if t.holds %}
+      <p class="hint" style="font-size:12px;margin:0 0 6px">What you fill in</p>
+      <div class="kw">{% for h in t.holds %}<span>{{ h }}</span>{% endfor %}</div>
+      {% endif %}
+      {% if not t.has_frame %}
+      <p class="hint" style="font-size:12px;color:var(--neg);margin:10px 0 0"><i class="ti ti-alert-triangle"></i> No template slide — run <code>scripts/create_skills_templates.py</code></p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if not items %}<div class="lib-empty">No slide templates registered.</div>{% endif %}
+  </div>
+</div>
 
 <!-- F4 · learned templates -->
 <div class="section">
@@ -70,37 +100,12 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="card"><p class="muted" style="margin:0">No learned templates yet — upload a deck above to teach the engine your own case-study layout.</p></div>
+  <div class="card"><div class="empty" style="padding:32px 24px">
+    <div class="empty-ic"><i class="ti ti-target-arrow"></i></div>
+    <h3>No learned templates yet</h3>
+    <p>Upload a deck above, pick the slide whose layout you want, and the engine will use it for every case study it builds.</p>
+  </div></div>
   {% endif %}
-</div>
-
-<!-- every slide shape the engine can build (the CONTENT_TEMPLATES registry) -->
-<div class="section">
-  <div class="section-head">
-    <h2 class="sec-title">Slide templates <span class="hint" style="font-size:14px;font-weight:400">— {{ items|length }}</span></h2>
-    <span class="hint">the shapes your content is designed into</span>
-  </div>
-  <p class="hint" style="font-size:13px;margin:-6px 0 14px">Every one of these is available wherever content becomes a slide: name it in a pasted document (<code>slide 3 - road map</code>), pick it in the <a href="/builder">Custom Slide Builder</a>, or let the engine read your content and choose. <b>Recreate with AI</b> matches each uploaded slide against the same list.</p>
-  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
-    {% for t in items %}
-    <div class="card">
-      <div class="lib-head">
-        <span class="sid">{{ t.key }}</span>
-        <span class="chip flat">{{ t.fields }} field{{ '' if t.fields == 1 else 's' }}</span>
-      </div>
-      <div class="lib-title" style="margin-bottom:6px">{{ t.label }}</div>
-      <p class="hint" style="font-size:12.5px;margin:0 0 10px">{{ t.what }}</p>
-      {% if t.holds %}
-      <p class="hint" style="font-size:12px;margin:0 0 6px">What you fill in</p>
-      <div class="kw">{% for h in t.holds %}<span>{{ h }}</span>{% endfor %}</div>
-      {% endif %}
-      {% if not t.has_frame %}
-      <p class="hint" style="font-size:12px;color:var(--neg);margin:10px 0 0"><i class="ti ti-alert-triangle"></i> No template slide — run <code>scripts/create_skills_templates.py</code></p>
-      {% endif %}
-    </div>
-    {% endfor %}
-    {% if not items %}<div class="lib-empty">No slide templates registered.</div>{% endif %}
-  </div>
 </div>
 
 <div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">

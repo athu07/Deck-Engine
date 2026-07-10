@@ -2,32 +2,85 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
+<link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
 <link rel="stylesheet" href="{{ asset('app.css') }}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css">
 </head><body>
-<div class="app">
+{# Restore the collapsed sidebar before first paint, so it doesn't flash open. #}
+<script>try{if(localStorage.getItem('j2w_nav')==='collapsed')document.documentElement.dataset.nav='collapsed';}catch(e){}</script>
+<div class="app" id="app">
   <aside class="sidebar">
-    <div class="logo"><i class="ti ti-stack-2"></i></div>
-    <a class="nav-btn {{ 'active' if active=='new' else '' }}" href="/"><i class="ti ti-sparkles"></i><span class="nav-tip">New deck</span></a>
-    <a class="nav-btn {{ 'active' if active=='builder' else '' }}" href="/builder"><i class="ti ti-file-text"></i><span class="nav-tip">Custom Slide Builder</span></a>
-    <a class="nav-btn {{ 'active' if active=='library' else '' }}" href="/library"><i class="ti ti-books"></i><span class="nav-tip">Slide library</span></a>
-    <a class="nav-btn {{ 'active' if active=='templates' else '' }}" href="/templates"><i class="ti ti-template"></i><span class="nav-tip">Templates</span></a>
-    <a class="nav-btn {{ 'active' if active=='staging' else '' }}" href="/staging"><i class="ti ti-checkup-list"></i><span class="nav-tip">AI history</span></a>
-    <a class="nav-btn {{ 'active' if active=='meetings' else '' }}" href="/meetings"><i class="ti ti-history"></i><span class="nav-tip">Deck repository</span></a>
+    <div class="nav-head">
+      {# The logo is dark-on-transparent, drawn for light backgrounds; the sidebar is
+         black. It sits on a white plaque so the brand colours stay true rather than
+         being recoloured or losing the grey tagline. #}
+      <a class="nav-brand" href="/dashboard" aria-label="JoulesToWatts — Dashboard">
+        <img src="{{ asset('img/j2w-logo.png') }}" alt="JoulesToWatts">
+      </a>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Collapse the sidebar">
+        <i class="ti ti-layout-sidebar-left-collapse"></i></button>
+    </div>
+
+    <a class="nav-cta" href="/new"><i class="ti ti-sparkles"></i><span>New deck</span></a>
+
+    <nav class="nav-group">
+      <a class="nav-item {{ 'active' if active=='home' else '' }}" href="/dashboard">
+        <i class="ti ti-layout-dashboard"></i><span>Dashboard</span></a>
+    </nav>
+
+    <nav class="nav-group">
+      <div class="nav-label">Create</div>
+      <a class="nav-item {{ 'active' if active=='new' else '' }}" href="/">
+        <i class="ti ti-sparkles"></i><span>New deck</span></a>
+      <a class="nav-item {{ 'active' if active=='builder' else '' }}" href="/builder">
+        <i class="ti ti-file-text"></i><span>Slide builder</span></a>
+    </nav>
+
+    <nav class="nav-group">
+      <div class="nav-label">Assets</div>
+      <a class="nav-item {{ 'active' if active=='library' else '' }}" href="/library">
+        <i class="ti ti-books"></i><span>Slide library</span></a>
+      <a class="nav-item {{ 'active' if active=='templates' else '' }}" href="/templates">
+        <i class="ti ti-template"></i><span>Templates</span></a>
+    </nav>
+
+    <nav class="nav-group">
+      <div class="nav-label">Records</div>
+      <a class="nav-item {{ 'active' if active=='staging' else '' }}" href="/staging">
+        <i class="ti ti-checkup-list"></i><span>AI history</span></a>
+      <a class="nav-item {{ 'active' if active=='meetings' else '' }}" href="/meetings">
+        <i class="ti ti-history"></i><span>Deck repository</span></a>
+    </nav>
+
     <div class="nav-sp"></div>
-    <a class="nav-btn {{ 'active' if active=='home' else '' }}" href="/dashboard"><i class="ti ti-layout-dashboard"></i><span class="nav-tip">Dashboard</span></a>
-    <a class="nav-btn" href="#"><i class="ti ti-settings"></i><span class="nav-tip">Settings</span></a>
   </aside>
+
   <div class="main">
+    <div class="brand-bar"></div>
     <header class="topbar">
       <div class="crumb"><i class="ti ti-folder"></i> {{ crumb|safe }}</div>
       {% if tabs %}<div class="tabs">{% for t in tabs %}<span class="tab {{ 'active' if loop.first else '' }}">{{ t }}</span>{% endfor %}</div>{% endif %}
       <div class="top-sp"></div>
-      <button class="icon-btn" aria-label="Search"><i class="ti ti-search"></i></button>
-      <button class="icon-btn" aria-label="Adjust"><i class="ti ti-adjustments-horizontal"></i></button>
-      <div class="avatars"><span class="av">AT</span><span class="av" style="background:#dfe7e5">J2W</span></div>
     </header>
     <main class="page">{{ body|safe }}</main>
   </div>
 </div>
+<script>
+ // The sidebar remembers whether it's collapsed. Nothing else in the chrome is stateful.
+ (function(){
+   var app=document.getElementById('app'), btn=document.getElementById('nav-toggle');
+   if(document.documentElement.dataset.nav==='collapsed') app.classList.add('nav-collapsed');
+   function label(){
+     var on=app.classList.contains('nav-collapsed');
+     btn.setAttribute('aria-label', on ? 'Expand the sidebar' : 'Collapse the sidebar');
+     btn.innerHTML = '<i class="ti ti-layout-sidebar-left-'+(on?'expand':'collapse')+'"></i>';
+   }
+   label();
+   btn.addEventListener('click', function(){
+     app.classList.toggle('nav-collapsed');
+     try{ localStorage.setItem('j2w_nav', app.classList.contains('nav-collapsed')?'collapsed':'open'); }catch(e){}
+     label();
+   });
+ })();
+</script>
 </body></html>

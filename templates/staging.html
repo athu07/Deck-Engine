@@ -1,8 +1,9 @@
 
-<div style="margin:14px 0 22px">
-  <div class="eyebrow">AI history</div>
-  <h1 class="display" style="font-size:38px">AI-written slides</h1>
-  <p class="lede">A read-only record of every slide AI has written to fill a gap. You accept or reject each one on the <b>Review &amp; edit</b> step while building a deck — <b>Accepted</b> slides join the master library (client-ready); <b>Rejected</b> ones are dropped. This page is just the log.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">AI-written slides <span class="count">{{ items|length }}</span></h1>
+    <p class="page-sub">Every slide the AI has written to fill a gap. You accept or reject each one on <b>Review &amp; edit</b> while building a deck; accepted slides join the master library. This page is the log.</p>
+  </div>
 </div>
 
 {% if items %}

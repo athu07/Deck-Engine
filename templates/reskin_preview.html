@@ -1,15 +1,16 @@
 
-<div style="margin:14px 0 20px">
+<div class="page-head">
+  <div>
   {% if mode == 'recreate' %}
-  <div class="eyebrow">Recreate with AI</div>
-  <h1 class="display" style="font-size:38px">Recreated in J2W's layouts</h1>
+  <h1 class="page-title">Recreated in J2W's layouts</h1>
   <p class="lede"><b>{{ src_name }}</b> rebuilt into {{ nslides }} J2W-styled slides — every fact and number preserved, each slide redesigned to match its own content, not just recoloured in place. Preview below, then download.</p>
   {% if stats_line %}<p class="hint" style="font-size:13px;margin-top:-6px">{{ stats_line }}</p>{% endif %}
   {% else %}
-  <div class="eyebrow">Re-skin</div>
-  <h1 class="display" style="font-size:38px">Re-skinned to J2W</h1>
+  
+  <h1 class="page-title">Re-skinned to J2W</h1>
   <p class="lede"><b>{{ src_name }}</b> rebranded to the J2W look across {{ nslides }} slides — every word, table, image and chart preserved in place. Preview below, then download.</p>
   {% endif %}
+  </div>
 </div>
 <div class="form-layout">
   <div class="reskin-deck">

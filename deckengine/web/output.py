@@ -10,6 +10,7 @@ from flask import Blueprint, request, send_file, abort
 
 from pptx import Presentation
 
+from deckengine import config
 from deckengine.constants import OUTPUT_DIR
 from deckengine.services.content import case_library
 from deckengine.services.rendering import assembler, fill_case_study, templatize
@@ -38,6 +39,14 @@ def _render_slide(sid, path):
     return bool(kept)
 
 
+@bp.route("/favicon.ico")
+def favicon():
+    """Browsers ask for /favicon.ico at the root whatever the <link> says; without this
+    every page load logged a 404."""
+    return send_file(os.path.join(config.PROJECT_ROOT, "static", "favicon.ico"),
+                     mimetype="image/vnd.microsoft.icon")
+
+
 @bp.route("/output/<path:fname>")
 def output_file(fname):
     fname = os.path.basename(fname)
@@ -45,6 +54,18 @@ def output_file(fname):
     if not os.path.exists(path):
         abort(404)
     return send_file(path, as_attachment=bool(request.args.get("dl")), download_name=fname)
+
+
+@bp.route("/slide/<sid>/preview.png")
+def slide_preview(sid):
+    """A rendered image of one master-deck slide, for the review page. Lazy: the browser
+    asks for it, so the page paints immediately and the pictures fill in. The first ask
+    renders the whole master deck once (~8.5s); every ask after that is a file read."""
+    from deckengine.services.rendering import preview
+    path = preview.master_slide_png(sid.upper())
+    if not path:
+        abort(404)                       # no LibreOffice -> the page falls back to text
+    return send_file(path, mimetype="image/png", max_age=86400)
 
 
 @bp.route("/slide/<sid>/download")

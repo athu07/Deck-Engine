@@ -18,9 +18,11 @@ FAIL-SAFE, like every other optional step in this app: if LibreOffice or poppler
 missing, or a render times out, case_png() returns None and the caller says so plainly.
 """
 
+import glob
 import os
 import shutil
 import tempfile
+import threading
 
 from deckengine import config
 
@@ -50,6 +52,75 @@ def _render_first_slide(pptx_path, dest_png):
         os.makedirs(os.path.dirname(dest_png), exist_ok=True)
         shutil.move(pngs[0], dest_png)
     return dest_png
+
+
+# ── the master deck's own slides (CSxx) ──────────────────────────────────────
+# The review page shows a library slide as a title and a subtitle, because those are the
+# only two fields the engine can edit. Everything else on the slide -- the bullets, the
+# tables, the charts, the diagrams -- was invisible until you downloaded the .pptx. This
+# renders the real thing.
+#
+# The whole master deck converts in ONE LibreOffice pass (40 slides, ~8.5s measured), so
+# render it once and key each page to its slide id, rather than paying a separate 3-second
+# render per slide per review page. The cache is keyed on the master deck's mtime, so
+# editing the master invalidates every preview automatically.
+_MASTER_LOCK = threading.Lock()
+
+
+def _master_cache_dir():
+    try:
+        stamp = int(os.path.getmtime(config.MASTER_DECK))
+    except OSError:
+        stamp = 0
+    return os.path.join(config.RENDERS_DIR, "master", str(stamp))
+
+
+def _build_master_cache(cache_dir):
+    """Render every slide of the master deck to <cache_dir>/<J2W_ID>.png, once."""
+    from pptx import Presentation
+    from deckengine.services.content.build_library import read_id
+    from deckengine.services.rendering import reskin
+
+    ids = [read_id(s) for s in Presentation(config.MASTER_DECK).slides]
+    with tempfile.TemporaryDirectory() as td:
+        pngs = reskin.render_pngs(config.MASTER_DECK, td)
+        if not pngs:
+            raise RuntimeError("LibreOffice/poppler unavailable")
+        if len(pngs) != len(ids):
+            # a mismatch means the page order can't be trusted to name the slides
+            raise RuntimeError("rendered %d pages for %d slides" % (len(pngs), len(ids)))
+        tmp_dir = cache_dir + ".partial"
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        os.makedirs(tmp_dir, exist_ok=True)
+        for sid, png in zip(ids, pngs):
+            if sid:                       # template slides carry no J2W_ID
+                shutil.move(png, os.path.join(tmp_dir, sid + ".png"))
+        os.replace(tmp_dir, cache_dir)    # atomic: a reader sees all of it or none
+    return cache_dir
+
+
+def master_slide_png(sid):
+    """The rendered PNG path for one master-deck slide (CSxx), or None.
+
+    First call for a given master deck renders all 40 slides (~8.5s) and caches them;
+    every call after that is a stat(). Serialised, so ten browsers asking at once render
+    it once. Fail-safe: no LibreOffice, no preview -- the caller shows the text card."""
+    cache_dir = _master_cache_dir()
+    path = os.path.join(cache_dir, sid + ".png")
+    if os.path.exists(path):
+        return path
+    with _MASTER_LOCK:
+        if os.path.exists(path):         # another thread built it while we waited
+            return path
+        try:
+            _build_master_cache(cache_dir)
+        except Exception:
+            return None
+        # drop caches for older versions of the master deck
+        for stale in glob.glob(os.path.join(config.RENDERS_DIR, "master", "*")):
+            if stale != cache_dir:
+                shutil.rmtree(stale, ignore_errors=True)
+    return path if os.path.exists(path) else None
 
 
 def case_png(case_id, force=False):

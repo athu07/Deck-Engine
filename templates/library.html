@@ -1,8 +1,9 @@
 
-<div style="margin:14px 0 6px">
-  <div class="eyebrow">Slide library</div>
-  <h1 class="display" style="font-size:38px">All slides <span class="hint" style="font-size:24px">· <span id="lib-count">{{ total }}</span></span></h1>
-  <p class="lede">Browse, search and filter the whole warehouse. Keywords are what the matcher runs on.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Slide library <span class="count" id="lib-count">{{ total }}</span></h1>
+    <p class="page-sub">Browse, search and filter the whole warehouse. Keywords are what the matcher runs on.</p>
+  </div>
 </div>
 
 <div class="toolbar">
@@ -42,7 +43,13 @@
     </div>
   </div>
   {% endfor %}
-  <div class="lib-empty" id="lib-empty" style="display:none">No slides match your filters.</div>
+  <div class="lib-empty" id="lib-empty" style="display:none">
+    <div class="empty">
+      <div class="empty-ic"><i class="ti ti-search-off"></i></div>
+      <h3>No slides match</h3>
+      <p>Try a broader search, or clear a filter. Keywords are what the matcher runs on, so searching by capability works better than by client.</p>
+    </div>
+  </div>
 </div>
 
 <a id="deck-pill" href="/deck" style="position:fixed;right:22px;bottom:22px;display:none;align-items:center;gap:8px;background:#111110;color:#fff;padding:11px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:14px;font-weight:600;text-decoration:none;z-index:50">

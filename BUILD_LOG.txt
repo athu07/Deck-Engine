@@ -3921,3 +3921,146 @@ Recreate-with-AI, inline editor, /review, deck build. 18/18 clean. (four_box is
 marker-filled and has no drawn body -- true in skills.py too, not a gap.)
 Two new tests encode the audit, so a future shape cannot be half-wired, and one
 pins the classifier alphabet against the registry size. 48/48 pytest green.
+
+UI REDESIGN, PASS 1: the shell and the tokens (2026-07-10)
+Athithia: too much white space, the sidebar is small, things feel missing.
+Diagnosed three causes; the white space was a symptom of all three.
+  1. Every page was a landing page. Thirteen templates opened with the same
+     eyebrow + 46px h1.display + a .lede capped at 560px -- ~200px of vertical
+     before the first control, and the 560px cap against a 1180px page is the
+     ragged right edge on Templates and Deck repository.
+  2. .page{max-width:1180px} + an 84px sidebar left ~290px of dead gutter on
+     EACH side of a 1844px screen. Widening alone would only stretch the cards.
+  3. The chrome was decorative: the search button, the adjust button, the
+     "AT / J2W" avatars, the Settings nav link and the dashboard's "Overview /
+     Activity" tabs all had no behaviour. Five affordances promising nothing.
+     That is most of why the app felt like things were missing.
+
+THE IDEA. The engine draws every slide in Oswald + Raleway with a red/teal bar
+along the top; the app was set in Inter + Space Grotesk and had never once used
+that bar. The tool and the artifact it makes did not share a voice. Pass 1
+makes them one system:
+  - Oswald headings, Raleway body, IBM Plex Mono for slide IDs (CS01, MSS042 --
+    they are data, on every card and row, and a proportional face made a column
+    of them unscannable).
+  - The two-tone bar is the single brand mark, at the master deck's REAL 67:33
+    red-to-teal split (measured 2026-07-07: red 8.89in : teal 4.44in), used
+    exactly twice -- the top edge of the app, and the active item's left edge in
+    the sidebar. Never on cards, buttons or headers. One accessory, quietly.
+  - New --brand-red/--brand-teal tokens carry the DECK's colours; the UI's
+    --teal stays the interaction colour. The company palette is untouched.
+
+SHELL. The hero block is gone from all 13 templates, replaced by a 48px
+.page-head: title, count, subtitle, primary action pinned right. The container
+is fluid: width:min(1600px,100%). The sidebar goes 84px -> 240px expanded /
+72px collapsed, with labels, four groups (Home / Create / Assets / Records),
+Dashboard moved to the TOP where a home page belongs, a pinned "New deck"
+button, and the collapse state kept in localStorage. Settings, which linked to
+"#", is gone until there is a settings page.
+
+DENSITY. Card radius 24 -> 12, padding 22/24 -> 16/18, grid gap 18 -> 12, body
+15px -> 14px, the 46px display reserved for the dashboard greeting alone.
+
+TWO PAGES RESTRUCTURED. /templates: three full-width 270px upload cards pushed
+the 18 slide templates -- the subject of the page -- below the fold; they are
+now a compact three-up tool row and the templates lead. Empty states on
+/meetings, /library and the learned-templates section became invitations with a
+next action instead of a sentence in the middle of a blank page.
+
+ALSO: :focus-visible rings, prefers-reduced-motion honoured, form-layout
+collapses to one column under 1100px.
+Nothing outside templates/ + static/app.css + dashboard.py's tabs argument was
+touched. 48/48 pytest green; all 7 routes 200; div balance checked on every
+rendered page.
+STILL OPEN, as specced: the Library browses when it should scan (a table, pass
+2); the right rails still say "How it works" forever (pass 3); there is no
+search (a command palette, pass 4). And Raleway at 14px in dense UI is the
+stated risk -- if the Library table reads poorly, fall back to Oswald headings
+with Inter body.
+
+TYPE CHANGE: the UI is Google Sans; the SLIDES are untouched (2026-07-10).
+Athithia: use Google Sans for the application only, never for anything to do
+with slides.
+  static/app.css now loads:
+    Google Sans        headings, wordmark   (400/500/600/700)
+    Google Sans Text   body + UI            (400/500/700 -- it has no 600, so
+                       'Google Sans' sits behind it in the stack and semibold
+                       resolves there instead of being synthesised)
+    Google Sans Code   slide IDs (CS01, MSS042)
+  Tracking was retuned: the previous values were set for Oswald, which is
+  condensed. Google Sans is geometric humanist and wants slightly negative
+  tracking at display sizes, none at UI sizes.
+  Both families ARE served by fonts.googleapis.com (verified: 400/500/600/700
+  for Google Sans, 400/500/700 for Google Sans Text). Note they are Google-
+  restricted licence fonts, not part of the open Google Fonts catalogue --
+  flagged to the owner, her call.
+SEPARATION VERIFIED, not assumed. The slide typefaces live in Python
+(draw_templates.FONT_HEAD/FONT_BODY, skills.py's _draw_text default, and the
+create_*_template scripts), never in CSS. Grepped: no Python file reads app.css
+or names a UI font. Built a real pillar_grid slide and read the fonts back out
+of the .pptx -- Oswald, Raleway, Roboto Condensed, exactly as before. 48/48
+pytest green.
+
+FIX: dropdowns wore the operating system's blue; the app had no logo (2026-07-10)
+DROPDOWNS. The open list in Athithia's screenshot was drawn by the OS, not by us
+-- a bright system blue on the highlighted row, nothing to do with the palette.
+Fixed in three layers, most portable first (static/app.css):
+  1. accent-color: var(--teal) on :root and on select -- re-tints the browser's
+     own UI (highlight, checkbox, radio); honoured by Firefox and Chromium.
+  2. option:checked / option:hover in teal-soft, for the engines that let CSS
+     reach the rows at all.
+  3. appearance: base-select (Chromium 135+) hands the whole popup to CSS, so
+     ::picker(select) is styled exactly like the rest of the app -- rounded,
+     hairline border, teal selected row, animated chevron. Guarded by @supports,
+     and inside it the background chevron is dropped so it doesn't double with
+     ::picker-icon.
+Everything degrades to a native list in the APP's colours rather than the OS's.
+Selects also got a custom chevron, hover border, and 1px --line-2 border to
+match the inputs.
+
+LOGO. j2w-logo.png -> static/img/, favicon.ico -> static/, both mtime-versioned
+through asset(). The sidebar's "J2W" text and the placeholder layers icon are
+gone; the real wordmark now sits centred at the top of the nav, big.
+It is dark-on-transparent, drawn for light backgrounds, and the sidebar is
+black -- so it sits on a white plaque. Measured, not guessed: the red wordmark
+is 2.9:1 on the sidebar's black and 6.5:1 on the plaque. Collapsed, the 2.06:1
+wordmark renders ~23px tall; the shape and colours read, the tagline does not. A
+square monogram would be the honest fix and we don't have one -- flagged.
+Also added a /favicon.ico route: browsers ask for it at the root whatever the
+<link> says, and every page load was logging a 404.
+48/48 pytest green; all routes 200; both assets serve.
+
+FIX: a red error on an optional field nobody touched; and library slides had
+no preview (2026-07-10)
+
+1. THE LOGO ERROR. The client-name field fires maybeAutoFindLogo() on blur --
+   an automatic search the user never asked for. When it found nothing it
+   showed "Couldn't find a usable logo automatically" in red, on an OPTIONAL
+   field, before the user had gone near it. It read as something being broken.
+   findLogo() now takes an `auto` flag: the automatic search fails SILENTLY
+   (clears any stale preview, says nothing, no button spinner); only the
+   explicit Search button reports failure. The route is untouched.
+
+2. LIBRARY SLIDES HAD NO PREVIEW -- the core complaint. On /review a master-deck
+   slide showed only its title and subtitle, because those are the only two
+   fields the engine can edit. Every bullet, table, chart and diagram on CS01,
+   CS04, CS08 ... was invisible until the .pptx was downloaded. The salesperson
+   could not see the deck before shipping it.
+   Now the real slide is rendered and shown, above the editable fields.
+   How, and why this way: the master deck is 40 slides and converts in ONE
+   LibreOffice pass (measured: 8.5s for all 40). So preview.master_slide_png()
+   renders the whole deck once and keys each page to its J2W_ID, rather than
+   paying a ~3s render per slide per review page (13 slides = 40s of page load).
+   The cache lives at static/renders/master/<master-mtime>/CSxx.png, so editing
+   the master deck invalidates every preview automatically, and stale versions
+   are swept. The build is serialised behind a lock and lands via os.replace,
+   so ten browsers asking at once render it once and no reader ever sees a
+   half-written directory.
+   New route GET /slide/<sid>/preview.png serves it. The <img> is loading="lazy"
+   so the page paints immediately and the slides fill in. If LibreOffice is
+   missing the image 404s, onerror swaps in an honest message, and the slide
+   still goes into the deck -- a preview never blocks anything.
+   Verified: page->id mapping spot-checked against the deck (CS01 is the title
+   slide; CS04 is "WHAT WE OFFER / Three Interlocking Revenue Engines", matching
+   the review card); first call 12.8s, every call after 0.000s; unknown id ->
+   None -> 404. 48/48 pytest green.

@@ -170,39 +170,42 @@ function researchAccount(){
 // client-name field's blur. The button/domain field remain as a manual
 // retry (e.g. the auto-search picked the wrong company, or found nothing).
 var _logoLastSearched = null;
-function findLogo(){
+// `auto` = the search the client-name field fires on blur, which the user never asked
+// for. It must fail SILENTLY: the logo is optional, and a red error on an optional field
+// the user never touched reads as something being broken (owner-reported, 2026-07-10).
+// Only the explicit Search button reports failure.
+function findLogo(auto){
   var cn=document.querySelector('#deckForm [name="client_name"]');
   var dom=document.getElementById('logo-domain');
   var btn=document.getElementById('logo-find-btn');
   var err=document.getElementById('logo-error');
   var box=document.getElementById('logo-preview-box');
   var clientName=cn?cn.value.trim():'';
-  if(!clientName){
-    if(err){err.textContent='Enter a client name first.';err.style.display='block';}
-    return;
+  function fail(msg){
+    if(box) box.style.display='none';
+    var uri=document.getElementById('client-logo-data-uri');
+    if(uri) uri.value='';
+    if(auto || !err) return;              // the user didn't ask; say nothing
+    err.textContent=msg; err.style.display='block';
   }
+  if(!clientName){ fail('Enter a client name first.'); return; }
   _logoLastSearched = clientName;
   if(err) err.style.display='none';
   var old=btn.innerHTML;
-  btn.disabled=true;
-  btn.innerHTML='<i class="ti ti-loader"></i> Searching…';
+  if(!auto){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Searching…'; }
   var fd=new FormData();
   fd.append('client_name',clientName);
   fd.append('domain',dom?dom.value.trim():'');
   fetch('/logo_preview',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(d){
-    btn.disabled=false; btn.innerHTML=old;
-    if(!d.ok){
-      if(box) box.style.display='none';
-      document.getElementById('client-logo-data-uri').value='';
-      if(err){err.textContent=d.error||'Could not find a logo automatically.';err.style.display='block';}
-      return;
-    }
+    if(!auto){ btn.disabled=false; btn.innerHTML=old; }
+    if(!d.ok){ fail(d.error||'Could not find a logo automatically.'); return; }
     document.getElementById('logo-preview-img').src=d.data_uri;
     document.getElementById('client-logo-data-uri').value=d.data_uri;
     if(box) box.style.display='block';
+    if(err) err.style.display='none';
   }).catch(function(){
-    btn.disabled=false; btn.innerHTML=old;
-    if(err){err.textContent='Could not reach the logo search service.';err.style.display='block';}
+    if(!auto){ btn.disabled=false; btn.innerHTML=old; }
+    fail('Could not reach the logo search service.');
   });
 }
 // Fires on the client-name field losing focus -- auto-finds the logo from
@@ -216,7 +219,7 @@ function maybeAutoFindLogo(){
   var name=cn.value.trim();
   if(!name || name===_logoLastSearched) return;
   if(fileInput && fileInput.files && fileInput.files.length) return;
-  findLogo();
+  findLogo(true);       // automatic -- fails silently
 }
 // If a file is chosen after an auto-found logo was previewed, the file wins —
 // clear the auto-found state so /build doesn't get a mixed signal, and stop

@@ -1,87 +1,170 @@
 /* J2W Deck Engine — design system
-   white #F6F6F6 · black #111110 · teal #2C6E66 */
+   white #F6F6F6 · black #111110 · teal #2C6E66
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+   TYPE. The interface is set in Google Sans (owner's choice, 2026-07-10):
+     Google Sans        headings and the wordmark
+     Google Sans Text   body and UI, the text-optimised cut
+     Google Sans Code   slide IDs (CS01, MSS042) -- they are DATA, on every card and row,
+                        and a proportional face makes a column of them unscannable
+   'Google Sans Text' has no 600 weight; 'Google Sans' does, so it sits behind it in the
+   body stack and semibold resolves there rather than being synthesised.
+
+   THIS FILE STYLES THE APPLICATION ONLY. The slides the engine draws keep their own
+   typefaces -- Oswald / Roboto Condensed / Raleway -- which live in Python, in
+   services/rendering/draw_templates.py, skills.py and the create_*_template scripts.
+   Nothing here reaches a .pptx.
+
+   The two-tone bar is the single brand mark. It appears exactly twice -- the top edge of
+   the app, and the active item in the sidebar -- at the master deck's real 67:33 red-to-
+   teal split (measured 2026-07-07: red 8.89in : teal 4.44in on a 13.33in slide). It is
+   never repeated on cards, buttons or headers. One accessory, used quietly. */
+
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Google+Sans+Text:wght@400;500;700&family=Google+Sans+Code:wght@400;500&display=swap');
 
 :root{
+  /* the company palette -- unchanged */
   --white:#F6F6F6; --black:#111110; --teal:#2C6E66;
   --teal-700:#234f4a; --teal-300:#5fa49b; --teal-soft:#E7F0EE;
   --surface:#FFFFFF; --bg:#F2F2F0; --ink:#111110;
   --muted:#6E6E69; --hint:#9C9C97;
   --line:rgba(17,17,16,.08); --line-2:rgba(17,17,16,.14);
   --pos:#2C6E66; --neg:#C2503C;
-  --r-lg:24px; --r-md:16px; --r-sm:12px; --r-pill:999px;
-  --shadow:0 1px 2px rgba(17,17,16,.04),0 10px 30px rgba(17,17,16,.06);
+
+  /* the ARTIFACT's colours -- used only to draw the brand bar, never for interaction.
+     These are the master deck's own red and teal, not the UI's --teal. */
+  --brand-red:#D62839; --brand-teal:#2A9D8F;
+
+  --r-lg:12px; --r-md:10px; --r-sm:8px; --r-pill:999px;
+  --shadow:0 1px 2px rgba(17,17,16,.04),0 6px 18px rgba(17,17,16,.05);
   --shadow-sm:0 1px 2px rgba(17,17,16,.05);
-  --side:84px; --font:'Inter',system-ui,sans-serif; --display:'Space Grotesk',var(--font);
+
+  --side:240px; --side-collapsed:72px;
+  --font:'Google Sans Text','Google Sans',system-ui,sans-serif;
+  --display:'Google Sans',var(--font);
+  --mono:'Google Sans Code',ui-monospace,monospace;
+
+  --fs-display:32px; --fs-h1:20px; --fs-h2:16px; --fs-body:14px; --fs-small:12.5px;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);
-  -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.55}
+  -webkit-font-smoothing:antialiased;font-size:var(--fs-body);line-height:1.55}
 a{color:inherit;text-decoration:none}
 .ti{font-size:20px;line-height:1}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* ---- shell ---- */
 .app{display:flex;min-height:100vh}
-.sidebar{width:var(--side);background:var(--black);color:#fff;display:flex;
-  flex-direction:column;align-items:center;gap:6px;padding:18px 0;position:sticky;top:0;height:100vh}
-.logo{width:46px;height:46px;border-radius:14px;background:var(--teal);display:grid;
-  place-items:center;color:#08110f;margin-bottom:18px}
-.logo .ti{font-size:24px}
-.nav-btn{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
-  color:#8a8a86;transition:.15s;position:relative}
-.nav-btn:hover{background:#1d1d1b;color:#fff}
-.nav-btn.active{background:#fff;color:var(--black)}
-.nav-sp{flex:1}
-.nav-tip{position:absolute;left:56px;background:var(--black);color:#fff;font-size:12px;
-  padding:5px 9px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:.12s;z-index:20}
-.nav-btn:hover .nav-tip{opacity:1}
 
+/* the brand mark: the deck's own two-tone bar, at the deck's own 67:33 split */
+.brand-bar{height:3px;flex:0 0 3px;
+  background:linear-gradient(90deg,var(--brand-red) 0 66.7%,var(--brand-teal) 66.7% 100%)}
+
+/* ---- sidebar ---- */
+.sidebar{width:var(--side);background:var(--black);color:#fff;display:flex;flex-direction:column;
+  padding:16px 12px;position:sticky;top:0;height:100vh;transition:width .16s ease;flex-shrink:0}
+.app.nav-collapsed .sidebar{width:var(--side-collapsed);padding:16px 10px}
+/* The logo is the brand mark: centred, on a white plaque, big enough to read. */
+.nav-head{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
+.nav-brand{display:grid;place-items:center;width:100%;background:#fff;border-radius:var(--r-md);
+  padding:14px 16px;transition:.15s}
+.nav-brand:hover{background:#f4f4f2}
+.nav-brand img{display:block;width:100%;max-width:158px;height:auto}
+.nav-toggle{width:100%;height:28px;border-radius:var(--r-sm);border:0;background:transparent;
+  color:#6f6f6b;display:grid;place-items:center;cursor:pointer}
+.nav-toggle:hover{background:#1d1d1b;color:#fff}
+/* Collapsed there is ~52px to work with and the wordmark is 2.06:1, so it renders ~23px
+   tall -- the shape and the colours read, the "Time Matters" tagline does not. A square
+   monogram would be the honest fix; we don't have one. */
+.app.nav-collapsed .nav-brand{padding:5px 4px;border-radius:var(--r-sm)}
+.app.nav-collapsed .nav-brand img{max-width:44px}
+
+.nav-cta{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--teal);color:#fff;font-weight:600;font-size:13.5px;margin-bottom:20px;
+  white-space:nowrap;overflow:hidden;transition:.15s}
+.nav-cta:hover{background:var(--teal-300);color:#08110f}
+.app.nav-collapsed .nav-cta{justify-content:center;padding:10px 0}
+.app.nav-collapsed .nav-cta span{display:none}
+
+.nav-group{margin-bottom:16px}
+.nav-label{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#5d5d59;
+  font-weight:600;padding:0 12px;margin-bottom:6px;white-space:nowrap}
+.app.nav-collapsed .nav-label{opacity:0;height:6px;margin:0;overflow:hidden}
+
+.nav-item{position:relative;display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;
+  border-radius:var(--r-sm);color:#9b9b96;font-size:13.5px;font-weight:500;transition:.13s;
+  white-space:nowrap;overflow:hidden}
+.nav-item:hover{background:#1d1d1b;color:#fff}
+.nav-item .ti{font-size:19px;flex-shrink:0}
+.nav-item.active{background:#1d1d1b;color:#fff}
+/* the brand bar again, as the active edge -- same 67:33 split, rotated */
+.nav-item.active::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
+  border-radius:0 2px 2px 0;
+  background:linear-gradient(180deg,var(--brand-red) 0 66.7%,var(--brand-teal) 66.7% 100%)}
+.app.nav-collapsed .nav-item{justify-content:center;padding:0}
+.app.nav-collapsed .nav-item span{display:none}
+.app.nav-collapsed .nav-item.active::before{left:0}
+.nav-sp{flex:1}
+
+/* ---- main + header bar ---- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.topbar{display:flex;align-items:center;gap:18px;padding:20px 34px;position:sticky;top:0;
-  background:rgba(242,242,240,.82);backdrop-filter:blur(10px);z-index:10}
-.crumb{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
-.crumb b{color:var(--ink);font-weight:500}
-.tabs{display:flex;gap:4px;background:#ececeA;padding:4px;border-radius:var(--r-pill)}
-.tab{padding:8px 18px;border-radius:var(--r-pill);font-size:13px;font-weight:500;color:var(--muted);cursor:pointer}
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 32px 0;position:sticky;top:0;
+  background:rgba(242,242,240,.86);backdrop-filter:blur(10px);z-index:10}
+.crumb{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px}
+.crumb b{color:var(--ink);font-weight:600}
+.tabs{display:flex;gap:4px;background:#ececeA;padding:3px;border-radius:var(--r-pill)}
+.tab{padding:6px 14px;border-radius:var(--r-pill);font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer}
 .tab.active{background:var(--black);color:#fff}
 .top-sp{flex:1}
-.icon-btn{width:42px;height:42px;border-radius:var(--r-pill);background:var(--surface);
-  border:1px solid var(--line);display:grid;place-items:center;color:var(--ink);cursor:pointer;transition:.15s}
-.icon-btn:hover{border-color:var(--line-2);box-shadow:var(--shadow-sm)}
-.avatars{display:flex;align-items:center}
-.avatars img,.av{width:34px;height:34px;border-radius:50%;border:2px solid var(--bg);margin-left:-10px;
-  background:var(--teal-soft);display:grid;place-items:center;font-size:12px;font-weight:600;color:var(--teal-700)}
 
-.page{padding:8px 34px 48px;max-width:1180px;width:100%;margin:0 auto}
+.page{padding:6px 32px 48px;width:min(1600px,100%);margin:0 auto}
+
+/* The page header bar. Replaces the eyebrow + 46px display title + 560px lede block that
+   opened all 13 templates and ate ~200px of vertical before the first control. */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding:14px 0 12px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.page-title{font-family:var(--display);font-size:var(--fs-h1);font-weight:600;letter-spacing:-.01em;
+  margin:0;line-height:1.2;display:flex;align-items:baseline;gap:10px}
+.page-title .count{font-family:var(--mono);font-size:13px;font-weight:400;color:var(--hint)}
+.page-sub{color:var(--muted);font-size:var(--fs-small);margin:4px 0 0;max-width:78ch}
+.page-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+@media(max-width:760px){.page-head{flex-direction:column;align-items:stretch}}
 
 /* ---- typography ---- */
-.display{font-family:var(--display);font-weight:500;letter-spacing:-.02em;line-height:1.02}
-h1.display{font-size:46px;margin:6px 0 4px}
-.lede{color:var(--muted);font-size:16px;max-width:560px}
-.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--hint);font-weight:600}
-.sec-title{font-family:var(--display);font-size:20px;font-weight:500;letter-spacing:-.01em;margin:0}
+/* Google Sans is a geometric humanist face; it wants slightly negative tracking at
+   display sizes and none at UI sizes. */
+.display{font-family:var(--display);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+h1.display{font-size:var(--fs-display);margin:0 0 4px}
+.lede{color:var(--muted);font-size:var(--fs-small);max-width:78ch}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--hint);font-weight:600}
+.sec-title{font-family:var(--display);font-size:var(--fs-h2);font-weight:600;letter-spacing:-.005em;margin:0}
+code,kbd{font-family:var(--mono);font-size:.92em}
+/* Slide IDs (CS01, MSS042, AIP007) are DATA, not prose -- they appear on every card and
+   every row, and a proportional face makes a column of them impossible to scan. */
+.sid{font-family:var(--mono);font-weight:500;font-size:11.5px;letter-spacing:0;
+  color:var(--teal-700);background:var(--teal-soft);padding:3px 7px;border-radius:5px;
+  display:inline-flex;align-items:center;flex-shrink:0}
 
 /* ---- buttons ---- */
-.btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--font);font-size:14px;
-  font-weight:500;padding:12px 20px;border-radius:var(--r-pill);border:1px solid transparent;
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:13.5px;
+  font-weight:600;padding:9px 16px;border-radius:var(--r-pill);border:1px solid transparent;
   cursor:pointer;transition:.15s;background:var(--surface);color:var(--ink);border-color:var(--line)}
 .btn:hover{border-color:var(--line-2);box-shadow:var(--shadow-sm)}
 .btn-primary{background:var(--teal);color:#fff;border-color:var(--teal)}
 .btn-primary:hover{background:var(--teal-700);box-shadow:0 8px 22px rgba(44,110,102,.28)}
 .btn-dark{background:var(--black);color:#fff;border-color:var(--black)}
 .btn-dark:hover{background:#26261f}
-.btn-lg{padding:15px 26px;font-size:15px}
+.btn-lg{padding:12px 22px;font-size:14px}
 .btn-block{width:100%;justify-content:center}
 
 /* ---- cards ---- */
 .card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
-  padding:22px 24px;box-shadow:var(--shadow)}
-.card-num{position:absolute;top:20px;right:22px;width:24px;height:24px;border-radius:50%;
+  padding:16px 18px;box-shadow:var(--shadow)}
+.card-num{position:absolute;top:14px;right:16px;width:22px;height:22px;border-radius:50%;
   background:var(--teal-soft);color:var(--teal-700);font-family:var(--display);font-weight:600;
   font-size:12px;display:grid;place-items:center}
-.soft-divider{height:1px;background:var(--line);margin:18px 0}
+.soft-divider{height:1px;background:var(--line);margin:14px 0}
 
 /* work-type selectable cards (the primary choice) */
 .wt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -136,7 +219,7 @@ h1.display{font-size:46px;margin:6px 0 4px}
 .or-divider:before,.or-divider:after{content:'';height:1px;background:var(--line);flex:1}
 .card-dark{background:var(--black);color:#fff;border-color:var(--black)}
 .card-teal{background:var(--teal);color:#fff;border-color:var(--teal)}
-.grid{display:grid;gap:18px}
+.grid{display:grid;gap:12px}
 .g-4{grid-template-columns:repeat(4,1fr)}
 .g-3{grid-template-columns:repeat(3,1fr)}
 .g-2{grid-template-columns:1.6fr 1fr}
@@ -198,7 +281,7 @@ h1.display{font-size:46px;margin:6px 0 4px}
 .tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--r-pill);
   background:var(--teal-soft);color:var(--teal-700)}
 
-.section{margin-top:30px}
+.section{margin-top:26px}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .muted{color:var(--muted)} .hint{color:var(--hint)}
 
@@ -206,11 +289,52 @@ h1.display{font-size:46px;margin:6px 0 4px}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:7px}
 .field label .hint{font-weight:400}
-.input,select,textarea{width:100%;font-family:var(--font);font-size:14px;padding:12px 14px;
-  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);transition:.15s}
+.input,select,textarea{width:100%;font-family:var(--font);font-size:14px;padding:11px 13px;
+  border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);transition:.15s}
 .input::placeholder,textarea::placeholder{color:var(--hint)}
+.input:hover,select:hover,textarea:hover{border-color:var(--teal-300)}
 .input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
 textarea{resize:vertical;min-height:130px;line-height:1.55}
+
+/* ---- selects ---------------------------------------------------------------
+   The open list was drawn by the OS: a bright system blue on the highlighted row,
+   nothing to do with this palette. Three layers of fix, most portable first.
+
+   1. `accent-color` re-tints the browser's own UI (highlight, checkbox, radio) --
+      honoured by Firefox and Chromium everywhere.
+   2. `option:checked/:hover` colours the rows in the engines that let CSS reach them.
+   3. `appearance: base-select` (Chromium 135+) hands the whole popup to CSS, so
+      ::picker(select) below is styled like the rest of the app. Everything degrades to
+      a native list in the app's colours rather than the operating system's. */
+:root{accent-color:var(--teal)}
+select{accent-color:var(--teal);cursor:pointer;
+  -webkit-appearance:none;appearance:none;padding-right:36px;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
+select:disabled{color:var(--hint);cursor:not-allowed}
+select option{background:var(--surface);color:var(--ink);padding:8px 10px}
+select option:checked,select option[selected]{background:var(--teal-soft);color:var(--teal-700);font-weight:600}
+select option:hover{background:var(--teal-soft)}
+select optgroup{color:var(--muted);font-style:normal;font-weight:600;font-size:12px}
+
+@supports (appearance:base-select){
+  /* the picker draws its own ::picker-icon; drop the background chevron or they double up */
+  select{appearance:base-select;background-image:none;padding-right:13px;
+    display:flex;align-items:center;gap:8px}
+  select::picker-icon{color:var(--muted);transition:transform .15s}
+  select:open::picker-icon{transform:rotate(180deg)}
+  select::picker(select){appearance:base-select;
+    background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md);
+    box-shadow:var(--shadow);padding:6px;margin-top:6px;max-height:320px;overflow-y:auto}
+  select::picker(select) option{border-radius:var(--r-sm);padding:9px 10px;font-size:13.5px;
+    display:flex;align-items:center;gap:8px;transition:.1s}
+  select::picker(select) option:hover,
+  select::picker(select) option:focus{background:var(--teal-soft);color:var(--teal-700);outline:none}
+  select::picker(select) option:checked{background:var(--teal);color:#fff;font-weight:600}
+  select::picker(select) option::checkmark{order:1;margin-left:auto;color:currentColor}
+  select::picker(select) optgroup{padding:6px 10px 2px;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--hint)}
+}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .chip-row{display:flex;flex-wrap:wrap;gap:10px}
 .chip-toggle{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:var(--r-pill);
@@ -231,9 +355,10 @@ textarea{resize:vertical;min-height:130px;line-height:1.55}
   display:grid;place-items:center;font-size:13px;font-weight:600;flex-shrink:0}
 .step .st{font-size:13px;color:var(--muted);line-height:1.45}
 .step .st b{color:var(--ink);font-weight:500;display:block}
-.form-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}
+.form-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+@media(max-width:1100px){.form-layout{grid-template-columns:1fr}}
 .form-layout > *{min-width:0}
-.side-card{position:sticky;top:90px}
+.side-card{position:sticky;top:76px}
 @media(max-width:980px){.form-layout{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.side-card{position:static}}
 
 /* ---- build / suggestions ---- */
@@ -250,7 +375,7 @@ textarea{resize:vertical;min-height:130px;line-height:1.55}
 .slide-item.drag{opacity:.4}
 .slide-item .grip{color:var(--hint);display:flex}
 .slide-item .pos{width:18px;text-align:center;color:var(--hint);font-size:12px;font-variant-numeric:tabular-nums}
-.slide-item .sid{font-family:var(--display);font-weight:600;font-size:12px;color:var(--teal-700);
+.slide-item .sid{font-family:var(--mono);font-weight:500;font-size:11.5px;color:var(--teal-700);
   background:var(--teal-soft);padding:3px 8px;border-radius:8px;flex-shrink:0}
 .slide-item .s-main{flex:1;min-width:0}
 .slide-item .s-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -354,6 +479,29 @@ textarea.se{line-height:1.5;overflow:hidden}
 .lib-slide-sub{font-size:15px;color:var(--muted);width:calc(100% - 32px);margin:0 16px 2px}
 .lib-slide-foot{font-size:11px;color:var(--hint);padding:12px 24px 14px;border-top:1px solid var(--line);margin-top:14px}
 
+/* ---- the rendered library slide on /review --------------------------------
+   16:9, the shape of the artifact. The image is lazy: the page paints at once and
+   the slides fill in. If the server can't render (no LibreOffice), the <img> errors
+   and .unavailable swaps in an honest message rather than a broken-image icon. */
+.slide-preview{position:relative;margin:14px 16px 0;border:1px solid var(--line-2);
+  border-radius:var(--r-sm);overflow:hidden;background:#fff;aspect-ratio:16/9}
+.slide-preview img{display:block;width:100%;height:100%;object-fit:contain}
+.slide-preview-fallback{display:none;position:absolute;inset:0;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px;
+  color:var(--hint);background:#fbfbfa}
+.slide-preview-fallback .ti{font-size:26px}
+.slide-preview-fallback span{font-size:12.5px;max-width:40ch}
+.slide-preview.unavailable img{display:none}
+.slide-preview.unavailable .slide-preview-fallback{display:flex}
+
+.lib-edit{margin:14px 16px 0;padding-top:12px;border-top:1px solid var(--line)}
+.lib-edit-label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--hint);font-weight:600;margin-bottom:6px}
+.lib-edit .lib-slide-title,.lib-edit .lib-slide-sub{width:100%;margin:0}
+.lib-edit .lib-slide-title{font-size:17px}
+.lib-edit .lib-slide-sub{font-size:13.5px}
+.lib-slide-foot .sid{margin-right:6px}
+
 /* re-skin preview (F2) — real rendered slide images */
 .reskin-deck{display:flex;flex-direction:column;gap:16px}
 .reskin-shot{position:relative;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
@@ -449,6 +597,33 @@ textarea.se{line-height:1.5;overflow:hidden}
 .ed-footer-b{color:#ddd;font-size:11.5px;text-align:center}
 .ed-footer .se:hover{background:rgba(255,255,255,.10)}
 .ed-footer .se:focus{background:rgba(255,255,255,.14);color:#fff}
+
+/* ---- the tool row on /templates ------------------------------------------
+   Three uploads used to be three full-width 270px cards, pushing the 18 slide
+   templates -- the actual subject of the page -- below the fold. */
+.tool-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:26px}
+@media(max-width:1000px){.tool-row{grid-template-columns:1fr}}
+.tool{display:flex;flex-direction:column;gap:2px}
+.tool .upload-ic{width:34px;height:34px;border-radius:9px;background:var(--teal-soft);color:var(--teal);
+  display:grid;place-items:center;margin-bottom:8px}
+.tool .upload-ic .ti{font-size:18px}
+.tool h3{font-family:var(--display);font-size:14.5px;font-weight:600;margin:0 0 2px;letter-spacing:-.005em}
+.tool p{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.45;flex:1}
+.tool .upload-drop{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12.5px;
+  color:var(--muted);border:1px dashed var(--line-2);border-radius:var(--r-sm);padding:9px;
+  cursor:pointer;background:#fbfbfa;transition:.12s;margin-bottom:8px}
+.tool .upload-drop:hover{border-color:var(--teal-300);color:var(--ink)}
+.tool .upload-drop input{display:none}
+
+/* ---- empty states: an invitation, not a dead end -------------------------- */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:56px 24px;gap:6px}
+.empty-ic{width:52px;height:52px;border-radius:14px;background:var(--teal-soft);color:var(--teal);
+  display:grid;place-items:center;margin-bottom:8px}
+.empty-ic .ti{font-size:26px}
+.empty h3{font-family:var(--display);font-size:16px;font-weight:600;margin:0}
+.empty p{font-size:13px;color:var(--muted);margin:0;max-width:46ch}
+.empty .btn{margin-top:12px}
 
 /* the generic, schema-driven editor -- any shape without a bespoke layout */
 .ed-generic-wrap{padding:8px 16px 0}

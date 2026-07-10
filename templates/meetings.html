@@ -1,8 +1,10 @@
 
-<div style="margin:14px 0 22px">
-  <div class="eyebrow">Deck repository</div>
-  <h1 class="display" style="font-size:38px">All created decks</h1>
-  <p class="lede">Find a previously generated deck. Filter by industry, work type and phase — newest first. Everyone on the team sees all decks.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Deck repository <span class="count">{{ total }}</span></h1>
+    <p class="page-sub">Every deck the team has generated, newest first. Filter by industry, work type and phase.</p>
+  </div>
+  <div class="page-actions"><a class="btn btn-primary" href="/new"><i class="ti ti-sparkles"></i> New deck</a></div>
 </div>
 
 <form method="get" action="/meetings" class="card" style="margin-bottom:20px">
@@ -58,6 +60,11 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted" style="margin:0">No matching decks yet. Generate a deck and it will appear here automatically.</p>
+  <div class="empty">
+    <div class="empty-ic"><i class="ti ti-history"></i></div>
+    <h3>No decks match those filters</h3>
+    <p>Every deck the team generates is saved here automatically, with its slides, client and phase. Clear the filters, or build one.</p>
+    <a class="btn btn-primary" href="/new"><i class="ti ti-sparkles"></i> New deck</a>
+  </div>
   {% endif %}
 </div>
