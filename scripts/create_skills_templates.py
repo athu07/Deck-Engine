@@ -349,6 +349,107 @@ def build_slide4(prs):
     print("  Slide 4 (target_skill_profile): done")
 
 
+def build_slide5(prs):
+    """four_box -- a generic 4-way breakdown (e.g. "4 pillars", "4 findings"),
+    for content that doesn't read as a case study (owner's spec, 2026-07-08:
+    "Already have the content?" shouldn't force everything into the case-study
+    mould). 2x2 grid of cards, each with its own small red accent bar left of
+    its heading -- same convention as every other J2W heading (owner's spec,
+    2026-07-07)."""
+    slide = prs.slides.add_slide(_blank_layout(prs))
+    header(slide, "{{TITLE}}", "{{SUBHEAD}}",
+           title_font="Oswald", subtitle_font="Roboto Condensed",
+           title_size=24, subtitle_size=15)
+
+    gap = 0.30
+    top = 1.35
+    bottom = SH - 0.24                    # clears the teal footer strip
+    box_w = (SW - 2 * MARGIN - gap) / 2
+    box_h = ((bottom - top) - gap) / 2
+    positions = [
+        (MARGIN, top), (MARGIN + box_w + gap, top),
+        (MARGIN, top + box_h + gap), (MARGIN + box_w + gap, top + box_h + gap),
+    ]
+    for i, (bl, bt) in enumerate(positions, 1):
+        card(slide, bl, bt, box_w, box_h, fill=C_CARD, line=C_LINE, lw=0.75)
+        bar(slide, bl + PAD, bt + PAD, 0.06, 0.34, C_RED)
+        txt(slide, bl + PAD + 0.16, bt + PAD, box_w - PAD * 2 - 0.16, 0.34,
+            "{{BOX%d_HEAD}}" % i, 14, C_BLACK, bold=True, font="Raleway")
+        txt(slide, bl + PAD, bt + PAD + 0.44, box_w - PAD * 2, box_h - PAD * 2 - 0.44,
+            "{{BOX%d_BODY}}" % i, 13, C_BODY, wrap=True, anchor='t', shrink=True, font="Raleway")
+
+    set_notes(slide, "J2W_TEMPLATE: four_box")
+    print("  Slide 5 (four_box): done")
+
+
+def build_slide6(prs):
+    """roadmap_board -- a phased roadmap or board: several categories/lanes,
+    each tagged with a phase/stage, each with its own bullet items (owner's
+    spec, 2026-07-08). UNLIKE the other slides, this template carries no fixed
+    body layout -- only the header (title/subhead) + an intro paragraph marker.
+    skills.py's _draw_roadmap_columns() draws the actual column board on top of
+    this frame at build time, since the column count varies with the content
+    (this shape has no natural fixed slot count, unlike four_box's 4)."""
+    slide = prs.slides.add_slide(_blank_layout(prs))
+    header(slide, "{{TITLE}}", "{{SUBHEAD}}",
+           title_font="Oswald", subtitle_font="Roboto Condensed",
+           title_size=24, subtitle_size=15)
+    txt(slide, MARGIN, 1.00, SW - 2 * MARGIN, 0.46, "{{INTRO}}", 11, C_BODY,
+        wrap=True, anchor='t', shrink=True)
+    set_notes(slide, "J2W_TEMPLATE: roadmap_board")
+    print("  Slide 6 (roadmap_board): done")
+
+
+def _header_only_frame(prs, template_name, with_intro, slide_label):
+    """Shared frame for every 'body drawn programmatically' shape below
+    (box_grid, pillar_deepdive, scored_list, stat_overview, data_table) --
+    same reasoning as build_slide6/roadmap_board: the body has no fixed slot
+    count for a static template to carry, so the template only needs to own
+    the header (+ an optional intro paragraph marker)."""
+    slide = prs.slides.add_slide(_blank_layout(prs))
+    header(slide, "{{TITLE}}", "{{SUBHEAD}}",
+           title_font="Oswald", subtitle_font="Roboto Condensed",
+           title_size=24, subtitle_size=15)
+    if with_intro:
+        txt(slide, MARGIN, 1.00, SW - 2 * MARGIN, 0.46, "{{INTRO}}", 11, C_BODY,
+            wrap=True, anchor='t', shrink=True)
+    set_notes(slide, "J2W_TEMPLATE: " + template_name)
+    print(f"  {slide_label} ({template_name}): done")
+    return slide
+
+
+def build_slide7(prs):
+    """box_grid -- a generalised four_box for N sections (2-8), used by
+    'Recreate with AI' when a source slide's own grid isn't exactly 4 items."""
+    _header_only_frame(prs, "box_grid", with_intro=False, slide_label="Slide 7")
+
+
+def build_slide8(prs):
+    """pillar_deepdive -- ONE capability broken into a few feature blocks,
+    each with its own sub-points (owner's reference deck, 2026-07-09)."""
+    _header_only_frame(prs, "pillar_deepdive", with_intro=False, slide_label="Slide 8")
+
+
+def build_slide9(prs):
+    """scored_list -- a named-row list with an optional stat chip per row."""
+    _header_only_frame(prs, "scored_list", with_intro=False, slide_label="Slide 9")
+
+
+def build_slide10(prs):
+    """stat_overview -- a handful of headline stats + an optional component
+    row + an optional closing banner."""
+    _header_only_frame(prs, "stat_overview", with_intro=True, slide_label="Slide 10")
+
+
+def build_slide11(prs):
+    """data_table -- a narrative panel + a small colour-coded data table. No
+    header intro marker (with_intro=False): the intro text renders ONCE,
+    inside the left panel itself (skills._draw_data_table), at a size that
+    fits a real paragraph -- the header's own small intro marker is sized for
+    a one-line lead-in, not this shape's longer narrative text."""
+    _header_only_frame(prs, "data_table", with_intro=False, slide_label="Slide 11")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     prs = Presentation()
@@ -359,6 +460,13 @@ if __name__ == "__main__":
     build_slide2(prs)
     build_slide3(prs)
     build_slide4(prs)
+    build_slide5(prs)
+    build_slide6(prs)
+    build_slide7(prs)
+    build_slide8(prs)
+    build_slide9(prs)
+    build_slide10(prs)
+    build_slide11(prs)
 
     prs.save(OUT)
     print(f"\nSaved: {OUT}  ({len(prs.slides)} slides)")

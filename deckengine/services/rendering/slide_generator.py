@@ -275,6 +275,492 @@ def case_from_content(content, context=None):
     return _normalize_case_study(data, industry)
 
 
+def classify_content(content):
+    """Which built-in template shape best fits this pasted content -- picks from
+    CONTENT_TEMPLATES (the registry at the bottom of this file), so adding a new
+    shape later means adding ONE entry there, not rewriting this prompt by hand.
+    Owner's spec, 2026-07-08 (extended 2026-07-08 to more than two shapes):
+    pasted content isn't always a case study; auto-detect which shape it
+    actually is (like Gen Spark does), instead of always forcing the case-study
+    mould. Fails safe to the registry's first entry ('case_study') -- the
+    safer, more full-featured existing default when the AI call is unavailable
+    or the reply doesn't parse to a real choice."""
+    content = (content or "").strip()
+    default_key = CONTENT_TEMPLATES[0]["key"]
+    if not content:
+        return default_key
+    letters = "ABCDEFGHIJ"
+    choices = "\n".join(f"({letters[i]}) {t['classify_desc']}"
+                        for i, t in enumerate(CONTENT_TEMPLATES))
+    key_by_letter = {letters[i]: t["key"] for i, t in enumerate(CONTENT_TEMPLATES)}
+    prompt = (
+        "Does the content below read as one of these template shapes?\n"
+        + choices + "\n\nIf genuinely unsure, or the content doesn't clearly fit "
+        "any one shape well, answer (A).\n\nCONTENT:\n\"\"\"\n" + content[:4000] + "\n\"\"\"\n\n"
+        'Reply with ONLY this JSON: {"choice":"A"} -- the single letter of your pick.'
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You classify pasted slide content into "
+                 "one of several template shapes. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+        letter = str(data.get("choice", "")).strip().upper()[:1]
+        return key_by_letter.get(letter, default_key)
+    except Exception:
+        return default_key
+
+
+FOUR_BOX_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\","
+    "\"boxes\":[{\"heading\":\"...\",\"body\":\"...\"},...]}\n"
+    "- title: a short slide title (3-7 words) naming what the four boxes are.\n"
+    "- subhead: one line of context/framing under the title (can be empty).\n"
+    "- boxes: EXACTLY 4 items, in the content's own order. Each heading is 2-5 "
+    "words; each body is 1-3 sentences, preserving the source's own facts/numbers.\n"
+)
+
+
+def four_box_from_content(content, context=None):
+    """Turn pasted content that reads as a 4-way breakdown into J2W's four_box
+    format: one short heading + one short paragraph per box. PRESERVE the
+    user's own facts and numbers; only reformat into the fixed 4-box
+    structure. Fails safe to a placeholder record (mirrors case_from_content)."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        "Below is content the user pasted that reads as FOUR roughly-parallel "
+        "sections (pillars, categories, steps, or findings) -- not a single-"
+        "client case study. Restructure it into J2W's four-box format. PRESERVE "
+        "their facts and numbers; only reformat, tighten and organise -- do not "
+        "invent content that isn't there, and if there are more or fewer than 4 "
+        "natural sections, group or split them sensibly into exactly 4.\n\n"
+        + (f"Account domain (context only, doesn't need to appear verbatim): {industry}\n\n" if industry else "")
+        + "CONTENT:\n\"\"\"\n" + (content or "")[:12000] + "\n\"\"\"\n\n"
+        + FOUR_BOX_FIELDS_SPEC
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You restructure pasted content into a "
+                 "strict 4-box format without losing facts. Reply with one JSON "
+                 "object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        data = {}
+    return _normalize_four_box(data)
+
+
+def _normalize_four_box(data):
+    boxes = [b for b in (data.get("boxes") or []) if isinstance(b, dict)][:4]
+    out_boxes = []
+    for b in boxes:
+        out_boxes.append({"heading": _clean(b.get("heading")) or "Untitled",
+                          "body": _clean(b.get("body")) or "Content to be defined."})
+    while len(out_boxes) < 4:
+        out_boxes.append({"heading": "Untitled", "body": "Content to be defined."})
+    return {"content_type": "four_box", "template": "four_box",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "boxes": out_boxes}
+
+
+ROADMAP_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\",\"intro\":\"...\","
+    "\"columns\":[{\"name\":\"...\",\"tag\":\"...\",\"items\":[\"...\"]}],"
+    "\"legend\":[{\"tag\":\"...\",\"note\":\"...\"}],"
+    "\"footer_title\":\"...\",\"footer_body\":\"...\"}\n"
+    "- title: a short slide title (3-8 words).\n"
+    "- subhead: one short line under the title, e.g. a section label (can be empty).\n"
+    "- intro: a 1-3 sentence lead-in paragraph giving context for the plan/board, "
+    "preserving the source's own facts (can be empty).\n"
+    "- columns: one per distinct category/lane/function in the content, in the "
+    "LITERAL reading order the content lists them in -- do NOT group, sort, or "
+    "reorder columns by their tag/phase (e.g. do not move every 'Phase 1' column "
+    "to the front); keep each column exactly where it appears in the source, even "
+    "if that interleaves different tags. name = 2-4 words, the content's own "
+    "names; tag = the short group/phase/stage label this column belongs to (e.g. "
+    "'Phase 1'), copied EXACTLY as written elsewhere in the content -- every "
+    "column in the same group must use the IDENTICAL tag string, character for "
+    "character; items = its own bullet points, in the content's own order and "
+    "wording, tightened to a few words each.\n"
+    "- legend: one entry per DISTINCT tag used above, in the order each tag first "
+    "appears. note = the short descriptor accompanying that tag in the source, if "
+    "any (e.g. 'the anchors'), else empty.\n"
+    "- footer_title / footer_body: a closing summary/callout banner if the content "
+    "has one (e.g. a shared foundation or common thread across every column); both "
+    "empty if the content has no such closing summary.\n"
+)
+
+
+def roadmap_from_content(content, context=None):
+    """Turn pasted content that reads as a phased roadmap or board -- several
+    categories/lanes each tagged with a phase/stage and its own bullet items --
+    into J2W's roadmap_board format. PRESERVE the user's own facts and structure
+    -- this shape, unlike four_box, has NO fixed slot count; as many columns as
+    the content actually has (rendering draws them programmatically, see
+    skills.py's _draw_roadmap_columns). Fails safe to a placeholder record
+    (mirrors case_from_content / four_box_from_content)."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        "Below is content the user pasted that reads as a PHASED ROADMAP OR BOARD "
+        "-- several categories/lanes/functions, each tagged with a phase, stage, "
+        "or status, each listing its own items -- not a single-client case study "
+        "and not a simple four-way breakdown. Restructure it into J2W's roadmap "
+        "format. PRESERVE their facts, structure, and however many columns the "
+        "content actually has; do not invent content that isn't there.\n\n"
+        + (f"Account domain (context only, doesn't need to appear verbatim): {industry}\n\n" if industry else "")
+        + "CONTENT:\n\"\"\"\n" + (content or "")[:12000] + "\n\"\"\"\n\n"
+        + ROADMAP_FIELDS_SPEC
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You restructure pasted content into a "
+                 "phased-roadmap/board format without losing facts or columns. "
+                 "Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        data = {}
+    return _normalize_roadmap(data)
+
+
+def _extract_shape(content, context, instruction, fields_spec, system_note):
+    """Shared AI-extraction call for the box_grid/pillar_deepdive/scored_list/
+    stat_overview/data_table shapes below -- returns the raw parsed JSON dict
+    (or {} on any failure); each shape's own _normalize_* turns that into a
+    safe, complete record. Factored out since these 5 shapes are structurally
+    identical calls (prompt + schema + one JSON response) -- case_from_content/
+    four_box_from_content/roadmap_from_content predate this and are left as-is
+    (working, tested, not worth touching for this)."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        instruction
+        + (f"\n\nAccount domain (context only, doesn't need to appear verbatim): {industry}\n" if industry else "")
+        + "\n\nCONTENT:\n\"\"\"\n" + (content or "")[:12000] + "\n\"\"\"\n\n"
+        + fields_spec
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_note},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+
+
+BOX_GRID_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\","
+    "\"boxes\":[{\"heading\":\"...\",\"body\":\"...\"},...]}\n"
+    "- title: a short slide title (3-8 words).\n"
+    "- subhead: one line of context/framing under the title (can be empty).\n"
+    "- boxes: one per distinct section/category/pillar/finding, in the "
+    "content's own order -- as many as the content naturally has (2 to 8), do "
+    "NOT force a fixed count. Each heading is 2-5 words; each body is 1-3 "
+    "sentences, preserving the source's own facts/numbers.\n"
+)
+
+
+def box_grid_from_content(content, context=None):
+    """A generalised four_box for N sections (2-8) instead of exactly 4 --
+    used by the per-slide 'Recreate with AI' pipeline (see recreate.py) where
+    a source slide's own grid might have 3, 5, or 6 items, not always 4."""
+    data = _extract_shape(
+        content, context,
+        "Below is content that reads as several roughly-parallel sections, "
+        "categories, pillars, or findings -- not a single-client case study. "
+        "Restructure it into J2W's box-grid format. PRESERVE the content's own "
+        "facts and numbers; only reformat, tighten and organise -- use as many "
+        "boxes as the content naturally has, do not force a fixed count.",
+        BOX_GRID_FIELDS_SPEC,
+        "You restructure pasted content into a box-grid format without losing "
+        "facts. Reply with one JSON object only.")
+    return _normalize_box_grid(data)
+
+
+def _normalize_box_grid(data):
+    boxes_in = [b for b in (data.get("boxes") or []) if isinstance(b, dict)][:8]
+    boxes = []
+    for b in boxes_in:
+        heading = _clean(b.get("heading"))
+        body = _clean(b.get("body"))
+        if heading or body:
+            boxes.append({"heading": heading or "Untitled",
+                          "body": body or "Content to be defined."})
+    while len(boxes) < 2:
+        boxes.append({"heading": "Untitled", "body": "Content to be defined."})
+    return {"content_type": "box_grid", "template": "box_grid",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "boxes": boxes}
+
+
+PILLAR_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"eyebrow\":\"...\",\"title\":\"...\","
+    "\"blocks\":[{\"heading\":\"...\",\"body\":\"...\",\"subpoints\":[\"...\"]}]}\n"
+    "- eyebrow: a short label above the title (e.g. 'PILLAR 01'), can be empty.\n"
+    "- title: the capability/pillar's own name (2-5 words).\n"
+    "- blocks: one per distinct feature/component within this pillar, in the "
+    "content's own order -- as many as it naturally has (2 to 4). heading = "
+    "2-5 words (the feature's own name); body = 1 sentence describing it; "
+    "subpoints = the feature's own supporting details/specifics, 1 short line "
+    "each (2 to 4 subpoints), preserving the source's own facts/numbers.\n"
+)
+
+
+def pillar_deepdive_from_content(content, context=None):
+    """ONE capability broken into a few feature blocks, each with its own
+    supporting sub-points -- matches the 'PILLAR 0N' deep-dive layout pattern
+    (owner's reference deck, 2026-07-09), used by 'Recreate with AI' for a
+    source slide that goes deep on a single capability rather than surveying
+    several in parallel (that's box_grid instead)."""
+    data = _extract_shape(
+        content, context,
+        "Below is content that reads as ONE capability/pillar broken into "
+        "several features or components, each with its own supporting details "
+        "-- restructure it into J2W's pillar-deepdive format. PRESERVE the "
+        "content's own facts and numbers.",
+        PILLAR_FIELDS_SPEC,
+        "You restructure pasted content into a pillar-deepdive format without "
+        "losing facts. Reply with one JSON object only.")
+    return _normalize_pillar(data)
+
+
+def _normalize_pillar(data):
+    blocks_in = [b for b in (data.get("blocks") or []) if isinstance(b, dict)][:4]
+    blocks = []
+    for b in blocks_in:
+        subs = [_clean(s) for s in (b.get("subpoints") or []) if _clean(s)][:4]
+        heading = _clean(b.get("heading"))
+        if not (heading or subs):
+            continue
+        blocks.append({"heading": heading or "Untitled",
+                       "body": _clean(b.get("body")), "subpoints": subs})
+    if not blocks:
+        blocks = [{"heading": "Untitled", "body": "", "subpoints": ["Content to be defined."]}]
+    return {"content_type": "pillar_deepdive", "template": "pillar_deepdive",
+            "eyebrow": _clean(data.get("eyebrow")),
+            "title": _clean(data.get("title")) or "Untitled",
+            "blocks": blocks}
+
+
+SCORED_LIST_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\","
+    "\"rows\":[{\"name\":\"...\",\"description\":\"...\",\"stat\":\"...\"}]}\n"
+    "- title: a short slide title (3-8 words).\n"
+    "- subhead: one line of context under the title (can be empty).\n"
+    "- rows: one per distinct named item (agent, step, component, metric "
+    "owner), in the content's own order -- as many as it naturally has (2 to "
+    "8). name = 2-4 words; description = 1 short sentence; stat = a short "
+    "figure/score/label associated with that row if the content has one (e.g. "
+    "'85% confidence', '112 markets'), else empty.\n"
+)
+
+
+def scored_list_from_content(content, context=None):
+    """A named-row list with an optional per-row stat chip -- matches the
+    'Agent Architecture' style layout (owner's reference deck, 2026-07-09):
+    several named things, each with a short description and a figure."""
+    data = _extract_shape(
+        content, context,
+        "Below is content that reads as a list of named items (agents, steps, "
+        "components), each with a short description and often a figure/score "
+        "attached -- restructure it into J2W's scored-list format. PRESERVE "
+        "the content's own facts and numbers.",
+        SCORED_LIST_FIELDS_SPEC,
+        "You restructure pasted content into a scored-list format without "
+        "losing facts. Reply with one JSON object only.")
+    return _normalize_scored_list(data)
+
+
+def _normalize_scored_list(data):
+    rows_in = [r for r in (data.get("rows") or []) if isinstance(r, dict)][:8]
+    rows = []
+    for r in rows_in:
+        name = _clean(r.get("name"))
+        if not name:
+            continue
+        rows.append({"name": name, "description": _clean(r.get("description")),
+                     "stat": _clean(r.get("stat"))})
+    if not rows:
+        rows = [{"name": "Untitled", "description": "Content to be defined.", "stat": ""}]
+    return {"content_type": "scored_list", "template": "scored_list",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "rows": rows}
+
+
+STAT_OVERVIEW_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\",\"intro\":\"...\","
+    "\"stats\":[{\"value\":\"...\",\"label\":\"...\"}],\"items\":[\"...\"],"
+    "\"footer_title\":\"...\",\"footer_body\":\"...\"}\n"
+    "- title: a short slide title (3-8 words).\n"
+    "- subhead: one line under the title (can be empty).\n"
+    "- intro: a 1-2 sentence lead-in paragraph (can be empty).\n"
+    "- stats: the content's own headline numbers/metrics, in the content's own "
+    "order -- as many as it naturally has (2 to 6). value = the number/figure "
+    "AS WRITTEN (e.g. '112', '85%', '47s'); label = 1-3 words naming it.\n"
+    "- items: a short list of named components/capabilities the content "
+    "enumerates alongside the stats, if any (0 to 6), else empty.\n"
+    "- footer_title / footer_body: a closing summary banner if the content "
+    "has one, else both empty.\n"
+)
+
+
+def stat_overview_from_content(content, context=None):
+    """A headline-numbers overview -- matches the 'What is X?' style slide
+    (owner's reference deck, 2026-07-09): a handful of big stats, maybe a row
+    of named components, maybe a closing summary strip."""
+    data = _extract_shape(
+        content, context,
+        "Below is content that reads as a headline STATS OVERVIEW -- a "
+        "handful of key numbers/metrics, maybe alongside a short list of "
+        "named components -- restructure it into J2W's stat-overview format. "
+        "PRESERVE the content's own facts and numbers exactly as written.",
+        STAT_OVERVIEW_FIELDS_SPEC,
+        "You restructure pasted content into a stat-overview format without "
+        "losing facts. Reply with one JSON object only.")
+    return _normalize_stat_overview(data)
+
+
+def _normalize_stat_overview(data):
+    stats_in = [s for s in (data.get("stats") or []) if isinstance(s, dict)][:6]
+    stats = []
+    for s in stats_in:
+        value = _clean(s.get("value"))
+        if not value:
+            continue
+        stats.append({"value": value, "label": _clean(s.get("label")) or "-"})
+    if not stats:
+        stats = [{"value": "-", "label": "Untitled"}]
+    items = [_clean(i) for i in (data.get("items") or []) if _clean(i)][:6]
+    return {"content_type": "stat_overview", "template": "stat_overview",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "intro": _clean(data.get("intro")),
+            "stats": stats, "items": items,
+            "footer_title": _clean(data.get("footer_title")),
+            "footer_body": _clean(data.get("footer_body"))}
+
+
+DATA_TABLE_FIELDS_SPEC = (
+    "Return ONLY this JSON: {\"title\":\"...\",\"subhead\":\"...\",\"intro\":\"...\","
+    "\"col_labels\":[\"...\",\"...\",\"...\"],"
+    "\"rows\":[{\"label\":\"...\",\"tag\":\"...\",\"value\":\"...\"}]}\n"
+    "- title: a short slide title (3-8 words).\n"
+    "- subhead: one line under the title (can be empty).\n"
+    "- intro: a 1-3 sentence lead-in paragraph describing what the table shows "
+    "(can be empty).\n"
+    "- col_labels: EXACTLY 3 short column headers for the table (e.g. "
+    "['Market','Filing Type','Count']), matching what the content's own table/"
+    "list actually tracks.\n"
+    "- rows: one per data row, in the content's own order -- as many as it "
+    "naturally has (2 to 10). label = the row's own name (e.g. a market/"
+    "entity); tag = the short categorical value for that row (e.g. a type/"
+    "status), copied EXACTLY as written -- rows sharing a category use the "
+    "IDENTICAL tag string; value = the row's own number/figure.\n"
+)
+
+
+def data_table_from_content(content, context=None):
+    """A narrative panel + a small data table with a colour-coded category
+    per row -- matches the 'Market Heatmap' style layout (owner's reference
+    deck, 2026-07-09): real structured data, not prose to summarise."""
+    data = _extract_shape(
+        content, context,
+        "Below is content that reads as a DATA TABLE or structured list of "
+        "rows, each with a category/type and a figure -- restructure it into "
+        "J2W's data-table format. PRESERVE the content's own facts and "
+        "numbers exactly, and the content's own row order.",
+        DATA_TABLE_FIELDS_SPEC,
+        "You restructure pasted content into a data-table format without "
+        "losing facts. Reply with one JSON object only.")
+    return _normalize_data_table(data)
+
+
+def _normalize_data_table(data):
+    rows_in = [r for r in (data.get("rows") or []) if isinstance(r, dict)][:10]
+    rows = []
+    for r in rows_in:
+        label = _clean(r.get("label"))
+        if not label:
+            continue
+        rows.append({"label": label, "tag": _clean(r.get("tag")),
+                     "value": _clean(r.get("value"))})
+    if not rows:
+        rows = [{"label": "Untitled", "tag": "", "value": ""}]
+    cols = [_clean(c) for c in (data.get("col_labels") or []) if _clean(c)][:3]
+    defaults = ["Item", "Category", "Value"]
+    while len(cols) < 3:
+        cols.append(defaults[len(cols)])
+    return {"content_type": "data_table", "template": "data_table",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "intro": _clean(data.get("intro")),
+            "col_labels": cols, "rows": rows}
+
+
+def _normalize_roadmap(data):
+    # 16 is a sanity ceiling (a slide can only be so wide), not a design target --
+    # unlike four_box, real column counts are whatever the content has.
+    cols_in = [c for c in (data.get("columns") or []) if isinstance(c, dict)][:16]
+    columns = []
+    for c in cols_in:
+        items = [_clean(i) for i in (c.get("items") or []) if _clean(i)][:6]
+        if not items:
+            continue
+        columns.append({"name": _clean(c.get("name")) or "Untitled",
+                        "tag": _clean(c.get("tag")) or "",
+                        "items": items})
+    if not columns:
+        columns = [{"name": "Untitled", "tag": "", "items": ["Content to be defined."]}]
+    legend_in = [l for l in (data.get("legend") or []) if isinstance(l, dict)][:8]
+    legend = [{"tag": _clean(l.get("tag")), "note": _clean(l.get("note"))}
+             for l in legend_in if _clean(l.get("tag"))]
+    return {"content_type": "roadmap_board", "template": "roadmap_board",
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead")),
+            "intro": _clean(data.get("intro")),
+            "columns": columns,
+            "legend": legend,
+            "footer_title": _clean(data.get("footer_title")),
+            "footer_body": _clean(data.get("footer_body"))}
+
+
 def _clean(s):
     return str("" if s is None else s).replace("—", "-").replace("–", "-").strip()
 
@@ -510,6 +996,57 @@ def append_generated(deck_path, items):
             _add_verify_banner(new_slide, dest.slide_width)
     dest.save(deck_path)
     return len(items)
+
+
+# ── CONTENT_TEMPLATES registry ────────────────────────────────────────────────
+# The single source of truth for every built-in "quick content" slide shape --
+# classify_content() builds its prompt FROM this list, and callers (decks.py's
+# /from_content route, new_form.html's template_hint dropdown) iterate it
+# instead of hardcoding each key. Adding a new shape = add one entry here (a
+# builder + a normalize function above) -- nothing else needs to change.
+CONTENT_TEMPLATES = [
+    {"key": "case_study", "label": "Case study",
+     "classify_desc": "a CASE STUDY -- a specific client's situation, what was "
+                      "delivered to solve it, and the outcome/results",
+     "builder": case_from_content},
+    {"key": "four_box", "label": "Four-box section",
+     "classify_desc": "a FOUR-WAY BREAKDOWN -- roughly four parallel sections, "
+                      "categories, pillars, steps, or findings, with no single "
+                      "client-situation narrative",
+     "builder": four_box_from_content},
+    {"key": "roadmap_board", "label": "Phased roadmap / board",
+     "classify_desc": "a PHASED ROADMAP OR BOARD -- several categories/lanes/"
+                      "functions, each tagged with a phase, stage, or status, "
+                      "each listing its own bullet items (e.g. a plan sequenced "
+                      "across Phase 1/2/3, or a kanban-style board)",
+     "builder": roadmap_from_content},
+    {"key": "box_grid", "label": "Box grid (N sections)",
+     "classify_desc": "a BOX GRID -- several (anywhere from 2 to 8) roughly-"
+                      "parallel sections/categories/pillars/findings, like a "
+                      "four-way breakdown but not limited to exactly four",
+     "builder": box_grid_from_content},
+    {"key": "pillar_deepdive", "label": "Capability deep-dive",
+     "classify_desc": "a CAPABILITY DEEP-DIVE -- ONE single capability/pillar "
+                      "broken into a few features or components, each with its "
+                      "own supporting details/specifics (not several parallel "
+                      "capabilities surveyed side by side -- that's a box grid)",
+     "builder": pillar_deepdive_from_content},
+    {"key": "scored_list", "label": "Named list with stats",
+     "classify_desc": "a NAMED LIST WITH STATS -- several named items (agents, "
+                      "steps, components), each with a short description and "
+                      "often a figure/score attached to it",
+     "builder": scored_list_from_content},
+    {"key": "stat_overview", "label": "Headline stats overview",
+     "classify_desc": "a HEADLINE STATS OVERVIEW -- a handful of key numbers/"
+                      "metrics presented together, maybe alongside a short "
+                      "list of named components",
+     "builder": stat_overview_from_content},
+    {"key": "data_table", "label": "Data table",
+     "classify_desc": "a DATA TABLE -- structured rows of real data (each "
+                      "with a category/type and a figure), not prose to "
+                      "summarise",
+     "builder": data_table_from_content},
+]
 
 
 if __name__ == "__main__":

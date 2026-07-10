@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""templates.py  --  the /templates page: fill-on-demand templates, saved decks
-(upload & reuse), and the deck re-skinner (upload -> J2W-branded -> download)."""
+"""templates.py  --  the /templates page: fill-on-demand templates, the "learn a
+template" flow, and the deck re-skinner (upload -> J2W-branded -> download)."""
 
 import io
 import os
@@ -9,12 +9,11 @@ import shutil
 import time
 import uuid
 
-from flask import Blueprint, render_template, request, send_file, redirect, abort
+from flask import Blueprint, render_template, request, redirect
 from pptx import Presentation
 
 from deckengine import config
-from deckengine.services.rendering import slide_generator, reskin, templatize
-from deckengine.services import saved_templates
+from deckengine.services.rendering import slide_generator, reskin, templatize, recreate
 from .view_helpers import shell
 
 bp = Blueprint("templates", __name__)
@@ -41,43 +40,8 @@ def templates_page():
     except Exception:
         items = []
     body = render_template("templates_page.html", items=items,
-                           saved=saved_templates.all_templates(),
                            learned=templatize.all_templates())
     return shell(body, active="templates", crumb="<b>Templates</b>")
-
-
-# ── F3: save an uploaded deck as a reusable template ──────────────────────────
-@bp.route("/template/save", methods=["POST"])
-def template_save():
-    f = request.files.get("deck_file")
-    if not f or not getattr(f, "filename", ""):
-        return redirect("/templates")
-    data = f.read()
-    if not data:
-        return redirect("/templates")
-    name = request.form.get("name", "").strip() or os.path.splitext(f.filename)[0]
-    try:
-        slides = len(Presentation(io.BytesIO(data)).slides)
-    except Exception:
-        slides = 0
-    saved_templates.save(name, data, slides)
-    return redirect("/templates")
-
-
-@bp.route("/template/saved/<tid>/download")
-def template_download(tid):
-    p = saved_templates.file_path(tid)
-    if not p:
-        abort(404)
-    row = saved_templates.get(tid)
-    return send_file(p, as_attachment=True,
-                     download_name=(row["name"] + ".pptx") if row else "template.pptx")
-
-
-@bp.route("/template/saved/<tid>/delete", methods=["POST"])
-def template_delete(tid):
-    saved_templates.delete(tid)
-    return redirect("/templates")
 
 
 # ── F2: re-skin an uploaded deck into the J2W design ──────────────────────────
@@ -95,7 +59,6 @@ def template_reskin():
         Presentation(io.BytesIO(data))
     except Exception:
         body = render_template("templates_page.html", items=[],
-                               saved=saved_templates.all_templates(),
                                reskin_error="Couldn't read that file — please upload a valid .pptx.")
         return shell(body, active="templates", crumb="<b>Templates</b>")
     # rebrand the original deck in place (nothing dropped), then render true previews
@@ -116,25 +79,48 @@ def template_reskin():
     images = ["/static/renders/reskin/" + os.path.basename(p) for p in pngs]
     nslides = len(Presentation(out).slides._sldIdLst)
     body = render_template("reskin_preview.html", images=images, nslides=nslides,
-                           filename=fname, src_name=f.filename)
+                           filename=fname, src_name=f.filename, mode="reskin")
     return shell(body, active="templates", crumb="<b>Templates</b> / Re-skin preview")
 
 
-@bp.route("/template/save_output", methods=["POST"])
-def template_save_output():
-    """Save an already-built output deck (e.g. a re-skinned one) as a reusable template."""
-    fname = os.path.basename(request.form.get("filename", ""))
-    p = os.path.join(config.OUTPUT_DIR, fname)
-    if fname and os.path.exists(p):
-        with open(p, "rb") as fh:
-            data = fh.read()
-        name = request.form.get("name", "").strip() or os.path.splitext(fname)[0].replace("Reskinned_", "")
-        try:
-            slides = len(Presentation(io.BytesIO(data)).slides)
-        except Exception:
-            slides = 0
-        saved_templates.save(name, data, slides)
-    return redirect("/templates")
+# ── F5: "Recreate with AI" -- rebuild an uploaded deck in J2W's own layouts ────
+@bp.route("/template/recreate", methods=["POST"])
+def template_recreate():
+    f = request.files.get("deck_file")
+    if not f or not getattr(f, "filename", ""):
+        return redirect("/templates")
+    data = f.read()
+    try:                                          # reject non-pptx up front
+        Presentation(io.BytesIO(data))
+    except Exception:
+        body = render_template("templates_page.html", items=[],
+                               reskin_error="Couldn't read that file — please upload a valid .pptx.")
+        return shell(body, active="templates", crumb="<b>Templates</b>")
+    industry = request.form.get("industry", "").strip()
+    os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+    fname = "Recreated_" + _slug(os.path.splitext(f.filename)[0]) + ".pptx"
+    out = os.path.join(config.OUTPUT_DIR, fname)
+    try:
+        _out, stats = recreate.recreate_deck(data, out, industry=industry)
+    except (PermissionError, OSError) as e:
+        from .view_helpers import file_busy_page
+        return file_busy_page(str(e))
+    rdir = os.path.join(config.RENDERS_DIR, "recreate")
+    shutil.rmtree(rdir, ignore_errors=True)
+    try:
+        pngs = reskin.render_pngs(out, rdir)
+    except Exception:
+        pngs = []
+    images = ["/static/renders/recreate/" + os.path.basename(p) for p in pngs]
+    nslides = len(Presentation(out).slides._sldIdLst)
+    stats_line = (f"{stats['recreated']} slide(s) redesigned, "
+                 f"{stats['restyled']} restyled as-authored (didn't fit a "
+                 f"content shape), {stats['skipped']} replaced with our own "
+                 "title/closing.")
+    body = render_template("reskin_preview.html", images=images, nslides=nslides,
+                           filename=fname, src_name=f.filename, stats_line=stats_line,
+                           mode="recreate")
+    return shell(body, active="templates", crumb="<b>Templates</b> / Recreate preview")
 
 
 # ── F4: "learn a template" -- upload -> pick a slide -> AI-propose roles ──────

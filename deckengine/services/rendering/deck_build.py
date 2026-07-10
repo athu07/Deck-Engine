@@ -14,6 +14,7 @@ from deckengine.services.rendering import assembler
 from deckengine.services.rendering import skills
 from deckengine.services.rendering import staging
 from deckengine.services.rendering import client_context
+from deckengine.services.rendering import client_logo
 from deckengine.services.content import editor
 from deckengine.services.content import case_library
 from deckengine.services.content.content_store import content_store
@@ -60,15 +61,39 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
     for oid in final_ids:
         if oid.startswith("NEW:"):
             rec = staging.get(oid[4:])
-            if rec:
-                record = ai_to_store_record(rec, industry)
-                if case_edits.get(oid):
-                    record.update(case_edits[oid])     # user edits win
-                create_items.append({"id": oid, "template": "case_study_v2", "record": record})
-                try:
-                    case_library.promote_ai_case(record, first_wt, industry)
-                except Exception:
-                    pass    # never let a library-save failure block the deck
+            if not rec:
+                continue
+            if rec.get("content_type") == "four_box":
+                # a 4-way breakdown, not a case study (owner's spec, 2026-07-08) --
+                # goes through skills.build_into's generic marker-fill path
+                # instead of the case-study-specific one; no content-store save,
+                # since case_library's schema is case-study-shaped, not this.
+                create_items.append({"id": oid, "template": "four_box", "kind": "four_box",
+                                     "data": {"title": rec.get("title", ""),
+                                             "subhead": rec.get("subhead", ""),
+                                             "boxes": rec.get("boxes", [])}})
+                continue
+            if rec.get("content_type") == "roadmap_board":
+                # a variable-column phased roadmap/board, not a case study --
+                # drawn programmatically (skills.build_into's roadmap_board
+                # branch), same no-content-store-save reasoning as four_box.
+                create_items.append({"id": oid, "template": "roadmap_board", "kind": "roadmap_board",
+                                     "data": {"title": rec.get("title", ""),
+                                             "subhead": rec.get("subhead", ""),
+                                             "intro": rec.get("intro", ""),
+                                             "columns": rec.get("columns", []),
+                                             "legend": rec.get("legend", []),
+                                             "footer_title": rec.get("footer_title", ""),
+                                             "footer_body": rec.get("footer_body", "")}})
+                continue
+            record = ai_to_store_record(rec, industry)
+            if case_edits.get(oid):
+                record.update(case_edits[oid])     # user edits win
+            create_items.append({"id": oid, "template": "case_study_v2", "record": record})
+            try:
+                case_library.promote_ai_case(record, first_wt, industry)
+            except Exception:
+                pass    # never let a library-save failure block the deck
     # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
     # case_study_v2 template, anonymised + dash-clean, into THIS deck.
     store_recs = content_store()
@@ -101,4 +126,5 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
             "{{CLIENT}}": client, "{{Client}}": client, "{{client}}": client,
             "{CLIENT}": client, "{Client}": client, "{client}": client,
         })
+        client_logo.stamp_into(path, client)   # no-op if no logo was uploaded for this client
     skills.build_into(path, final_ids, skills_cands + create_items + store_items)   # fill + slot extras

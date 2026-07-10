@@ -18737,5 +18737,157 @@
     ],
     "ai_generated": false,
     "source_row": 176
+  },
+  {
+    "id": "MSS096",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Predictive Quality Control for Injection Molding",
+    "raw_title": "Predictive Quality Control for Injection Molding",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "MANUFACTURING",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "alerting",
+      "automated",
+      "classification",
+      "computer-vision",
+      "control",
+      "dashboard",
+      "data",
+      "defect",
+      "deployment",
+      "for",
+      "infrastructure",
+      "injection",
+      "inline",
+      "inspection",
+      "integrated",
+      "learning",
+      "logging",
+      "machine",
+      "mechanism",
+      "molding",
+      "predictive",
+      "quality",
+      "real-time",
+      "scalable",
+      "system"
+    ],
+    "challenge": "A prominent manufacturing company faced high defect rates in their injection molding lines, primarily due to slow manual inspections. The inability to quickly identify and classify defects led to increased waste and production delays. The company needed a solution to automate the inspection process, reduce defect rates, and improve overall production efficiency.",
+    "solution": "J2W implemented a computer-vision system with inline inspection capabilities, integrating machine learning for defect classification. This solution allowed for real-time monitoring of the molding lines, enabling immediate identification and categorization of defects. The client could now efficiently manage quality control, significantly reducing waste and downtime.",
+    "capabilities": [
+      {
+        "title": "Inline Computer-Vision Inspection System",
+        "body": "Real-time defect detection and monitoring."
+      },
+      {
+        "title": "Machine Learning Defect Classification",
+        "body": "Automated defect categorization for faster decision-making."
+      },
+      {
+        "title": "Integrated Quality Control Dashboard",
+        "body": "Centralized interface for monitoring and analysis."
+      },
+      {
+        "title": "Real-Time Alerting Mechanism",
+        "body": "Immediate notification of defects to reduce response time."
+      },
+      {
+        "title": "Automated Data Logging System",
+        "body": "Continuous recording of inspection data for traceability."
+      },
+      {
+        "title": "Scalable Infrastructure Deployment",
+        "body": "Flexible system to accommodate production line expansions."
+      }
+    ],
+    "results": [
+      "Defect rate reduced by 45% within 3 months.",
+      "Operational costs decreased by 20% due to reduced waste.",
+      "Enhanced decision-making speed with real-time defect insights."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS097",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Agentic SAP S/4HANA Migration and Data Quality Framework",
+    "raw_title": "Agentic SAP S/4HANA Migration and Data Quality Framework",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "MANUFACTURING",
+    "function": "GCC_SETUP",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agent",
+      "agentic",
+      "agentic ai",
+      "ai agent",
+      "ai agents",
+      "and",
+      "autonomous agent",
+      "cleanser",
+      "code",
+      "conversion",
+      "cutover",
+      "data",
+      "framework",
+      "hana",
+      "migration",
+      "multi agent",
+      "multi-agent",
+      "orchestrator",
+      "profiler",
+      "quality",
+      "sap"
+    ],
+    "challenge": "A global automotive OEM faced a critical need to migrate from SAP ECC 6.0 to S/4HANA due to end-of-maintenance. The existing system had 18 years of technical debt, including 42,000 duplicate material masters and inconsistent plant-level customizations, leading to a $14M scheduling error. The client required simultaneous data quality remediation to avoid replicating issues in the new system.",
+    "solution": "J2W deployed six autonomous AI agents to execute a greenfield SAP S/4HANA migration and build a data quality framework. The migration involved 34,000+ SAP objects and 12TB of data, while data quality agents addressed duplicates and inconsistencies. This dual-track approach ensured a seamless transition for 28 plants, maintaining operational integrity and improving data governance.",
+    "capabilities": [
+      {
+        "title": "Code Conversion Agent",
+        "body": "Remediated 2,800 ABAP programs for S/4HANA compatibility."
+      },
+      {
+        "title": "Data Migration Agent",
+        "body": "Managed selective data extraction and loading for 12TB across modules."
+      },
+      {
+        "title": "Data Profiler Agent",
+        "body": "Profiled 1.8M records, identifying duplicates and scoring data quality."
+      },
+      {
+        "title": "Data Cleanser Agent",
+        "body": "Merged 42,000 duplicates, standardized vendor records, and reconciled UoM."
+      },
+      {
+        "title": "Cutover Agent",
+        "body": "Orchestrated wave-based go-live across 28 plants with SIT/UAT cycles."
+      },
+      {
+        "title": "Orchestrator Agent",
+        "body": "Coordinated migration and quality tracks, ensuring quality gates and dependencies."
+      }
+    ],
+    "results": [
+      "Reduced migration timeline from 24 months to 18 weeks.",
+      "Eliminated $14M annual impact from duplicate material masters.",
+      "Enhanced decision-making with a unified global material numbering scheme."
+    ],
+    "ai_generated": true,
+    "source_row": null
   }
 ]

@@ -1,8 +1,15 @@
 
 <div style="margin:14px 0 20px">
+  {% if mode == 'recreate' %}
+  <div class="eyebrow">Recreate with AI</div>
+  <h1 class="display" style="font-size:38px">Recreated in J2W's layouts</h1>
+  <p class="lede"><b>{{ src_name }}</b> rebuilt into {{ nslides }} J2W-styled slides — every fact and number preserved, each slide redesigned to match its own content, not just recoloured in place. Preview below, then download.</p>
+  {% if stats_line %}<p class="hint" style="font-size:13px;margin-top:-6px">{{ stats_line }}</p>{% endif %}
+  {% else %}
   <div class="eyebrow">Re-skin</div>
   <h1 class="display" style="font-size:38px">Re-skinned to J2W</h1>
   <p class="lede"><b>{{ src_name }}</b> rebranded to the J2W look across {{ nslides }} slides — every word, table, image and chart preserved in place. Preview below, then download.</p>
+  {% endif %}
 </div>
 <div class="form-layout">
   <div class="reskin-deck">
@@ -22,16 +29,15 @@
 
   <aside class="side-card">
     <div class="card">
-      <h2 class="sec-title" style="margin-bottom:14px">Re-skinned deck</h2>
+      <h2 class="sec-title" style="margin-bottom:14px">{{ 'Recreated deck' if mode == 'recreate' else 'Re-skinned deck' }}</h2>
       <div class="summary"><div class="sum-row"><span>Slides</span><b>{{ nslides }}</b></div></div>
       <a class="btn btn-primary btn-lg btn-block" href="/output/{{ filename }}?dl=1" style="margin-top:16px"><i class="ti ti-download"></i> Download .pptx</a>
-      <form method="post" action="/template/save_output" style="margin-top:12px">
-        <input type="hidden" name="filename" value="{{ filename }}">
-        <input class="input" name="name" placeholder="Name to save it as…" style="margin-bottom:8px">
-        <button class="btn btn-block" type="submit"><i class="ti ti-bookmark-plus"></i> Save as template</button>
-      </form>
       <a href="/templates" class="btn btn-block" style="margin-top:10px"><i class="ti ti-arrow-left"></i> Back to templates</a>
-      <div class="side-tip"><i class="ti ti-info-circle"></i> Content is preserved exactly — only fonts, heading colours and the J2W accent bar + wordmark are applied. The original layout is kept, rebranded.</div>
+      {% if mode == 'recreate' %}
+      <div class="side-tip"><i class="ti ti-info-circle"></i> Every fact/number is kept, but each slide's LAYOUT is freshly built to match its own content — not the original shapes recoloured in place. A slide that doesn't clearly fit a known layout is restyled as-authored instead, so nothing is ever forced or lost.</div>
+      {% else %}
+      <div class="side-tip"><i class="ti ti-info-circle"></i> Content is preserved exactly — only fonts, heading colours and the J2W accent bar are applied. The original layout is kept, rebranded.</div>
+      {% endif %}
     </div>
   </aside>
 </div>

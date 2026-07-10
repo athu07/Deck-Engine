@@ -11,7 +11,7 @@ import re
 import uuid
 from zipfile import BadZipFile
 
-from flask import Blueprint, request, render_template, abort
+from flask import Blueprint, request, render_template, abort, jsonify
 from pptx import Presentation
 
 from deckengine import config
@@ -58,7 +58,8 @@ def home():
     except Exception:
         lib_count = 0
     body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
-                                  phases=PHASES, library_count=lib_count, error="")
+                                  phases=PHASES, library_count=lib_count, error="",
+                                  content_templates=slide_generator.CONTENT_TEMPLATES)
     return shell(body, active="new", crumb="<b>New deck</b> / Context")
 
 
@@ -140,10 +141,39 @@ def build():
     research_text = research.extract_text(request.files.get("research_file"))
     research_given = bool(request.files.get("research_file") and
                           getattr(request.files.get("research_file"), "filename", ""))
-    research_read = bool(research_text)                 # actually got text out of it
-    research_failed = research_given and not research_read
+    research_failed = research_given and not research_text
     # optional STAKEHOLDER PROFILE (LinkedIn/bio) -> drives function/skill matching
     profile_text = research.extract_text(request.files.get("profile_file"))
+    # optional AUTO-RESEARCH (the strategic brief from /research_account) -- the
+    # salesperson reviewed/edited it client-side before submitting. Combined
+    # ADDITIVELY with any uploaded research file text, never replacing it
+    # (owner's spec, 2026-07-08: keep the manual upload option, add
+    # auto-research alongside it).
+    auto_brief = request.form.get("auto_company_text", "").strip()
+    if auto_brief:
+        research_text = (research_text + "\n\n" + auto_brief).strip() if research_text else auto_brief
+    research_read = bool(research_text)                 # got text, from file and/or auto-research
+    # optional CLIENT LOGO -> stamped onto the title slide next to the J2W wordmark
+    # at finalize time (client_logo.stamp_into, called from deck_build.assemble).
+    # Saved now (keyed by client name) so it survives all the way to /finalize
+    # without needing new state threaded through /review's form. A manual
+    # upload wins if both are present; otherwise, if "Find logo" was clicked
+    # and confirmed a real image (see /logo_preview), its bytes ride along as
+    # a data URI so /build uses EXACTLY what was previewed, not a re-rolled
+    # search result.
+    logo_file = request.files.get("client_logo_file")
+    if logo_file and getattr(logo_file, "filename", ""):
+        from deckengine.services.rendering import client_logo
+        client_logo.save(ctx["client_name"], logo_file.read())
+    else:
+        data_uri = request.form.get("client_logo_data_uri", "").strip()
+        if data_uri.startswith("data:") and "," in data_uri:
+            import base64
+            from deckengine.services.rendering import client_logo
+            try:
+                client_logo.save(ctx["client_name"], base64.b64decode(data_uri.split(",", 1)[1]))
+            except Exception:
+                pass
     match_notes = ctx["transcript"]
     if research_text:
         match_notes = (ctx["transcript"] + "\n\n[DEEP RESEARCH BRIEF]\n"
@@ -165,7 +195,8 @@ def build():
             lib_count = 0
         body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
                                       phases=PHASES, library_count=lib_count,
-                                      error="Please select at least one work type.")
+                                      error="Please select at least one work type.",
+                                      content_templates=slide_generator.CONTENT_TEMPLATES)
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
     # The DEEP RESEARCH (or the notes) names the account's real interests. Extract
     # them, then split by coverage: each we HAVE a case for -> a PRIORITY pick
@@ -178,11 +209,15 @@ def build():
     profile_needs = []               # needs (name+description) — feeds lead_research
     avoid = []                       # the brief's mismatch flags
     priority_reasons = {}            # case_id -> {"why","signal"} for the rationale
+    brief = {}                       # set below; kept defined even if extraction fails,
+                                     # so the (separate) strategic-inference pass can use it
+    # shared prep, hoisted above both the literal-extraction and strategic-inference
+    # passes below (pure/no I/O, safe either way needs it)
+    wanted = {w.upper() for w in ctx["work_types"]}
+    wt_ids = {c["id"] for c in case_library.all_cases()
+             if c.get("work_type", "").upper() in wanted}
+    acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
     try:
-        wanted = {w.upper() for w in ctx["work_types"]}
-        wt_ids = {c["id"] for c in case_library.all_cases()
-                  if c.get("work_type", "").upper() in wanted}
-        acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
         # ONE structured pass over research + profile + transcript: needs (with domain/
         # use-case), mismatch flags, expressed interest, account (honours the reference
         # priority: research primary, transcript = prior interest, profile-only otherwise).
@@ -229,8 +264,9 @@ def build():
                                        "blurb": rc.get("challenge", "")})
                 elif name.lower() not in expressed_lc and n.get("description"):
                     missing.append({"name": name, "description": n["description"],
+                                    "domain": n.get("domain", ""), "use_case": n.get("use_case", ""),
                                     "sim": round(cand["cosine"], 2) if cand else 0.0})
-            missing = missing[:6]
+            missing = missing[:10]
             # rich, honest "why this was picked" line per pick (one LLM call; the model only
             # EXPLAINS the already-chosen case, so it cannot mis-pick). Templated fallback.
             ex = ai_matcher.explain_picks(brief, picked)
@@ -261,15 +297,53 @@ def build():
                             priority_ids.append(bid)
                     else:
                         missing.append({**a, "sim": round(cos, 2)})
-                missing = missing[:6]
+                missing = missing[:10]
     except Exception:
         priority_ids, missing, avoid, priority_reasons = [], [], [], {}
+
+    # --- strategic inference: capability bets that are NEVER stated outright, but
+    #     that a sharp account researcher would infer by connecting the STAKEHOLDER's
+    #     own career/role to the COMPANY's business (owner's spec, 2026-07-08 — the
+    #     Pankaj Kumar Pant / Waaree Group case: nothing in his profile says "we want
+    #     predictive maintenance," but 2 years running a solar ingot/wafer plant + a
+    #     career built on defect-catching makes it a reasoned bet). Kept as a fully
+    #     SEPARATE pass from the literal extraction above — a failure here can never
+    #     touch a literal pick, and a literal pick is never overridden by a bet.
+    #     ai_matcher.infer_strategic_fit() only returns a bet when it can argue BOTH
+    #     a personal angle (why HE'D want it) and a company angle (why THEY'D fund
+    #     it) — either missing and it's dropped before it reaches here.
+    try:
+        bets = ai_matcher.infer_strategic_fit(research_text, profile_text, ctx["transcript"], brief)
+        if bets:
+            recs = {r["id"]: r for r in case_library._load()}
+            bet_shortlists = relevance.shortlist_cases(
+                [b["name"] for b in bets], industry=ctx.get("industry", ""),
+                functions=acct_fns, allowed_ids=wt_ids, top_n=8)
+            for b, shortlist in zip(bets, bet_shortlists):
+                cand = None
+                for item in shortlist:
+                    if item["id"] in priority_ids:
+                        continue                        # already used for a literal need
+                    if _is_avoided(recs.get(item["id"], {}), avoid):
+                        continue                        # skip a mismatch-flagged case
+                    cand = item
+                    break
+                if cand and (cand["cosine"] >= CAPABILITY_COVER or cand["title_hits"] >= 1):
+                    priority_ids.append(cand["id"])
+                    priority_reasons[cand["id"]] = {
+                        "why": b["stakeholder_why"], "signal": "strategic bet",
+                        "stakeholder_why": b["stakeholder_why"], "company_why": b["company_why"]}
+    except Exception:
+        pass
 
     # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
     lead_research = (research_text + "\n"
                      + " ".join(f"{n['name']}. {n.get('description','')}" for n in profile_needs)).strip()
     result = matcher.plan({**ctx, "transcript": ctx["transcript"], "research": lead_research},
-                          use_ai=True, priority_ids=priority_ids, avoid=avoid)
+                          use_ai=True, priority_ids=priority_ids, avoid=avoid,
+                          prefer_high_impact=bool(brief.get("prefer_high_impact")),
+                          asked_flags={"asks_differentiation": bool(brief.get("asks_differentiation")),
+                                      "asks_why_not_big_si": bool(brief.get("asks_why_not_big_si"))})
     # Gaps are FLAGS only now (no inline generation) — nothing to pre-fill here.
     titles = matcher._title_lookup()
 
@@ -313,6 +387,34 @@ def build():
                              "skill": True, "tag": "CC", "label": c["label"]})
         result["picks"][insert_at:insert_at] = cc_picks
 
+    # --- pre-built content slides (F1 "Already have the content?", queued
+    #     across possibly several pastes): merge them in by shape, same
+    #     boundary the skills/context auto-adds above use -- a case-study-
+    #     shaped one joins the case-study zone; anything else (four_box,
+    #     roadmap_board, box_grid, ...) sits just above it, with the standard
+    #     slides (owner's spec, 2026-07-09) ---
+    content_ids = [x for x in request.form.get("content_slide_ids", "").split(",") if x]
+    if content_ids:
+        picks = result["picks"]
+        insert_at = next((i for i, p in enumerate(picks) if p["reason"].startswith("case")), None)
+        if insert_at is None:
+            insert_at = next((i for i, p in enumerate(picks) if p["slide_id"] in matcher.PIN_TO_END),
+                             len(picks))
+        standard_extra, case_extra = [], []
+        for cid in content_ids:
+            rec = staging.get(cid)
+            if not rec:
+                continue
+            sid = "NEW:" + cid
+            titles[sid] = rec.get("title", "Untitled")
+            entry = {"slide_id": sid, "reason": "your pasted content", "skill": True,
+                     "tag": "YOU", "label": rec.get("title", "Untitled")}
+            if rec.get("content_type", "case_study") == "case_study":
+                case_extra.append(entry)
+            else:
+                standard_extra.append(entry)
+        picks[insert_at:insert_at] = standard_extra + case_extra
+
     all_slides = sorted(((sid, t) for sid, t in titles.items()
                          if sid not in _legacy_case_ids()),
                         key=lambda kv: matcher._num(kv[0]))
@@ -345,6 +447,9 @@ def build():
             r["fit"] = pr["why"]
             if pr.get("signal"):
                 r["signal"] = pr["signal"]
+            if pr.get("company_why"):     # a strategic bet: show BOTH angles, not just one
+                r["stakeholder_why"] = pr.get("stakeholder_why")
+                r["company_why"] = pr["company_why"]
             if r.get("why", "").strip().lower() in _bare:
                 r["why"] = ""          # the re-rank reason carries it; hide the bare fallback
 
@@ -400,7 +505,16 @@ def _build_review_slides(ids, client):
             slides.append(_case_slide(sid, store[sid]))
         elif sid.startswith("NEW:"):                           # AI-created case
             rec = staging.get(sid[4:])
-            if rec:
+            if rec and rec.get("content_type") == "four_box":
+                slides.append({"kind": "four_box", "id": sid, "title": rec.get("title", ""),
+                               "subhead": rec.get("subhead", ""), "boxes": rec.get("boxes", [])})
+            elif rec and rec.get("content_type") == "roadmap_board":
+                slides.append({"kind": "roadmap_board", "id": sid, "title": rec.get("title", ""),
+                               "subhead": rec.get("subhead", ""), "intro": rec.get("intro", ""),
+                               "columns": rec.get("columns", []), "legend": rec.get("legend", []),
+                               "footer_title": rec.get("footer_title", ""),
+                               "footer_body": rec.get("footer_body", "")})
+            elif rec:
                 slides.append(_case_slide(sid, rec))
         elif sid.startswith("SK:") or sid.startswith("FP:") or sid.startswith("TSP:"):   # data-driven skills slide
             slides.append({"kind": "skills", "id": sid})
@@ -431,33 +545,47 @@ def review():
 
 @bp.route("/from_content", methods=["POST"])
 def from_content():
-    """F1: the user already has the content for ONE case study — paste it or upload a
-    document. Generate a single branded case-study slide from it and go straight to the
-    editable review, where they can tweak and download."""
+    """F1: the user already has the content for ONE slide — paste it or upload a
+    document. Which template it becomes is either auto-detected (does this read as
+    a case study, or a four-way breakdown?) or set explicitly via the template_hint
+    dropdown (owner's spec, 2026-07-08: pasted content isn't always a case study).
+    Builds ONE branded slide and stages it, returning JSON (not a page) — the
+    caller is new-form.js's queue, which lets the salesperson repeat this for
+    several slides (e.g. handed one-by-one by the MS team) before either taking
+    just those straight to review, or continuing into the full context form
+    below so they get merged into the generated deck in the right spot (owner's
+    spec, 2026-07-09: content slides should slot in among the standard slides or
+    the case studies, wherever their own shape belongs, not bolt on separately)."""
     client = request.form.get("client_name", "Client").strip()
     industry = request.form.get("industry", "")
+    work_type = request.form.get("work_type", "").strip().upper()
     content = request.form.get("content", "").strip()
     ftext = research.extract_text(request.files.get("content_file"))
     if ftext:
         content = (content + "\n\n" + ftext).strip()
-    if not content:
-        try:
-            lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
-        except Exception:
-            lib_count = 0
-        body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
-                                      phases=PHASES, library_count=lib_count,
-                                      error="Paste the case-study content or attach a document first.")
-        return shell(body, active="new", crumb="<b>New deck</b> / Context")
-    rec = slide_generator.case_from_content(content, {"industry": industry})
+    # BOTH content and work_type are required -- work_type used to be silently
+    # optional here, which meant staging.add() got "" and case_library.
+    # promote_ai_case() (called unconditionally at /finalize) would look up an
+    # empty-string prefix, find nothing, and return None -- the slide built and
+    # downloaded fine, but NEVER reached the content store, so it was invisible
+    # in Slide Library / search / the Excel registry with no error anywhere
+    # (owner-reported, 2026-07-08: a real case study went missing this way).
+    if not content or work_type not in ("WORKFORCE", "AI_POD", "MS"):
+        err = ("Paste the case-study content or attach a document first." if not content
+              else "Choose a work type — it's needed to save this into the shared library.")
+        return jsonify({"ok": False, "error": err})
+    valid_keys = {t["key"] for t in slide_generator.CONTENT_TEMPLATES}
+    template_hint = request.form.get("template_hint", "auto").strip()
+    template = template_hint if template_hint in valid_keys \
+        else slide_generator.classify_content(content)
+    tdef = next((t for t in slide_generator.CONTENT_TEMPLATES if t["key"] == template),
+               slide_generator.CONTENT_TEMPLATES[0])
+    rec = tdef["builder"](content, {"industry": industry})
     rec["kind"] = "user_created"
-    staged = staging.add(rec, "", industry, client)
-    order = "NEW:" + staged["id"]
-    return _render_review(client, [order], industry=industry,
-                          phase=request.form.get("phase", ""),
-                          recipient=request.form.get("recipient", ""),
-                          functions=request.form.getlist("functions"),
-                          work_types=request.form.getlist("work_types"))
+    staged = staging.add(rec, work_type, industry, client)
+    return jsonify({"ok": True, "id": staged["id"], "title": staged.get("title", "Untitled"),
+                    "content_type": staged.get("content_type", "case_study"),
+                    "template_label": tdef["label"]})
 
 
 @bp.route("/finalize", methods=["POST"])

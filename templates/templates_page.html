@@ -2,36 +2,37 @@
 <div style="margin:14px 0 22px">
   <div class="eyebrow">Templates &amp; decks</div>
   <h1 class="display" style="font-size:38px">Templates</h1>
-  <p class="lede">Re-skin an existing deck into the J2W look, save decks to reuse later, and see the fill templates the engine writes into.</p>
+  <p class="lede">Re-skin an existing deck into the J2W look, teach the engine a layout, and see the fill templates it writes into.</p>
 </div>
 
-<!-- F2 + F3 + F4 · upload actions -->
-<div class="grid g-2-eq" style="margin-bottom:22px">
-  <form class="card upload-card" method="post" action="/template/reskin" enctype="multipart/form-data"
-        onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<i class=\'ti ti-loader\'></i> Re-skinning…'">
-    <div class="upload-ic"><i class="ti ti-wand"></i></div>
-    <h2 class="sec-title" style="margin-bottom:4px">Re-skin a deck to J2W</h2>
-    <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every word, table, image and chart is kept exactly, and the J2W look (fonts, colours, branding) is applied. Preview, then download.</p>
-    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
-      <input type="file" name="deck_file" accept=".pptx" required
-             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
-    <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
-  </form>
+<!-- F2 · re-skin an uploaded deck -->
+<form class="card upload-card" method="post" action="/template/reskin" enctype="multipart/form-data" style="margin-bottom:22px"
+      onsubmit="return submitWithLoader(this,'Re-skinning your deck…','Restyling fonts, colours and branding — a few seconds.')">
+  <div class="upload-ic"><i class="ti ti-wand"></i></div>
+  <h2 class="sec-title" style="margin-bottom:4px">Re-skin a deck to J2W</h2>
+  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every word, table, image and chart is kept exactly, and the J2W look (fonts, colours, branding) is applied. Preview, then download.</p>
+  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+    <input type="file" name="deck_file" accept=".pptx" required
+           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
+</form>
 
-  <form class="card upload-card" method="post" action="/template/save" enctype="multipart/form-data">
-    <div class="upload-ic"><i class="ti ti-bookmark"></i></div>
-    <h2 class="sec-title" style="margin-bottom:4px">Save a deck as a template</h2>
-    <p class="hint" style="font-size:13px;margin:0 0 14px">Keep a deck as a reusable template you can download and start from anytime.</p>
-    <input class="input" name="name" placeholder="Template name (e.g. Q3 Sales Master)" style="margin-bottom:10px">
-    <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
-      <input type="file" name="deck_file" accept=".pptx" required
-             onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
-    <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-bookmark-plus"></i> Save template</button>
-  </form>
-</div>
+<!-- F5 · recreate an uploaded deck in J2W's own layouts -->
+<form class="card upload-card" method="post" action="/template/recreate" enctype="multipart/form-data" style="margin-bottom:22px"
+      onsubmit="return submitWithLoader(this,'Recreating your deck…','Reading each slide and rebuilding it in a J2W layout — this can take a minute.')">
+  <div class="upload-ic"><i class="ti ti-layout-grid"></i></div>
+  <h2 class="sec-title" style="margin-bottom:4px">Recreate with AI</h2>
+  <p class="hint" style="font-size:13px;margin:0 0 14px">Upload any PowerPoint — every fact and number is kept, but each slide is rebuilt in a fresh J2W layout matched to its own content (stats overview, capability deep-dive, phased roadmap, data table…), not just recoloured in place. A slide that doesn't fit any layout is restyled as-authored instead.</p>
+  <label class="upload-drop"><i class="ti ti-upload"></i> <span>Choose a .pptx</span>
+    <input type="file" name="deck_file" accept=".pptx" required
+           onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
+  <input type="text" class="input" name="industry" placeholder="Industry (optional — sharpens the AI's wording)" style="margin-top:10px">
+  <button class="btn btn-primary btn-block" type="submit" style="margin-top:14px"><i class="ti ti-sparkles"></i> Recreate &amp; preview</button>
+</form>
 
 <!-- F4 · learn a template (auto-detect + confirm) -->
-<form class="card upload-card" method="post" action="/templatize/upload" enctype="multipart/form-data" style="margin-bottom:22px">
+<form class="card upload-card" method="post" action="/templatize/upload" enctype="multipart/form-data" style="margin-bottom:22px"
+      onsubmit="return submitWithLoader(this,'Reading your deck…','Finding slides to learn a layout from — a few seconds.')">
   <div class="upload-ic"><i class="ti ti-target-arrow"></i></div>
   <h2 class="sec-title" style="margin-bottom:4px">Learn a template from a deck</h2>
   <p class="hint" style="font-size:13px;margin:0 0 14px">Upload a deck, pick one slide, and the engine proposes which box is the title, challenge, capabilities, results, etc. You confirm or fix it before it's saved. Once activated, new case studies render in this look instead of the built-in one.</p>
@@ -73,25 +74,6 @@
   {% endif %}
 </div>
 
-<!-- F3 · saved templates -->
-{% if saved %}
-<div class="section">
-  <div class="section-head"><h2 class="sec-title">Saved templates</h2><span class="hint">{{ saved|length }} saved</span></div>
-  <div class="card" style="padding:8px 18px">
-    {% for t in saved %}
-    <div class="saved-row">
-      <div class="saved-ic"><i class="ti ti-presentation"></i></div>
-      <div class="saved-main"><b>{{ t.name }}</b><div class="hint" style="font-size:12px">{{ t.slides }} slides · {{ t.size_mb }} MB</div></div>
-      <a class="btn" href="/template/saved/{{ t.id }}/download"><i class="ti ti-download"></i> Download</a>
-      <form method="post" action="/template/saved/{{ t.id }}/delete" onsubmit="return confirm('Delete this template?')" style="display:inline">
-        <button class="mini rm" type="submit" title="Delete"><i class="ti ti-trash"></i></button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
 <!-- fill templates the engine writes into -->
 <div class="section">
   <div class="section-head"><h2 class="sec-title">Fill templates</h2><span class="hint">the engine pours AI-written content into these</span></div>
@@ -107,3 +89,40 @@
     {% if not items %}<div class="lib-empty">No fill templates found.</div>{% endif %}
   </div>
 </div>
+
+<div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:var(--teal);border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div class="loader-title" style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ink)">Working…</div>
+    <div class="loader-sub" style="font-size:13px;color:var(--muted);margin-top:5px"></div>
+  </div>
+</div>
+<script>
+// Both upload forms on this page (re-skin, learn-a-template) POST a real file
+// and get back a full rendered page in response -- a normal form submission,
+// not a fetch/XHR call, so it won't show under a Network tab's Fetch/XHR
+// filter (that's expected, not a bug: /template/reskin returns the whole
+// preview page, not a JSON payload). What WAS missing is visible feedback
+// that anything is happening at all while it processes -- large files or a
+// slow LibreOffice render could look like a dead click. This adds the same
+// full-screen loading overlay every other slow action in the app already
+// uses (see new_form.html/build.html/review.html).
+function submitWithLoader(form, title, sub){
+  var file = form.querySelector('input[type="file"]');
+  if(!file || !file.files || !file.files.length){
+    return true;   // let the browser's own "required" validation message show
+  }
+  var btn = form.querySelector('button[type="submit"]');
+  if(btn) btn.disabled = true;
+  var loader = document.getElementById('loader');
+  if(loader){
+    var t = loader.querySelector('.loader-title'); if(t) t.textContent = title;
+    var s = loader.querySelector('.loader-sub'); if(s) s.textContent = sub;
+    loader.style.display = 'flex';
+  }
+  return true;   // let the real form submission proceed
+}
+window.addEventListener('pageshow', function(){
+  var l = document.getElementById('loader'); if(l) l.style.display = 'none';
+});
+</script>

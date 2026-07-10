@@ -21,8 +21,11 @@
    if([...list.children].some(li=>li.dataset.id===id)){if(!btn)alert(id+' is already in the deck');return;}
    list.appendChild(makeRow(id,SLIDE_TITLES[id]||'','added manually'));renumber();
    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-check"></i> Added';}}
- function prefillAI(name,desc){var t=document.getElementById('ca-topic');if(t)t.value=name||'';
-   var p=document.getElementById('ca-problem');if(p)p.value=desc||'';
+ function prefillAI(name,desc,domain,useCase){var t=document.getElementById('ca-topic');if(t)t.value=name||'';
+   var p=document.getElementById('ca-problem');if(p){var full=desc||'';
+     if(domain) full+=(full?' ':'')+'Domain: '+domain+'.';
+     if(useCase) full+=(full?' ':'')+'Use case: '+useCase+'.';
+     p.value=full;}
    var card=document.getElementById('ai-create');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
    if(t)t.focus();}
  function filterAdd(q){q=(q||'').trim().toLowerCase();const sel=document.getElementById('addsel');

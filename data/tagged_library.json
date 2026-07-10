@@ -2278,5 +2278,42 @@
         "confidence": "AUTO"
       }
     }
+  },
+  {
+    "slide_id": "CS150",
+    "title": "Platform Modernization Pillars",
+    "subtitle": "Generated slide — replace with the real J2W template",
+    "body_text": [
+      "Generated slide — replace with the real J2W template"
+    ],
+    "full_text": "Platform Modernization Pillars\nGenerated slide — replace with the real J2W template",
+    "source": {
+      "file": "C:\\Users\\E36250417\\Downloads\\Deck engie\\data\\decks\\WORKING_COPY_Master_Deck.pptx",
+      "slide_index": 39,
+      "slide_number": 40
+    },
+    "keywords": [],
+    "tags": {
+      "kind": {
+        "value": "STANDARD",
+        "confidence": "AUTO"
+      },
+      "work_type": {
+        "value": null,
+        "confidence": "AUTO"
+      },
+      "industry": {
+        "value": null,
+        "confidence": "AUTO"
+      },
+      "function": {
+        "value": null,
+        "confidence": "AUTO"
+      },
+      "persona": {
+        "value": [],
+        "confidence": "AUTO"
+      }
+    }
   }
 ]

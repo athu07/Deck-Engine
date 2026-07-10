@@ -80,7 +80,9 @@ def add(content, work_type, industry, client="", topic=""):
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
     # rich case-study fields (the "Create with AI" feature), stored when present
-    for k in ("subhead", "challenge", "solution", "capabilities", "results", "review", "kind"):
+    for k in ("subhead", "challenge", "solution", "capabilities", "results", "review", "kind",
+             "content_type", "boxes",                    # boxes: the four_box alternative shape
+             "intro", "columns", "legend", "footer_title", "footer_body"):  # the roadmap_board shape
         if k in content:
             rec[k] = content[k]
     items.append(rec)

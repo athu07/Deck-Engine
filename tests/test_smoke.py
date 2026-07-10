@@ -34,8 +34,7 @@ os.environ["DECK_OUTPUT_DIR"] = os.path.join(_TMP, "out")
 os.environ["DECK_MEETINGS_DIR"] = os.path.join(_TMP, "meet")
 os.environ["DECK_STAGING_DIR"] = os.path.join(_TMP, "stage")
 os.environ["DECK_BUILD_CONTEXT_DIR"] = os.path.join(_TMP, "bctx")
-os.environ["DECK_SAVED_TEMPLATES_DIR"] = os.path.join(_TMP, "saved")
-for _d in ("out", "meet", "stage", "bctx", "saved"):
+for _d in ("out", "meet", "stage", "bctx"):
     os.makedirs(os.path.join(_TMP, _d), exist_ok=True)
 
 import pytest

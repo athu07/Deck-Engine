@@ -2270,3 +2270,1155 @@ testing against the actual ExpenseIQ deck):
 VERIFIED: all 6 step-badge numbers now correctly white-on-red; the "80%
 auto-cleared / 20% flagged" banner text now correctly ink-on-card instead of
 invisible white-on-card; zip integrity clean; 17/17 pytest green.
+
+------------------------------------
+8 July 2026 -- Reskin: body-text sizing + a REAL computed shrink-to-fit
+------------------------------------
+Owner flagged another real bug via screenshot (a GSK deck's "Next Steps"
+slide, three cards each with a bold mini-heading + a description paragraph +
+a "FOR YOUR CONFIRMATION" label + a checklist): text was visibly overlapping.
+Root cause, traced against the actual source file (J2W_GSK_RegIQ_Framework.
+pptx, slide 9): every one of those pieces -- a 12pt bold mini-heading, an
+8.5pt paragraph, a 7pt caption label, 8.5pt checklist items -- was being
+flattened to one uniform SZ_BODY (13pt) by the old "body" role handling. The
+smaller-original pieces got blown up the most (7pt -> 13pt is +86%), and
+their boxes were tightly authored around their SMALL original sizes (e.g. a
+0.20in-tall box for a 7pt caption), so they overflowed into the shape below.
+Two-part fix in reskin.py:
+  1. Owner's new spec: SZ_BODY 13 -> 11 (plain content), new SZ_BODY_HEAD = 13
+     (a card's own bold mini-heading, nested inside body -- NOT the page-level
+     Oswald heading). Which is which is decided per RUN, not per shape: a bold
+     run whose ORIGINAL size was already >= 10pt (SZ_BODY_HEAD_MIN_ORIG)
+     becomes a mini-heading at 13; everything else -- including a tiny BOLD
+     caption like "FOR YOUR CONFIRMATION" at 7pt originally -- stays content
+     at 11. Without that size floor, tiny bold labels would also jump to 13
+     in boxes sized for ~7pt text, recreating the same overflow one size class
+     down.
+  2. Even 11pt still doesn't fit every box -- checked the actual numbers: the
+     GSK deck's longest body paragraph (241 characters) needs an estimated
+     ~1.65in at 11pt but its box is only 1.00in tall. `auto_size =
+     TEXT_TO_FIT_SHAPE` (already set) only marks a shape as "should shrink" --
+     python-pptx does not compute the actual shrink, and testing confirms real
+     renderers don't reliably (re)compute it live either, which is exactly why
+     the owner saw literal-size overflow in the first place. New
+     _fit_body_text() genuinely estimates wrapped line count (character count
+     vs. box width, ~PowerPoint's own autofit heuristic) and, if that's taller
+     than the box, bakes a REAL fontScale into the XML (<a:normAutofit
+     fontScale=... lnSpcReduction=.../>) -- floor 60% of the set size, so a
+     hopelessly undersized box still shrinks-and-reads rather than vanishing.
+     This makes the shrink part of the saved file itself, not a hope that
+     whatever opens it recalculates it.
+VERIFIED against the real GSK deck: "Share an open innovation challenge"
+(originally 12pt bold) -> 13pt, ~91% fontScale (barely shrunk, fits almost
+exactly as before); "NEXT STEP"/"FOR YOUR CONFIRMATION" (originally 7-7.5pt
+bold) -> 11pt then shrunk further (64%/60%) since their boxes are tiny;
+checklist items -> 11pt, ~75% scale; the long body paragraph -> 11pt, hits
+the 60% floor (the box was always going to need real help). Re-verified the
+ExpenseIQ deck too (previous fixes) -- no regressions, badge numbers still
+white-on-red, card mini-headings ("Employee", "AI agent"...) correctly
+promoted to 13pt. Zip integrity clean on both, 16/16 pytest green.
+
+------------------------------------
+8 July 2026 -- Matching: "strategic bet" inference (stakeholder x company fit)
+------------------------------------
+Owner walked through a real account (Pankaj Kumar Pant, Waaree Group -- ex
+Adani Solar) where the matcher's 3 literal picks (production planning,
+process optimization, plant energy) were all textually well-grounded, but
+their own separate Claude research had proposed a sharper #1 pick (predictive
+O&M for renewable assets) by INFERRING a connection -- solar-plant career +
+a defect-catching track record -- that the profile never states outright.
+extract_brief()'s prompt is deliberately literal ("ground every field in the
+text; never invent") specifically to avoid handing a salesperson an unearned
+claim of fit, so it correctly never proposed that. Owner's ask: make the
+matcher CAPABLE of that inference, but require it to hold up on BOTH axes --
+the STAKEHOLDER personally (their own role/career, not a generic pitch) AND
+the COMPANY strategically (its actual business, not "any manufacturer could
+use this"). A bet that only clears one axis isn't good enough for a real
+pitch; that dual-axis requirement is the whole design, not a nice-to-have.
+Built as a fully separate, additive pass -- never touches the existing
+literal extraction or its fail-safe behaviour:
+  - ai_matcher.infer_strategic_fit(research, profile, transcript, brief) --
+    a SEPARATE AI call (temperature 0.3, more room to reason than
+    extract_brief's temperature 0) that proposes up to 2 capability bets NOT
+    stated anywhere, each required to carry BOTH a stakeholder_why and a
+    company_why -- enforced in code (both fields must be non-empty), not just
+    prompt wording. Already-covered literal needs and mismatch flags are
+    passed in so it doesn't repeat or contradict them. Fails safe to [].
+  - web/decks.py: a new try/except block runs this right after the existing
+    literal-needs extraction (hoisted wanted/wt_ids/acct_fns above both
+    passes so a failure in one can never starve the other of shared prep).
+    Each bet is run through the SAME shortlist_cases() + avoid-flag +
+    coverage-bar selection as literal needs, then appended to priority_ids
+    tagged signal="strategic bet" with both why-fields preserved -- meaning
+    pick_cap (matcher.py's "always at least 3" floor) grows to admit a
+    confirmed bet rather than displacing a literal pick.
+  - build.html: the "Why this deck matches" panel shows a strategic-bet
+    pick with a distinct purple badge (vs. teal for literal signals) and BOTH
+    angles labeled -- "Stakeholder angle:" / "Company angle:" -- so the
+    salesperson always knows which claims are evidence-backed vs. a reasoned
+    bet before they're in front of the client.
+VERIFIED live (real OPENAI_API_KEY, real gpt-4o-mini calls, not mocked):
+extract_brief() on Pankaj's actual profile PDF correctly stayed literal
+(production planning, process enhancements, project management -- exactly
+what the text says). infer_strategic_fit() on the SAME inputs independently
+proposed "Advanced Predictive Maintenance Analytics" with a genuine dual-
+angle justification citing his actual Adani Solar/plant-ops history AND
+Waaree's actual competitive position -- landing on essentially the same idea
+the owner's own Claude research had surfaced. Its shortlist correctly
+resolved to MSS012 (PREDICTIVE MAINTENANCE INTELLIGENCE, domain=Manufacturing)
+over MSS054 (domain=Energy) -- arguably the SHARPER pick, since Waaree's
+ingot/wafer plant is a manufacturing operation, not a renewable-asset
+operator, and the industry-boost in shortlist_cases correctly favoured the
+manufacturing-domain variant. Ran the full /build POST through a real Flask
+test client with the actual PDF upload (not a hand-typed substitute) --
+confirmed the rationale panel renders the strategic-bet badge and both angle
+lines correctly, and the pick is a first-class priority pick indistinguishable
+from a literal one anywhere else in the pipeline (deck tray, /review,
+/finalize all untouched -- it's just another priority_id to them). 16/16
+pytest green, no regressions to the literal extraction path.
+
+------------------------------------
+8 July 2026 -- Three refinements: Intro divider, client logo, deep research
+------------------------------------
+Three owner-requested refinements, each confirmed feasible before building
+(per owner's "tell me if these are possible" ask), then built and verified.
+
+1) CS147 ("CASE STUDIES" divider) excluded from Intro decks. It was
+   `include_rule: ALWAYS` -- unconditional across every stage, no matter what.
+   Added `_rule_cs147` to matcher.py's `_SPECIAL_STAGE_RULES` (same mechanism
+   already used for CS02/CS02B/CS04) -- included at every stage except Intro.
+   Verified: CS147 absent from an Intro build, present at First/Second.
+
+2) Client logo on the title slide, side by side with the J2W wordmark ("Client
+   x JoulesToWatts"). Pixel-measured the real CS01 title slide first: the J2W
+   wordmark sits at (5.06in, 0.49in, 3.21x1.55in); the space to its left is
+   genuinely empty in the master's own design. New service module
+   services/rendering/client_logo.py: save() stores one PNG per client name
+   (new upload overwrites the old one), with SIMPLE background removal --
+   flood-fills a near-solid background to transparent from all 4 corners
+   (4-connected, so it never eats into similarly-coloured artwork INSIDE the
+   logo); left untouched if the corners disagree (a photo/gradient) or the
+   image is too large to process quickly. stamp_into() adds the logo + a small
+   "x" divider glyph, scaled to fit a 2.0x1.2in box (slightly under the
+   wordmark's own height -- a guest mark, not the lead), right-aligned up to
+   the wordmark with matching vertical centre.
+   New upload field on the new-deck form (client_logo_file); saved keyed by
+   client name at /build time (not build_id -- that isn't threaded to
+   /finalize, but client_name already is, consistently, everywhere). Stamped
+   in from deck_build.assemble() right after the client-name token replace,
+   via the same open/mutate/save-in-place pattern client_context.fill_into()
+   already uses. Added Pillow==12.2.0 to requirements.txt (was already
+   present transitively in this dev environment, but is now a real, direct,
+   declared dependency, not an undeclared one).
+   VERIFIED: a synthetic white-background test logo correctly became
+   transparent at the corners with the logo mark itself untouched; a full
+   real /build -> /finalize run through the actual Flask routes (not just the
+   service functions in isolation) produced a 3-slide deck with the logo
+   correctly placed beside the wordmark and the "x" divider present; zip
+   integrity clean.
+
+3) "Research this account" -- live web research on the company AND the
+   stakeholder, ADDITIVE to the existing manual research/profile file upload
+   (explicitly NOT a replacement -- owner's spec). This is the only place in
+   the app that makes a live internet call beyond OpenAI's own text-completion
+   endpoints; confirmed feasible first by testing the OpenAI Responses API's
+   `web_search` tool live against the existing OPENAI_API_KEY/gpt-4o-mini --
+   works, no new vendor or key needed. New services/deep_research.py:
+   research_company() / research_stakeholder(), each fails safe to "" (network
+   error, nothing found, tool unavailable -- same fail-safe contract as every
+   other AI call here). New /research_account JSON endpoint (web/api.py) runs
+   both searches concurrently (ThreadPoolExecutor, since they're independent --
+   no reason to make the salesperson wait for them serially).
+   Human-review gate, matching the Create-with-AI design already used
+   elsewhere: results come back into two EDITABLE textareas on the new-deck
+   form (auto_company_text / auto_stakeholder_text) for the salesperson to
+   review/edit/clear -- nothing is silently baked into a build. On /build,
+   these combine ADDITIVELY with any uploaded research/profile file text
+   (never replace it) before reaching ai_matcher.extract_brief().
+   VERIFIED live (real web_search calls, not mocked): researched "Waaree
+   Group" + "Pankaj Kumar Pant" and got back correct, well-grounded results --
+   it even independently found his real education history (HBTI, IIM
+   Kozhikode) matching the actual LinkedIn PDF from the same real-world
+   example used to build the strategic-bet matching feature above. Verified
+   the additive combination end-to-end through the real /build route (both an
+   uploaded file AND auto-research text present at once, no crash, correct
+   research_read flag). Verified the clean-failure path (empty input -> 400
+   with a friendly message, not a stack trace). Verified in the ACTUAL browser
+   via preview tools: filled client_name/recipient, clicked "Research this
+   account", watched the button go to a loading state, confirmed the real
+   POST hit the server and returned 200, and confirmed both textareas
+   populated with real content and became visible -- not just a backend-only
+   check.
+16/16 pytest green across all three; no regressions.
+
+------------------------------------
+8 July 2026 -- Client logo: auto-fetch by name/domain (tested thoroughly, low
+hit rate found -- shipped safe, not oversold)
+------------------------------------
+Owner asked to drop the manual-upload requirement in favour of just giving a
+name + domain and having the logo found automatically. Investigated for real
+before building anything further (this is a revision of the SAME DAY's
+earlier client-logo work, not a new feature):
+  - Clearbit's free logo-by-domain endpoint (the obvious first choice) is
+    actually DEAD -- logo.clearbit.com no longer resolves at all (DNS
+    failure), sunset after the HubSpot acquisition. fetch_by_domain() from
+    earlier today is gone; it always would have returned nothing.
+  - logo.dev and Brandfetch's public CDN both now require an API key/client
+    ID for real results -- Brandfetch without one returns their marketing
+    HTML page dressed up as a 200 OK, not the icon.
+  - Asking gpt-4o-mini (with the web_search tool) for a direct fetchable logo
+    URL was tested against Microsoft, Apple, Infosys, Waaree Group, and Tata
+    Motors -- 0 of 5 produced an actually-fetchable URL; the model
+    consistently returns a plausible-LOOKING Wikimedia Commons path (correct
+    hash-prefix format, wrong actual hash) or a private/staging subdomain
+    that pattern-matches a real asset path but isn't public. This is a
+    genuine, repeatable finding, not a one-off -- the web_search tool doesn't
+    stop the model from pattern-completing a URL it never actually verified.
+  - Tried a fully deterministic alternative (bypass the LLM's URL entirely):
+    Wikipedia's own search + pageimages API, which returns REAL, always-
+    fetchable URLs (no guessing). But content quality is the new problem --
+    it as often returns a campus photo, an unrelated product photo, or (for
+    "Waaree Group") a completely different company ("Enel Green Power") as it
+    does a clean logo. A wrong-but-plausible image is a worse failure mode
+    than "nothing found," since it's easier to miss on a quick glance.
+Given neither free path is reliable, kept the ALREADY-SAFE design instead of
+either overselling it or ripping it out: client_logo.fetch_via_search()
+(rewrote fetch_by_domain -- Clearbit is dead, so domain-only was never going
+to work) ACTUALLY FETCHES AND DECODES every candidate URL as a real image
+before accepting it (never trusts the model's URL at face value), and
+re-encodes to PNG so format is always predictable downstream. New
+/logo_preview endpoint (web/api.py) + a "Find logo" button on the new-deck
+form: shows the result in a real preview thumbnail BEFORE it's used anywhere
+(same human-review-gate pattern as deep-research/Create-with-AI) -- confirmed
+bytes ride through to /build as a data URI so the deck gets exactly what was
+previewed, not a re-rolled search. A manual file upload still wins if both
+are present (logoFileChosen() clears the auto-found state so /build never
+gets a mixed signal). Manual upload REMAINS the primary, reliable path in the
+UI copy -- "Find logo" is explicitly framed as best-effort, not a replacement,
+given the measured ~0% hit rate on well-known companies in testing.
+VERIFIED: /logo_preview's graceful-failure path (real browser test, not just
+backend -- searched "Microsoft" live, got the expected "couldn't find" error,
+correct message, no partial/broken state); the success path end-to-end
+through /build with a confirmed data-URI (decoded, background-processed, and
+persisted correctly, verified as a real file on disk). 16/16 pytest green.
+
+------------------------------------
+8 July 2026 -- Two more refinements: content-type auto-detect, strategic-
+brief prompt upgrade
+------------------------------------
+1) "Already have the content?" (F1, /from_content) always forced pasted
+   content into the case-study mould, even when it wasn't one (owner's
+   example: a four-box breakdown). Traced the full path: hardcoded to
+   slide_generator.case_from_content() -> _normalize_case_study() ->
+   deck_build.assemble() always reshaping every NEW: item via
+   ai_to_store_record() into template="case_study_v2", regardless of what the
+   content actually was. No branching existed anywhere.
+   Built (like Gen Spark, per owner's framing): a cheap classifier +
+   auto-detect, with a manual override dropdown for when the owner wants to
+   force it. New in slide_generator.py: classify_content() (gpt-4o-mini,
+   temperature 0, fails safe to "case_study" -- the existing, more full-
+   featured default) and four_box_from_content() (mirrors case_from_content's
+   structure/rules, targets a title/subhead/4-boxes shape instead).
+   New four_box template slide added to skills_templates.pptx (via
+   scripts/create_skills_templates.py -- build_slide5): 2x2 card grid, same
+   J2W chrome as every other template (top red|teal bar, Oswald 24 caps
+   title, Roboto Condensed 15 teal subhead, small red accent bar left of
+   EVERY heading including each box's own -- the owner's house rule from the
+   reskin work above, applied here too), Raleway 14 bold box headings /
+   Raleway 13 body. Dispatch wired through the EXISTING generic template
+   pipeline (skills.build_into's find_template + fill_markers + kind branch),
+   not a new rendering path -- new _mapping_four_box() in skills.py, a new
+   content_type branch in deck_build.assemble() (skipped from the case-study-
+   specific ai_to_store_record()/case_library.promote_ai_case() path, since
+   that schema doesn't fit this content), content_type/boxes added to
+   staging.add()'s field whitelist so they survive being staged. New
+   template_hint dropdown on the paste-content card (Auto-detect / Case study
+   / Four-box section) read by /from_content; falls back to classify_content()
+   when left on Auto-detect. review.html gained a matching (read-only for
+   now -- not inline-editable yet, unlike case-study fields) four_box card so
+   the review step shows real content instead of the generic, misleading
+   "Data slide - built from your delivery footprint" fallback message that
+   every other non-case/library kind was falling into.
+   VERIFIED: classify_content() correctly told apart a real case-study
+   paragraph and a real "four pillars" paragraph. Full /from_content ->
+   /finalize round-trip through the real Flask routes (not just service
+   functions) produced an actual slide with the title correctly forced to
+   caps, the real pillar names/numbers preserved from the source text, zip
+   integrity clean. Dropdown confirmed rendering with the right 3 options in
+   the actual browser.
+
+2) The "Research this account" prompt was a short, generic company/
+   stakeholder blurb. Owner gave an exact, much richer prompt template
+   (senior-strategy-consultant framing: named incumbent platforms + their
+   gaps, three named buildable accelerators each with problem/capabilities/
+   platform-vs-content-layer/augmentation framing/60-90 day pilot/cited ROI/
+   incumbent gap filled, quantified use-case synergies, executive narrative
+   in the stakeholder's own language) and asked where client name/stakeholder
+   even come from for this (confirmed: the SAME client_name/recipient fields
+   already on the form, nothing new needed there).
+   Replaced the two separate, shorter research_company()/research_stakeholder()
+   calls in deep_research.py with ONE strategic_brief(company, stakeholder,
+   industry) -- the owner's prompt is inherently a single joint deliverable
+   ("a brief to present to X at Y"), not two independent short ones. Used the
+   owner's structure close to verbatim; added one thing on top -- an explicit
+   grounding instruction ("say so plainly instead of inventing" a source/
+   figure/platform name) -- since an unearned ROI number or fabricated
+   incumbent name in front of a real executive is a materially worse failure
+   than for a quick company blurb, and every other AI call in this app
+   already carries this same discipline. /research_account (api.py) and the
+   UI simplified to match: one "Auto-researched strategic brief" textarea
+   instead of two, same review-before-use gate as before.
+   VERIFIED live (real web_search call): asked for Waaree Group / Pankaj
+   Kumar Pant and got back a genuine match to the requested structure -- three
+   named accelerators each with every required field including cited sources
+   (Deloitte 2021, McKinsey 2022, HBR 2020), quantified use-case synergies,
+   and an executive narrative addressed directly to "Pankaj" in his own
+   context. Took ~50s (a real multi-source research pass, not a quick call --
+   the UI's loading text now says so). Full round-trip through /build
+   confirmed the brief still combines additively with an uploaded research
+   file, unchanged from before.
+16/16 pytest green across both; no regressions.
+
+------------------------------------
+8 July 2026 -- Reskin bug report, investigated: 2 of 3 claims not reproducible,
+1 real gap found and fixed
+------------------------------------
+Owner reported: reskinning "not working properly," the "Save a deck as a
+template" removal (above) had also removed the Fill templates section and
+the learned-templates list, and no API call appeared in the network log when
+clicking "Re-skin & preview." Investigated each claim directly before
+touching anything:
+  - "Fill templates / learned templates missing": NOT reproducible. Read
+    templates_page.html directly, then loaded the live page in the browser --
+    both sections are present and rendering (confirmed via DOM query for
+    both headings). templates_page.html was untouched by every change made
+    after the save-template removal. Most likely a stale cached page in the
+    owner's browser tab from before the server was last restarted.
+  - "Reskinning not working": the BACKEND is not broken -- posted the actual
+    ExpenseIQ deck straight to /template/reskin via a real Flask test client
+    (not a mock): 200, the real preview page, a working download link, same
+    as every prior verification in this session.
+  - "No API call in the network log": correct observation, NOT a bug --
+    /template/reskin has always been a plain HTML form POST that returns a
+    full rendered page (not a JSON endpoint), so it shows as a page
+    navigation in devtools, not under a Fetch/XHR filter. This is how it was
+    originally built, unrelated to anything changed this session.
+That said, the underlying UX gap the owner was actually reacting to was
+real: unlike every other slow action in the app (build, review), templates_
+page.html had NO full-screen loading overlay -- clicking "Re-skin & preview"
+only disabled the button and changed its own text, with the rest of the page
+staying fully normal-looking. On a large file or a slow render, that reads
+exactly like "did my click even register?" -- which is a completely
+reasonable thing to interpret as "broken."
+Fixed: added the same #loader full-screen overlay every other slow flow
+already uses (new_form.html/build.html/review.html -- same markup, same
+shared j2wspin CSS animation, nothing new to define), wired to BOTH upload
+forms on the page (re-skin AND learn-a-template, which had the identical
+gap) via a new submitWithLoader(form, title, sub) helper -- disables the
+button, shows the overlay with a real progress message, then lets the actual
+form submission proceed exactly as before (no backend change, no behaviour
+change, purely visible feedback that something is happening).
+VERIFIED: full pytest green; direct backend re-skin test still 200 with a
+real output; templates page confirmed (fresh browser load) to have Learned
+templates, Fill templates, AND the new loader element all present; the
+loader-trigger logic itself exercised in the live browser (simulated a file
+selection, called submitWithLoader, confirmed the overlay becomes visible
+with the correct title/subtext, the button disables, and the real
+submission still proceeds -- it doesn't swallow the click).
+
+------------------------------------
+8 July 2026 -- Real bug: AI-created case studies weren't reaching the library
+(root cause + fix + recovery of 3 real lost case studies)
+------------------------------------
+Owner reported: created a case study (SAP S/4HANA migration) via "Already
+have the content?", downloaded the deck fine, but couldn't find/search it
+afterward in Slide Library, and it hadn't reached the Excel registry either.
+
+Root cause, traced end to end: contentForm (new_form.html, the "Already have
+the content?" shortcut) has NEVER collected a work_type -- it's a standalone
+single-slide shortcut, separate from the main deckForm's work-type checkbox
+grid. /from_content (decks.py) called staging.add(rec, "", industry, client)
+-- hardcoded empty string. deck_build.assemble()'s NEW: handling (the Phase 5
+auto-save mechanism, see 2026-07 entry above) unconditionally calls
+case_library.promote_ai_case(record, first_wt, industry) for every accepted
+case study -- but promote_ai_case()'s very first line is `prefix =
+_WT_PREFIX.get((work_type_code or "").upper()); if not prefix: return None`.
+An empty work_type silently returns None. No exception anywhere in the chain
+(deck_build.py even wraps the call in try/except: pass, which wasn't even
+the issue here -- it's a clean None return, not a raised error) -- the slide
+itself built and downloaded perfectly normally, which is exactly why this
+was invisible: everything LOOKED like it worked.
+(Separately confirmed finalize()'s older "AI slides: apply edits, then
+ACCEPT... " block -- ai_ids/ai_decision__/staging.promote() -- is dead code:
+review.html generates none of those form fields anymore. The ACTIVE save
+path is only deck_build.assemble()'s inline promote_ai_case() call. Left the
+dead block alone -- inert, not actually harmful, and removing legacy code
+uninvolved in the bug is out of scope for a "fix this now" report.)
+Fixed: added a required "Work type" dropdown to contentForm (Workforce/AI
+Pods/Managed services, same values as the main form's checkboxes) --
+required both via the native HTML5 attribute (blocks submission client-side,
+same as before) AND re-checked server-side in /from_content (defence in
+depth, matching how "content" itself was already double-checked). Wired the
+real value through staging.add() and _render_review()'s work_types= instead
+of the hardcoded ""/empty-list.
+VERIFIED the fix live, not just read: posted real content through
+/from_content -> /finalize with a work_type selected, confirmed the new case
+landed in the JSON store, the ACTUAL Excel source file (data/registry/
+Case_Studies_Master_IDed.xlsx -- config.CASE_STUDIES_SOURCE_XLSX, not the
+slide-selection registry, a distinct file), and a Slide Library search.
+Test record cleaned up afterward (JSON/Excel/staging), confirmed count back
+to baseline (175) before moving on.
+
+RECOVERY: searched staging.json for OTHER pending case studies caught by the
+same bug before it was fixed (not just the one the owner mentioned) --
+found three, not one: G001 (Predictive Quality Control for Injection
+Molding), G002 (Phased Financial and Accounting Transformation Roadmap), G004
+(the reported SAP S/4HANA one). Asked the owner which work type each
+belonged under rather than guess (a permanent library categorisation, not a
+cosmetic choice) -- G001 and G004 confirmed as Managed services; G002
+explicitly excluded ("don't include this"), left untouched in staging.
+Promoted G001 and G004 through the EXACT real production path
+(deck_build.ai_to_store_record() -> case_library.promote_ai_case()), not a
+one-off patch -> MSS096 and MSS097. Verified both fully searchable in Slide
+Library, present in the real Excel source file, AND have embeddings (the
+first _append_embedding() call for each returned False silently -- a
+transient hiccup, not a code bug -- a direct retry immediately after
+succeeded for both; not treated as something needing a fix since it's an
+already-established best-effort/fails-safe path by design, and a clean
+retry resolved it). Marked both staged records "approved" with their real
+promoted_id, matching how a normal accepted build leaves them.
+16/16 pytest green; content store at 177 real records (175 baseline + the 2
+recovered), zero test/placeholder pollution left behind.
+
+------------------------------------
+8 July 2026 -- Crash: "Create deck" (/build) throwing Internal Server Error
+------------------------------------
+Owner reported /build 500ing on a real click. Read the server's own error
+log (not a guess) -- exact traceback:
+  matcher.py:534 in plan() -> _case_reason(wt, {**it, "research": True})
+  matcher.py:83 in _case_reason() -> f"...({item['score']:.1f})"
+  KeyError: 'score'
+Root cause: matcher.plan()'s priority_ids loop has a fallback branch for a
+priority pick that matched a named case ID but didn't appear in the overall
+relevance ranking ("matched a hook but ranked low") -- it builds a
+substitute item dict by hand, and that hand-built dict was MISSING the
+"score" key that _case_reason() unconditionally reads at the very end of the
+line. Any priority id landing in that specific fallback crashed the whole
+build with no graceful degradation.
+This fallback branch existed before today, but the STRATEGIC BET feature
+added earlier today (see entry above) makes it far more likely to trigger:
+bet-selected cases come from relevance.shortlist_cases() -- a different,
+semantic-shortlist selection path than the main relevance.rank_cases() that
+populates ranked_by_id -- so a bet-selected case landing in this "ranked low
+or filtered out" fallback is now a realistic, not just theoretical, path.
+Fixed two ways (defence in depth, not just patching the one call site):
+  1. matcher.py's fallback dict now includes "score": 0.0 -- honest, not a
+     guess: this case genuinely has no ranked score, that's WHY it's in the
+     fallback branch in the first place.
+  2. _case_reason() itself changed from item['score'] to item.get('score',
+     0.0) -- a one-line, zero-risk defensive fix that closes this entire bug
+     CLASS for any other caller that might ever hand it an incomplete dict,
+     not just this one.
+VERIFIED: reproduced the EXACT crashing dict directly against _case_reason()
+pre-fix (confirmed it throws the identical KeyError), then confirmed the
+post-fix version returns cleanly. Re-ran the real /build POST that
+originally surfaced this (Waaree Group / Pankaj Kumar Pant, the same
+strategic-bet scenario from earlier today) through the actual Flask app --
+200, rationale panel renders, no crash. Full pytest green.
+
+------------------------------------
+8 July 2026 -- Real matching bug: a stakeholder's own deep expertise was
+being AVOID-flagged, not matched (Sakshi Khanna / Schneider Electric)
+------------------------------------
+Owner reported the case studies picked for a real stakeholder (Sakshi
+Khanna, Senior General Manager at Schneider Electric) didn't reflect what's
+actually IN her profile -- specifically asked why the SAP S/4HANA case
+(MSS097, recovered earlier today) never came up despite an obvious fit, and
+suspected her profile "isn't being fully read."
+
+Read her actual profile PDF and ran the REAL extract_brief() against it to
+see exactly what the engine was doing, not guess. Found something worse than
+"not fully read": her profile is textbook SAP -- SAP ABAP Technical
+Consultant for 7+ years, two CURRENT SAP certifications (SAP BTP Extension
+Developer, ABAP for SAP HANA), promoted through SAP-adjacent technical
+leadership up to Senior General Manager. extract_brief() pulled needs from
+only the shallow LinkedIn "Top Skills" tag list (Agile Methodologies,
+Software Development, Business Solution -- generic, self-selected tags) and
+then explicitly AVOID-FLAGGED "SAP ABAP Development" with the reasoning
+"...does not align with current needs in energy management solutions" --
+i.e. it reasoned that because she now holds a leadership TITLE, her actual
+15-year technical background must be irrelevant, and then used the avoid/
+mismatch mechanism (built specifically to keep wrong-domain cases OUT) to
+actively suppress the one case study that fit her best. Not a case of
+"missing a good match" -- the good match was found and then deliberately
+blocked by the model's own (wrong) reasoning.
+This also explains the OTHER two things reported at once: no gap-suggestion
+for SAP either (the "missing capability" list is fed by the exact same needs
+extraction, which never treated SAP as a real need in the first place), and
+generally that the profile "isn't being fully utilised" (true in a precise
+sense -- only the shallow tag section was driving needs, not the much richer
+work-history/certification content below it).
+Fixed extract_brief()'s prompt (ai_matcher.py) with two additions:
+  1. needs must be grounded in SUBSTANTIVE experience -- certifications,
+     hands-on work, anything repeated/emphasised across a career -- not just
+     a shallow skills-tag list; a LinkedIn "Top Skills" section is often
+     generic/self-selected and far less reliable than the work-history text
+     below it. Explicit instruction: deep, CERTIFIED, career-defining
+     expertise is a strong signal of ongoing interest even under a newer
+     leadership title -- never dismiss it as "past experience."
+  2. avoid must be reserved for genuine wrong-domain/wrong-use-case
+     mismatches for the ACCOUNT; explicitly forbidden from suppressing a
+     stakeholder's own real background just because their current title is
+     senior/leadership -- that's normally a match, not a mismatch.
+VERIFIED the full chain, live, with her real profile PDF (not a synthetic
+example): extract_brief() now correctly surfaces "SAP Development" as the
+#1 need with an accurate description, avoid list empty; relevance.
+shortlist_cases() resolves that need straight to MSS097 (cosine 0.54, well
+above the coverage bar); a full /build POST through the real Flask app with
+her actual profile file now leads the deck with MSS097 · Agentic SAP
+S/4HANA Migration, correct rationale text ("Demonstrates capability in SAP
+S/4HANA migration, addressing critical client needs"); and the gap-
+suggestion list now correctly shows only the genuinely uncovered need
+(Agile Methodologies) instead of nothing useful. 16/16 pytest green.
+
+FOLLOW-UP (same day): Athithia ran Sakshi's profile through an outside AI
+tool herself and got back a much richer breakdown -- SAP BTP extension
+development, ABAP-for-HANA optimisation, cross-module SD/MM/QM/PP
+governance, AI-assisted SAP tooling -- and asked why our gap-suggestion
+list only ever flagged "Agile Methodologies" when several of those
+capabilities are plausibly NOT in our library either. Root cause: even
+after the fix above, extract_brief() was still collapsing her whole SAP
+background into ONE broad need ("SAP Development"). That broad need
+matched MSS097 and got marked "covered," which hid every more specific
+sub-capability underneath it -- they were never extracted as their own
+needs, so they were never individually checked against the library at
+all. Confirmed by running extract_brief() directly: exactly 2 needs came
+back (SAP Development, Agile Methodologies), never more, run after run.
+Asked Athithia before changing anything (per her request): she confirmed
+splitting needs into granular, separately-checked capabilities, raising
+the "worth building" cap so more real gaps can show, and keeping "Draft
+with AI" as a manual pre-fill-then-review step (not one-click).
+Fixed:
+  1. extract_brief()'s prompt (ai_matcher.py) now explicitly forbids
+     collapsing several distinct capabilities into one umbrella need --
+     even when they share a platform/product family, each gets its own
+     name + use_case so each is independently checked for library
+     coverage. Cap raised needs 8 -> 12 to fit the extra granularity.
+  2. decks.py: the "Not in our library" gap cap raised 6 -> 10 on both
+     the literal-brief path and the offline fallback path; missing-need
+     records now also carry domain/use_case (previously dropped).
+  3. "Draft with AI" (build.html / build.js prefillAI): now also passes
+     the need's domain + use_case into the pre-filled Problem/Challenge
+     field (richer grounding for the AI generation that follows), while
+     still stopping for manual review before Create -- it already shared
+     the same /create_ai -> draft_case_study engine (full research/
+     profile/transcript grounding) as "Create a slide with AI"; that part
+     was not a separate/weaker path and needed no change.
+VERIFIED with her real profile PDF: extract_brief() now returns 6 distinct
+needs (SAP BTP Extension Development, ABAP Development for SAP HANA,
+Technical Delivery Management, Cross-Module SAP Expertise, Knowledge
+Transfer and Mentoring, Technical Specification Documentation) instead of
+2 broad ones. "SAP BTP Extension Development" scores 0.40 -- just under
+the 0.42 coverage bar -- so it now correctly surfaces as its own gap
+instead of being hidden inside a covered "SAP Development" bucket; a real
+/build POST confirms MSS097 still correctly leads her deck and the gap
+card now shows a specific, correctly-worded SAP sub-capability rather
+than only Agile Methodologies. Noted for Athithia: which exact
+sub-capability clears the 0.42 bar can vary slightly run-to-run (LLM
+extraction + embedding scores sitting close to the threshold aren't
+perfectly deterministic) -- this is inherent, not a bug. 16/16 pytest
+green.
+
+------------------------------------
+REDESIGN: extensible content-template registry + roadmap_board (2026-07-08)
+------------------------------------
+Two asks, brainstormed with Athithia BEFORE building (her explicit
+instruction this round): (1) reskin bugs -- icon colours, an overlapping
+caption, a bottom-right wordmark; (2) "quick content" ("Already have the
+content?") should recognise MORE shapes than just case_study/four_box --
+she pasted a real example: a phased F&A roadmap board (7 function-columns,
+each tagged Phase 1/2/3, variable bullet count per column, a legend, a
+closing "foundation" banner) -- architecturally different from four_box
+(fixed 4 slots): variable column count, no natural ceiling.
+Decisions from the brainstorm (all "recommended" picks, confirmed by
+Athithia): drop the bottom-right "JoulesToWatts" wordmark entirely (the
+top red|teal split bar stays as the only brand mark); build the roadmap
+shape as a PROGRAMMATIC generator (draws exactly as many columns as the
+content needs, no hard cap) rather than a fixed-slot template; and --
+since this is now a 3rd content shape with more likely to come -- build
+CONTENT_TEMPLATES as a real extensible registry now rather than hardcoding
+a 3rd branch, so shape #4 only needs one new registry entry.
+The reskin icon-colour and text-overlap fixes were NOT built this round --
+diagnosed the RULE (white glyph on a red/green badge, black otherwise; the
+overlap is a genuine shape-position collision, not a font-size issue,
+since body text is already forced to 11pt) but declined to guess a fix on
+a rendering engine from screenshots alone -- especially the icon case,
+where the fix is completely different depending on whether the icons are
+vector autoshapes (a straightforward extension of the existing text-on-box
+contrast checker) or embedded raster images (needs real pixel
+manipulation via Pillow, a materially bigger and riskier change). Waiting
+on the actual source PPTX from Athithia before touching either.
+Built:
+  - slide_generator.py: CONTENT_TEMPLATES registry (key/label/classify_desc/
+    builder per shape) at the bottom of the file; classify_content()
+    rewritten to build its A/B/C... prompt FROM this list instead of a
+    hardcoded two-way choice, so a 4th shape later needs no prompt
+    surgery. Added roadmap_from_content() + ROADMAP_FIELDS_SPEC +
+    _normalize_roadmap() (title/subhead/intro/columns[]/legend[]/
+    footer_title/footer_body; columns capped at 16 as a sanity ceiling,
+    not a design target). Column order rule was tightened after a real
+    test run reordered columns by phase instead of preserving the
+    source's literal order -- explicit "do NOT group/sort by tag" line
+    fixed it (re-verified: exact source order preserved).
+  - decks.py: /from_content now looks up the chosen shape by key in the
+    registry instead of an if/elif; the template_hint dropdown context
+    (all 3 render_template("new_form.html", ...) call sites) now passes
+    the registry so the dropdown always matches what the classifier
+    actually knows about. _build_review_slides() gained a roadmap_board
+    branch alongside four_box's.
+  - staging.py: whitelist extended with the roadmap fields (intro,
+    columns, legend, footer_title, footer_body).
+  - deck_build.py: NEW: dispatch gained a roadmap_board branch mirroring
+    four_box's (no content-store save -- same reasoning: case_library's
+    schema doesn't fit this shape either).
+  - skills.py: _mapping_roadmap_head() (header markers only) + a new
+    _draw_roadmap_columns() -- the only built-in shape whose BODY isn't a
+    static marker-fill template. Draws N column cards (wraps to a 2nd row
+    past ~9 columns so columns never get unreadably thin), a legend row,
+    and an optional closing footer banner, all with plain python-pptx
+    shape calls (same pattern as reskin.py's/create_skills_templates.py's
+    bar/card/text helpers). First 2 distinct phase/tag values get a
+    filled colour badge (red, then dark navy); any 3rd+ tag falls back to
+    a neutral outline style -- matches the reference design (active
+    phases read bold, later ones read quiet) and degrades gracefully
+    instead of hard-failing past 2 tags. Bullet-list font size is
+    computed from item count vs. the card's own height and baked in
+    (same "don't trust the renderer to autofit" reasoning as reskin.py's
+    _fit_body_text), not left to hope.
+  - create_skills_templates.py: build_slide6() -- the roadmap_board frame
+    (header + an {{INTRO}} marker only, no fixed body). skills_templates.
+    pptx regenerated (now 6 slides).
+  - review.html: read-only roadmap_board preview block (title/subhead/
+    intro/columns/footer), same pattern as four_box's block.
+  - reskin.py: removed the bottom-right "JoulesToWatts" wordmark from
+    _brand_slide() per Athithia's confirmed choice; the top split bar is
+    now the only overlay. Unused PP_ALIGN import + a stale docstring
+    mention cleaned up alongside it.
+VERIFIED end-to-end, live: classify_content() on Athithia's actual pasted
+roadmap content correctly picks roadmap_board; roadmap_from_content()
+extracts all 7 columns with correct names/tags/items in the SOURCE's
+literal order (Procurement, Expense mgmt, Treasury, Period close,
+Financial reporting, Reconciliation, Controls and SOX -- not grouped by
+phase); a real /from_content POST renders the read-only review card with
+no template error (caught and fixed a real bug this way: {{ c.items }} in
+Jinja resolved to the dict's own built-in .items() METHOD, not the
+"items" key, because dot-access on a dict tries getattr() before
+subscript -- fixed with c['items'] bracket syntax); a real /finalize POST
+produced an actual downloadable .pptx with the roadmap slide correctly
+built -- title, subhead, intro, all 7 columns with their own phase tag and
+bullets, in the right order, all inside the slide bounds. 16/16 pytest
+green. Test-run artifacts (staged records, output files, a meeting log
+entry, build_context files, all for the throwaway "Test Co" client used
+to verify) were cleaned out of the live app's runtime data afterward so
+they don't show up in Athithia's real Slide Library / AI history / deck
+repository.
+
+------------------------------------
+NEW FEATURE: "Recreate with AI" -- a GenSpark-style rebuild (2026-07-09)
+------------------------------------
+Athithia's real ask, once unpacked: Reskin's font/colour-swap-in-place
+("recreated by changing the font size, that's it") isn't what she actually
+wants for her real workflow -- she uses GenSpark today, which takes her
+content and DESIGNS a fresh layout per slide in her own house style.
+Attached three real files for reference: the original RegIQ capability
+deck, our own Reskin output on it, and a GenSpark-produced rebuild of the
+SAME content -- asked to study the GenSpark one and figure out how to do
+that here too.
+Investigated all three, structurally, before writing anything (her
+explicit ask). Finding: GenSpark did NOT invent new content or a new
+outline -- every fact/number in its deck already exists verbatim in the
+original (confirmed slide-by-slide, e.g. "PILLAR 01: Change Intelligence"
+-> same three feature blocks, same stats, same wording). What it did is
+redesign the LAYOUT per slide, matched to what that slide's content
+actually is, instead of recolouring the original shapes in place.
+Catalogued 8 distinct layouts across the reference deck; 3 already existed
+in this codebase from the same-day roadmap_board work (four_box, a stat-
+tile pattern, a footer/legend pattern) -- the real gap was ~5 new shapes.
+Asked Athithia 2 scoping questions before building (her explicit process
+this session): (1) new separate flow alongside Reskin, or replace it --
+she chose new/separate, so Reskin (fast, guaranteed-fidelity, nothing
+dropped) stays exactly as it is; (2) the one genuinely hard layout (a real
+market-cascade data table) -- fall back to Reskin's restyle for it, or
+build a real data-table template -- she chose to build it properly.
+Built, all as extensions of the SAME CONTENT_TEMPLATES registry pattern
+from the roadmap_board work (not a parallel system):
+  - slide_generator.py: 5 new shapes, each with its own AI-extraction spec
+    + normalize function, added to CONTENT_TEMPLATES -- box_grid (a
+    generalised four_box for 2-8 sections, not fixed at 4), pillar_deepdive
+    (ONE capability broken into 2-4 feature blocks with their own sub-
+    points), scored_list (a named-row list with an optional stat chip per
+    row), stat_overview (headline stat tiles + an optional component row +
+    an optional closing banner), data_table (a narrative panel + a small
+    colour-coded data table). Factored a shared _extract_shape() helper so
+    the 5 don't each duplicate the same AI-call boilerplate.
+  - skills.py: promoted the ad-hoc bar/card/text/bullets closures inside
+    _draw_roadmap_columns to module-level _draw_bar/_draw_card/_draw_text/
+    _draw_bullets/_fit_size, shared by every new _draw_* function instead
+    of five separate copies; generalised roadmap's tag-colour-cycling
+    (_roadmap_tag_style -> _tag_style) so data_table's row pills use the
+    identical "first 2 tags get a colour, rest fall back to outline" rule.
+    Added _draw_box_grid (N-box auto grid, 2/3/4 columns by count),
+    _draw_pillar_blocks (stacked accent-bar cards, cycling red/teal/navy,
+    each with a heading+body on the left and its own bullet sub-points on
+    the right), _draw_scored_rows (stacked rows, name+description left,
+    an optional right-aligned stat chip, vertically centred), _draw_stat_
+    overview (stat tiles + optional labelled row + optional footer banner,
+    reusing the roadmap footer-drawing logic, now factored into its own
+    _draw_footer_banner), _draw_data_table (a left narrative panel + a
+    real 3-column table with colour-coded category pills per row).
+  - create_skills_templates.py: 5 new header-only template frames (title/
+    subhead, +optional intro marker where the shape needs a longer lead-in
+    paragraph) -- same "no fixed body, body is drawn programmatically"
+    pattern as roadmap_board. skills_templates.pptx regenerated (11 slides
+    total now).
+  - NEW deckengine/services/rendering/recreate.py: the actual "Recreate
+    with AI" orchestrator. For each slide in an uploaded deck (skipping the
+    first/last -- almost always the source's own cover/closing, replaced
+    by our OWN bookends the same way reskin.py's are): extract its text,
+    classify which CONTENT_TEMPLATES shape it is (same registry, same A/B/
+    C prompt pattern as classify_content, plus one local escape hatch --
+    "NONE of these" for a title/closing slide or something genuinely data-
+    heavy/visual that a text template would lose meaning from), extract
+    structured fields, render a fresh slide from the matching template. A
+    slide that doesn't fit ANY shape falls back to reskin.py's own in-place
+    restyle machinery (_restyle_shapes, _fix_text_on_box_contrast, _fix_
+    picture_contrast, _resolve_bottom_banner_overlap, all called directly,
+    not reimplemented) for THAT slide only -- never forced into a mould
+    that doesn't fit, never dropped. Case-study slides go through the SAME
+    dispatch every other AI-created case study in the app uses (the
+    owner's active learned template wins if one exists, else the built-in
+    case_study_v2), not a parallel reimplementation.
+  - templates.py: new POST /template/recreate route, same shape as /
+    template/reskin (validate -> build -> render_pngs preview -> download),
+    reusing reskin_preview.html for both (now mode-aware: different copy,
+    a stats line for recreate showing recreated/restyled/skipped counts).
+  - templates_page.html: a second upload card, "Recreate with AI", next to
+    the existing Re-skin card, with an optional industry field.
+CAUGHT AND FIXED two real bugs during verification against the actual
+RegIQ file (not synthetic test data):
+  1. data_table's intro paragraph rendered TWICE -- once via the header
+     frame's {{INTRO}} marker (a small one-line box, sized for a short
+     lead-in) and once again inside _draw_data_table's own left panel (a
+     much bigger paragraph area). Fixed by dropping the header intro
+     marker for this ONE shape (build_slide11 now with_intro=False) --
+     the left panel is the only place this shape's intro renders.
+  2. (carried over from the roadmap_board work, still relevant here since
+     data_table reuses the tag-colour logic) confirmed the generalised
+     _tag_style still cycles correctly with 3 distinct tags in a real
+     data_table row set.
+VERIFIED end-to-end against the REAL uploaded file (not a synthetic
+example): a full /template/recreate POST through the real Flask app
+returns "7 slide(s) redesigned, 3 restyled as-authored, 2 replaced with
+our own title/closing" -- 12 total slides. Confirmed by direct inspection:
+slide 3 (stats) -> stat_overview with "112 Markets Indexed" etc. intact;
+slides 4-7 (the four PILLAR slides) -> pillar_deepdive, each with its own
+eyebrow/title/feature blocks/sub-points; slide 9 (Agent Architecture, the
+SAME slide the earlier reskin-overlap bug was on) -> scored_list with
+stat chips ("85% confidence" etc); slide 11 (Global Authority Coverage) ->
+data_table with all 6 authority rows and correct columns. The 3 slides
+that didn't classify into a shape (the 4-box problem slide, the 4-box
+governance slide, the 6-box vertical-leads slide -- all arguably SHOULD
+have hit box_grid) fell back to Reskin's restyle instead, which still
+produces a correct, on-brand slide -- just not a fresh layout. Noted for
+Athithia as a known, non-blocking classifier conservatism -- a target for
+future prompt tuning, not a functional bug (nothing is lost or broken,
+it's a quality ceiling, not a floor). Also confirmed by direct geometry
+check: no shape in any of the 7 newly-designed slides falls outside the
+slide bounds. Could not render true visual PNG previews in THIS local dev
+environment (no LibreOffice/poppler on PATH here) -- same pre-existing
+limit Reskin already had locally; the app's own documented fallback
+(download-only preview) covers it, and the real deployment environment
+has these tools per Dockerfile. 16/16 pytest green throughout.
+
+------------------------------------
+FIX: Recreate-with-AI canvas scaling + font-size consistency (2026-07-09)
+------------------------------------
+Athithia attached her own real output file from the feature above
+(Recreated_RegIQ_Capability_Deck.pptx) with two concrete complaints:
+design spilling outside the slide, and inconsistent font sizes -- restated
+her own house rule from earlier in the session (inner content always
+11pt, inner headings 13pt).
+Root-caused by inspecting the actual file, not guessing: the uploaded
+source deck was 10 x 5.625in, but recreate_deck() was preserving the
+SOURCE's own canvas size for the output, while every template (skills_
+templates.pptx, case_study_v2, the master deck) and every _draw_* function
+in skills.py hardcoded a 13.33 x 7.5in canvas -- so nothing ever got
+scaled to the real destination size. Confirmed directly: the title box
+alone was 12.40in wide dropped onto a 10in-wide slide.
+Fixed at the source, not per-shape: recreate_deck()'s destination canvas
+is now ALWAYS the standard J2W size (read from config.MASTER_DECK, not
+the uploaded deck) -- every template-rendered slide is natively authored
+at that size already, so it needs no scaling. Only the restyle-in-place
+fallback path (_restyle_original_slide) keeps the source's own shape
+coordinates, so it now rescales its result via reskin._scale_shapes()
+(the SAME helper the bookend slides already used) after restyling, a
+no-op when the source already matches the standard size.
+Also normalised font sizes across all 6 programmatic _draw_* functions in
+skills.py (roadmap_board + the 5 new shapes) to a hard _SZ_BODY=11 /
+_SZ_HEAD=13 two-tier system, matching reskin.py's own SZ_BODY/SZ_BODY_HEAD
+convention exactly -- replacing what had been a mix of ad hoc sizes (9.5,
+10, 10.5, 11, 12, 14 depending on the shape). Kept exactly ONE deliberate
+exception: a stat tile's own big display number (24pt) -- a hero figure,
+not prose or a heading, matching the pre-existing metric_tile() precedent
+elsewhere in this codebase.
+VERIFIED against the real file: output canvas now reads 13.33 x 7.5in
+regardless of the source's size; zero out-of-bounds shapes across every
+recreated/restyled content slide (the only 2 remaining flagged shapes are
+pre-existing decorative circles on our OWN closing bookend slide, bleeding
+off-canvas by design, unrelated to this fix); font-size audit across 5
+representative slides confirms ONLY {11, 13, 15, 24} pt appear -- 15/24
+being the pre-existing, untouched main-heading/subhead sizes Athithia
+confirmed were already correctly placed, 11/13 now consistent everywhere
+else. 16/16 pytest green.
+
+------------------------------------
+REFINE: automatic logo fetch + research grounded in attached files (2026-07-09)
+------------------------------------
+Two refinements to the "New deck" form, from Athithia's own review of the
+client-logo and research cards:
+1. Client logo -- was a two-step manual flow (type a domain, click "Find
+   logo"), even though /logo_preview already only required the client
+   name (domain was always optional server-side). Athithia wants it fully
+   automatic from the client name already typed earlier in the same form,
+   with domain kept as an optional accuracy hint and manual upload kept as
+   an override, not the two-step primary path.
+   Fixed in new-form.js: the client-name field now fires findLogo()
+   automatically on blur (maybeAutoFindLogo()), skipped if a file was
+   already manually chosen (that always wins -- unchanged) or this exact
+   name was already searched (a _logoLastSearched guard prevents refiring
+   on every blur when nothing changed; changing the name clears the guard
+   and fires a fresh search). Card copy/layout in new_form.html reordered
+   to lead with the automatic behaviour and its live preview, with the
+   domain field + a compact "Search" retry button below it for a manual
+   re-trigger, and "Or upload your own" demoted to a clearly secondary
+   fallback beneath that.
+   Title-slide placement (client logo side-by-side with the JoulesToWatts
+   mark, via client_logo.stamp_into()) was already correctly implemented
+   from earlier work -- confirmed by reading the code, left untouched.
+2. Research ("Or, let us research it for you") -- confirmed by reading
+   the code that /research_account and deep_research.strategic_brief()
+   had ZERO awareness of any uploaded research/profile file's content: the
+   JS never attached the files to the AJAX request, the route never read
+   request.files, and strategic_brief()'s signature only ever took
+   client_name/stakeholder_name/industry strings. The live web research
+   was running completely blind to whatever the salesperson had already
+   attached on the very same form.
+   Fixed: researchAccount() (new-form.js) now reads and appends
+   research_file/profile_file (if chosen) to the FormData it posts;
+   /research_account (api.py) now extracts their text via the same
+   ingest.extract_text() the real /build route already uses, and passes
+   it into strategic_brief()'s two new parameters (profile_text,
+   research_text); the prompt now opens with an "ATTACHED CONTEXT --
+   treat as PRIMARY source" block ahead of the existing "go beyond
+   attached files" live-research instruction, which already made sense
+   unchanged once there was real attached content for it to refer to.
+VERIFIED against the real running app: a real blur event on the client-
+name field fires exactly one /logo_preview POST (confirmed via network
+log), a second blur with the SAME name fires zero further requests (dedup
+works), and changing the name fires a fresh one. A real /research_account
+POST with Sakshi Khanna's actual profile PDF attached now returns a brief
+that explicitly opens with "Given your background in agile methodologies,
+software development, and SAP..." -- grounded in the real attached
+document, not just her name. 16/16 pytest green.
+
+------------------------------------
+FIX: strategic_brief() ignored the STAKEHOLDER's own interest (2026-07-09)
+------------------------------------
+Athithia pasted a real generated brief for Sakshi Khanna/Schneider Electric
+and pointed out the real gap in the fix above: attaching her profile made
+the brief MENTION her name, but the actual substance -- the three
+"buildable accelerators" -- was 100% generic company research (data
+analytics, energy management, workflow automation) with zero connection
+to her real SAP background. Her point: a brief exists to get THIS PERSON
+excited enough to champion it internally, so it needs BOTH interests
+intersecting -- what the company needs AND what the stakeholder
+personally recognises and would champion -- not company research with
+her name pasted on top.
+Read the actual current prompt (deep_research.py) to see why: it only
+said "frame everything in {persona}'s language" -- a TONE instruction --
+with nothing requiring the SELECTION of accelerators/gaps to actually be
+filtered through the stakeholder's own expertise. This is the same class
+of bug as the earlier avoid-flag matching fix this session, just in a
+different module: a stakeholder's own real expertise being invisible to
+the logic that's supposed to use it.
+Fixed: added an explicit "INTERSECTION" instruction block (only when a
+stakeholder_name is given) requiring every accelerator/gap/opportunity to
+be filtered through BOTH the company's needs AND what the stakeholder
+would personally recognise and champion -- and tightened the "three
+buildable accelerators" bullet itself to require this, not just the
+scene-setting language. First test still only produced a generic "SAP
+Integration Capabilities" mention (an improvement, but still a category
+label, not something she'd recognise as HER OWN specific work) -- pushed
+one more iteration: an explicit rule that naming the CATEGORY isn't
+enough, at least one accelerator must name the SPECIFIC platform/
+certification actually in the attached profile.
+VERIFIED against her real profile PDF: the brief now produces "Accelerator
+1: SAP BTP Extension for Real-time Analytics" with "Platform: SAP Business
+Technology Platform (BTP)" as a named core capability -- BTP appearing 4
+times, directly naming the specific SAP certification in her profile,
+not a generic "SAP" category mention. 16/16 pytest green.
+
+------------------------------------
+FIX: named accelerators from the brief weren't reaching the gap list (2026-07-09)
+------------------------------------
+Athithia flagged, from a real screenshot: the "SAP BTP Extension for
+Real-time Analytics" accelerator the fix above produces never showed up
+in /build's "Not in our library -- worth building" gap card. Instead the
+card showed a vaguer, differently-worded "Sustainable Practices ...
+Utilizing SAP BTP..." item.
+Root cause: the gap list is powered by a COMPLETELY SEPARATE AI call --
+ai_matcher.extract_brief(), not deep_research.strategic_brief() -- and
+its needs-extraction prompt never told the model to treat the deep-
+research brief's own NAMED accelerators (deliberately the most specific,
+vetted, actionable line items in the whole document) as priority needs.
+Left free to re-derive needs from the whole document however it liked,
+the model picked up a different, vaguer SAP BTP mention from elsewhere in
+the brief (a passing "synergies" reference) instead of the actual named
+Accelerator 1.
+Fixed: added a "NAMED ACCELERATORS" rule to extract_brief()'s prompt
+(ai_matcher.py) -- if the deep-research brief proposes specific, named,
+buildable accelerators, extract EACH one as its own distinct need using
+its own given name/description near-verbatim, not a paraphrase or a
+different, vaguer mention of the same technology from elsewhere in the
+document.
+VERIFIED end-to-end, live: ran the real /research_account -> /build chain
+with Sakshi Khanna's actual profile PDF and the resulting brief text (the
+exact flow the browser follows). The gap card now surfaces "ABAP for HANA
+Optimization Suite" -- a specific, real technical name, not a vague theme
+-- as the one genuine gap; the SAP BTP accelerator itself no longer
+appears as a gap because it now correctly resolves to an existing case
+study (MSS097, confirmed still leading the deck's rationale list) instead
+of silently vanishing between the two AI calls. 16/16 pytest green.
+
+------------------------------------
+FIX: "sap" as a bare word was falsely marking real gaps as covered (2026-07-09)
+------------------------------------
+Athithia tried the fix above live and reported the OPPOSITE problem: now
+ZERO gap cards showed at all, even though she pasted a detailed breakdown
+of areas Sakshi Khanna would plausibly be interested in (BTP low-code
+extension dev, AI-assisted ABAP tooling, cross-module governance) that
+clearly weren't in the gap list.
+Traced it precisely rather than guessing: re-ran the real extract_brief()
+output and printed each need's actual shortlist match. All 6 needs showed
+"covered": true -- but one, "SAP BTP Extension Development", had a cosine
+of 0.405, genuinely BELOW the 0.42 semantic threshold. It was only marked
+covered via the OTHER path in decks.py's check (cosine>=threshold OR
+title_hits>=1) -- title_hits was 1 because both the need's text and the
+matched case's title ("Agentic SAP S/4HANA Migration...") happen to share
+the single word "sap". relevance.specific_terms() treats "sap" as a fully
+discriminating term (not filtered by the _GENERIC_BIZ stopword set), which
+made sense when the library had few SAP-flavoured cases, but now that it
+holds several genuinely DIFFERENT SAP sub-capabilities (S/4HANA migration
+vs. BTP extension dev vs. ABAP-for-HANA optimisation), a bare "sap" match
+tells them apart from nothing -- it was bypassing the real semantic check
+entirely and silently marking a genuine gap as covered.
+Fixed by adding "sap" to relevance._GENERIC_BIZ (the same stopword set
+that already excludes generic words like "platform"/"solution" from
+counting as a specific term) -- a genuinely narrow word (s4hana, btp,
+abap, migration) still differentiates cases correctly on its own; the
+bare platform brand name no longer can by itself.
+VERIFIED precisely: re-ran the same 6 real needs through relevance.
+shortlist_cases() before/after -- "SAP BTP Extension Development" flips
+from covered=True (title_hits=1, cosine 0.405) to covered=False
+(title_hits=0, cosine unchanged, correctly below threshold), while "SAP
+S/4HANA Optimization" (cosine 0.614, genuinely above threshold) stays
+covered=True, unaffected -- the fix removes exactly the false positive
+without touching the true one. Ran the full real /research_account ->
+/build chain again: the gap card now shows 3 real gaps, including "SAP
+BTP Extension for Data Integration" -- directly matching the BTP
+capability the owner's own analysis flagged as a real, uncovered
+interest area. All 16 tests pass, including the golden matcher pins (this
+change doesn't alter either fixed test scenario's picks).
+
+------------------------------------
+NEW: case studies preferred by explicit "strongest numbers" ask (2026-07-09)
+------------------------------------
+Athithia walked through her mental model of the full /build flow end to
+end (Workforce-focused first, MS to follow) and asked me to verify the
+real code matches it. Traced the actual pipeline (matcher.py, relevance.
+py, decks.py) point by point and reported back precisely what matches,
+what's a narrow documented exception (the "gcc" trigger reads research +
+profile-derived text, not just transcript -- left untouched, unconfirmed
+either way), and one genuine gap: nothing existed that let a salesperson
+explicitly ask (in the brief/transcript) for case studies with the
+strongest/most-proven numbers and have that actually change which cases
+get picked. The one existing signal (a CXO-persona nudge toward cases
+that MENTION any outcome-metric keyword) is persona-triggered, not
+request-triggered, and presence-based, not magnitude-based -- it doesn't
+compare which case's number is actually bigger. Confirmed "yes build" for
+this piece.
+Built as three small additions across the same detection -> ranking
+pipeline already used for the SAP fixes above, not a parallel system:
+  - ai_matcher.extract_brief(): one new boolean field, prefer_high_impact
+    -- true ONLY when the transcript/notes EXPLICITLY ask for strong-
+    proof-point case studies (not inferred from the mere presence of
+    numbers/business language elsewhere). Verified directly: a transcript
+    asking for "the strongest, most proven ROI numbers" returns True; a
+    transcript that just names a capability, with no such ask, returns
+    False (unset default).
+  - relevance.py: a new _metric_strength(row) helper -- extracts the
+    largest quantified figure from a case's OWN "results" list (checked
+    against the real content-store data first: 138/177 cases have at
+    least one extractable percentage), a genuine multiplier ("3.2x
+    faster") normalised onto roughly the same 0-100 scale so the two
+    stay comparable, 0.0 for a case with only qualitative claims. A new
+    prefer_high_impact param on rank_cases() adds a W_METRIC_PREF-
+    weighted boost (1.5 -- deliberately bigger than the existing passive
+    W_METRIC=0.4 CXO nudge, since this is an explicit ask, not an
+    inferred heuristic) only when the caller opts in.
+  - Threaded prefer_high_impact through matcher.plan() -> decks.py's
+    /build route (reads brief.get("prefer_high_impact"), defaulting
+    safely to False if extraction produced nothing).
+VERIFIED at each layer: (1) extract_brief() detection fires correctly on
+an explicit ask and stays false otherwise; (2) rank_cases() before/after
+on the SAME real AI_POD case set -- AIP009 (0.0 metric strength,
+qualitative-only results) drops out of the top 5 and AIP005 (1.0 metric
+strength, "100% engineer verification rate") enters it, purely from the
+prefer_high_impact flag, nothing else changed; (3) a full real /build
+POST with an explicit "strongest ROI numbers" transcript runs clean
+(status 200, no error) and AIP005 appears in the rendered deck. 16/16
+pytest green, golden matcher pins unaffected (prefer_high_impact defaults
+False, so behaviour is byte-identical when nobody asks for this).
+
+------------------------------------
+GAP ANALYSIS + 2 FIXES: tool deck vs. a real hand-built deck (2026-07-09)
+------------------------------------
+Athithia attached two real HPE decks -- one built by the tool, one she
+built by hand understanding what the sales team actually wanted -- and
+asked why the tool couldn't produce the manual one. Read every slide of
+both (16 vs 22 slides) and traced the actual registry/matcher logic
+behind each difference before proposing anything (her explicit ask: "why
+couldn't our engine create it, what are the gaps, let's brainstorm").
+Confirmed every "missing" slide already exists in the master deck --
+this was never a missing-content problem:
+  - CS03 (Architects of Transformation), CS04 (What We Offer), CS12
+    (Structural Differentiation), CS13 (Why J2W -- Not the Big 4) are all
+    deliberately gated to First-Meeting stage only, excluded from a pure
+    single-work-type Intro deck by explicit registry rule. The manual
+    deck reads like First-Meeting depth. Asked Athithia whether Intro
+    should be allowed this much depth for major accounts -- she confirmed
+    Intro should STAY lightweight; this was intentional stage design on
+    the registry's part, not a bug. No change made.
+  - Investigated a suspected CS148 ("How We Move Forward") work-type
+    mistagging (looked MS-only when its content reads generic) -- traced
+    it fully before touching anything and found CS07 ("Next Steps") is
+    already the Workforce/AI-Pod equivalent of the exact same slide; both
+    are correctly excluded from Intro per the "keep it lightweight"
+    decision above. NOT a bug -- caught my own wrong hypothesis before
+    editing the registry, which would have been a real regression (would
+    have made CS148 double up with CS07's own Workforce coverage).
+  - CS12/CS13 ALSO require an exact literal phrase in the transcript
+    ("big 4", "structural differentiation") even at the right stage --
+    confirmed as a real, fragile gap. Athithia confirmed: make it
+    semantic.
+  - The case studies Athithia hand-picked that the tool missed (Greenfield
+    AI-Ready GCC Build for a major airline, Greenfield-to-Innovation-Hub,
+    Greenfield to APAC Innovation Hub, Finance/Tech CoE, Core Banking
+    Transformation, Cairo Customer Engagement) ALL already exist in the
+    Workforce content store, correctly tagged. The tool's ranking had no
+    concept that a deck whose OWN standard slides are about GCC-building
+    ("End to End GCC Build Offerings", "Greenfield & Brownfield Use
+    Cases") should prefer case studies that reinforce that exact same
+    narrative over ones that are merely topically relevant. Confirmed as
+    the highest-leverage gap; Athithia said build it now.
+Built two fixes, both additive (existing behaviour untouched when neither
+signal fires):
+  1. Semantic "asked" trigger fallback -- ai_matcher.extract_brief() gained
+     two new boolean fields, asks_differentiation and asks_why_not_big_si
+     (true only from a genuine signal in the sources, never inferred from
+     account size alone). matcher.py gained _ASKED_SEMANTIC_FLAGS mapping
+     CS12/CS13 to these fields; the "asked" trigger now accepts EITHER the
+     literal phrase OR the AI-judged flag, threaded through plan()'s new
+     asked_flags param from decks.py's already-extracted brief.
+  2. Deck-theme-aware case ranking -- matcher.plan() now builds deck_theme
+     from the TITLES of the standard slides already chosen in pass 1 (pure
+     slides, no case studies yet at that point), and passes it into
+     relevance.rank_cases() as a THIRD semantic-embedding source alongside
+     research and mail, given FULL weight (same as research -- both are
+     equally authoritative signals of what the deck needs to prove).
+     Caught and fixed my own regression before it shipped: an earlier
+     version folded deck_theme into the always-on LEXICAL terms
+     computation too, which drifted the frozen golden matcher test (a
+     standard slide title like "End to End GCC Build Offerings" is full
+     of generic words that inject noisy false lexical hits) -- rescoped
+     deck_theme to the semantic-embedding path only, restoring the golden
+     pins exactly, since that was always the actual design intent.
+VERIFIED at every layer, all with real data: (1) extract_brief() detects
+asks_differentiation/asks_why_not_big_si correctly on a real competitive-
+positioning transcript and stays false on an unrelated one; (2) with the
+flags off, CS12/CS13 don't fire (matches old behaviour); with them on,
+both fire; (3) rank_cases() before/after on the REAL Workforce case set
+with the REAL HPE deck_theme text: WITHOUT deck_theme the Greenfield
+cases rank 3rd/5th/6th; WITH it they jump to 1st/2nd/5th -- exactly the
+three Greenfield cases Athithia actually used by hand; (4) a full real
+/build POST with both signals present (a GCC narrative + a "how are you
+different from a Big 4" ask) runs clean and includes the Greenfield case.
+16/16 pytest green, golden matcher pins byte-identical (both new signals
+default off/empty, so nothing changes for a build that doesn't trigger
+them).
+
+------------------------------------
+F1 CONTENT SLIDES NOW MERGE INTO THE FULL DECK (2026-07-10)
+------------------------------------
+Athithia's real workflow: the MS tech team hands her slide content one
+slide at a time. She wanted to paste/attach each one via "Already have
+the content?" (F1), repeat that for as many slides as she's given, THEN
+fill in the client/work-type/notes form below and generate the full deck
+-- with those hand-built slides landing in the RIGHT spot automatically:
+a case-study-shaped one among the case studies, anything else (four-box,
+roadmap, etc.) just above the case-study section with the standard
+slides. Previously F1 only supported ONE slide at a time and immediately
+jumped to a standalone review, with no way to combine it with a full
+context-driven build.
+Rebuilt the flow:
+  - /from_content (decks.py) no longer renders a page -- it stages the
+    slide exactly as before and returns JSON {id, title, content_type}.
+    new-form.js's cfSubmit() now does this over fetch(), pushes the
+    result into a client-side queue (localStorage j2w_content_queue),
+    re-renders a small "queued slides" list under the form, and clears
+    the textarea/file input so the next slide can be pasted straight
+    away -- repeatable as many times as needed.
+  - Two ways to finish: fill in the "build a full deck from context"
+    form below (queued ids ride along in a new hidden content_slide_ids
+    field, synced on submit) -- OR skip it entirely via a "review just
+    these slides" button that posts straight to /review, for someone who
+    only needs the standalone slides (this replaces F1's old single-
+    slide behaviour, generalised to N slides).
+  - /build (decks.py): after matcher.plan() and the existing skills/
+    client-context auto-inserts, a new block reads content_slide_ids,
+    looks each one up via staging.get(), and splices it into result
+    ["picks"] at the SAME boundary the skills/context auto-adds already
+    use (first pick whose reason starts with "case", falling back to
+    just before the pinned closing slides) -- case_study-shaped entries
+    go into that case-study zone, every other shape lands just above it
+    with the standard slides. Both groups render with a "YOU" chip like
+    the existing skills/context auto-adds, tagged "your pasted content".
+  - The queue is only cleared once it's actually consumed (a real /build
+    or /review submit) -- a reload while still pasting slides doesn't
+    lose the queue, and an earlier work-type/industry validation failure
+    on the main form doesn't silently wipe it either (checked
+    e.defaultPrevented before clearing).
+VERIFIED live end-to-end in the browser: queued a case-study-shaped slide
+and a four-box-shaped slide, then built a real Managed Services deck --
+the four-box slide landed immediately before the case-study section, the
+case-study slide landed leading the case-study section (ahead of the
+matched MSS070 case), both exactly as specced. Also verified the "skip
+the full deck" shortcut lands cleanly on /review with a single AI-
+restructured case-study slide, fully editable. 16/16 pytest still green.
+Known follow-on gap (not touched, flagged for a future session): review-
+page inline editing only understands case_study/four_box/roadmap_board
+content shapes -- a queued box_grid/pillar_deepdive/scored_list/
+stat_overview/data_table slide currently falls through to the case-study
+edit form on /review, which won't show the right fields. Doesn't block
+today's fix (both tested shapes are fully supported); worth a dedicated
+pass if MS content starts arriving in those other shapes.

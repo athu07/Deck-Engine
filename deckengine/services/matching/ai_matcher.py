@@ -423,16 +423,67 @@ def extract_brief(research="", profile="", transcript=""):
     prompt = (
         "From the sources below, extract a STRUCTURED brief for matching this client to "
         "a case-study library. Rules:\n"
-        "- needs: capabilities/solution areas this account GENUINELY needs. For each: "
-        "name (1-3 words, a business capability), a 1-2 line description, the DOMAIN / "
-        "industry it applies to, and the specific USE_CASE. Ground every field in the "
-        "text; never invent.\n"
-        "- avoid: MISMATCH FLAGS — capabilities that look related by keyword but are the "
-        "WRONG fit for this account (wrong domain / use-case). Give the capability and a "
-        "one-line reason. Only clear or explicitly-flagged misfits.\n"
+        "- needs: capabilities/solution areas this account GENUINELY needs. Ground these "
+        "in the person's SUBSTANTIVE experience -- certifications, hands-on technical "
+        "work, and anything emphasised or repeated across their career -- not just a "
+        "shallow 'skills' tag list at the top of a profile (LinkedIn's own 'Top Skills' "
+        "section is often generic/self-selected and far less reliable than the actual "
+        "work-history descriptions and certifications below it). A stakeholder's own "
+        "deep, certified, career-defining expertise is a STRONG signal of what they'd "
+        "care about, even when their current title is a leadership role they've since "
+        "been promoted into -- do NOT dismiss it as \"past experience that doesn't apply "
+        "now\"; someone who spent a decade doing X and still holds a current "
+        "certification in X is exactly the person who'd want to see X modernised, "
+        "augmented, or scaled. For each need: name (1-3 words, a business capability), a "
+        "1-2 line description, the DOMAIN / industry it applies to, and the specific "
+        "USE_CASE. Ground every field in the text; never invent.\n"
+        "- GRANULARITY: do not collapse someone's expertise into one umbrella need. If a "
+        "person's background spans several genuinely distinct capabilities (e.g. a "
+        "platform-migration specialism, a specific in-memory/performance specialism, a "
+        "low-code/extension-development specialism, an AI-assisted-tooling angle, a "
+        "cross-functional/governance angle), list EACH as its own separate need with its "
+        "own name and use_case -- even if they all relate to the same underlying platform "
+        "or product family. A broad bucket like \"SAP Development\" hides everything "
+        "underneath it once ONE matching case study is found for it, so the more specific "
+        "capabilities inside it never get checked against the library on their own -- "
+        "always prefer the more specific, separately-checkable need over a broad one that "
+        "would swallow it. Extract up to 12 needs when the sources support that many "
+        "distinct, real capabilities; do not pad with near-duplicates.\n"
+        "- NAMED ACCELERATORS: if the deep-research brief itself proposes specific, named, "
+        "buildable accelerators (e.g. \"Accelerator 1: SAP BTP Extension for Real-time "
+        "Analytics\") -- these are already the single most specific, vetted, actionable "
+        "line items in the whole document, written for exactly this purpose. Extract EACH "
+        "one as its own distinct need, using its own given name and description near-"
+        "verbatim -- do not paraphrase it into a broader theme, rename it into a generic "
+        "category, or let a different, vaguer mention of the same technology elsewhere in "
+        "the brief (e.g. a passing reference under a general 'synergies' section) take its "
+        "place instead.\n"
+        "- avoid: MISMATCH FLAGS — capabilities that look related by keyword but are "
+        "genuinely the WRONG fit for this ACCOUNT (wrong domain / wrong use-case for the "
+        "COMPANY's business). Never use this to suppress a stakeholder's own real, "
+        "substantive background just because they now hold a senior/leadership title -- "
+        "that is normally a MATCH, not a mismatch (see the needs rule above). Give the "
+        "capability and a one-line reason. Only clear or explicitly-flagged misfits.\n"
         "- expressed_interest: specific accelerators/topics the CLIENT actually discussed "
         "(from the transcript). Empty if none.\n"
         "- account: {industry, role, company_context} from the profile/brief.\n"
+        "- prefer_high_impact: true ONLY if the transcript/notes EXPLICITLY ask for case "
+        "studies with strong/proven/high-impact numbers (e.g. \"show cases with the best "
+        "ROI\", \"need proof points with real margin improvement\", \"cases where we've "
+        "moved the needle\") -- a request about the STRENGTH of the evidence, not just "
+        "that a capability is needed. False by default; do not infer this from the mere "
+        "presence of numbers or business language elsewhere in the sources.\n"
+        "- asks_differentiation: true if the client's own conversation shows they want to "
+        "understand HOW our engagement/delivery MODEL is structurally different from a "
+        "typical vendor (not just what we can technically do) -- e.g. asking how "
+        "engagement, risk, or accountability actually works differently, not just a "
+        "capability list.\n"
+        "- asks_why_not_big_si: true if the client's own conversation raises, even "
+        "implicitly, why they'd choose us over a Big 4 firm, a large systems integrator, "
+        "or an established incumbent vendor -- a genuine competitive-positioning question, "
+        "not just the account happening to already use a large vendor.\n"
+        "Both default false; only set true from a genuine signal in the sources, never "
+        "guessed from the account being large or enterprise-sized alone.\n"
         "Reference priority: if a deep-research brief is present treat it as PRIMARY and "
         "the transcript as prior-interest only; if only a profile is present, derive needs "
         "from the role and company context.\n"
@@ -441,7 +492,8 @@ def extract_brief(research="", profile="", transcript=""):
         'Return ONLY this JSON: {"needs":[{"name":"...","description":"...","domain":"...",'
         '"use_case":"..."}],"avoid":[{"capability":"...","reason":"..."}],'
         '"expressed_interest":["..."],"account":{"industry":"...","role":"...",'
-        '"company_context":"..."}}'
+        '"company_context":"..."},"prefer_high_impact":false,"asks_differentiation":false,'
+        '"asks_why_not_big_si":false}'
     )
     try:
         resp = _client().chat.completions.create(
@@ -467,7 +519,7 @@ def extract_brief(research="", profile="", transcript=""):
                             "description": (m.get("description") or "").strip(),
                             "domain": (m.get("domain") or "").strip(),
                             "use_case": (m.get("use_case") or "").strip()})
-        return out[:8]
+        return out[:12]
 
     def _avoid(v):
         out = []
@@ -483,7 +535,107 @@ def extract_brief(research="", profile="", transcript=""):
             "expressed_interest": ei,
             "account": {"industry": (acct.get("industry") or "").strip(),
                         "role": (acct.get("role") or "").strip(),
-                        "company_context": (acct.get("company_context") or "").strip()}}
+                        "company_context": (acct.get("company_context") or "").strip()},
+            "prefer_high_impact": bool(data.get("prefer_high_impact")),
+            "asks_differentiation": bool(data.get("asks_differentiation")),
+            "asks_why_not_big_si": bool(data.get("asks_why_not_big_si"))}
+
+
+def infer_strategic_fit(research="", profile="", transcript="", brief=None):
+    """Deep-research-style INFERENCE, deliberately separate from extract_brief()'s
+    literal grounding: proposes up to 2 capability bets that are NOT stated anywhere
+    in the sources, but that a sharp account researcher would infer by connecting the
+    STAKEHOLDER's own career/role pattern to the COMPANY's business.
+
+    Owner's spec (2026-07-08, built from a real example: Pankaj Kumar Pant / Waaree
+    Group): nothing in his profile says "we want predictive maintenance for solar
+    assets," but 2 years running a solar ingot/wafer plant plus a career built on
+    defect-catching (FMEA, paint QC) makes that a reasoned bet -- the kind of
+    connection a deep-research pass makes but literal keyword/need extraction can't.
+    A bet only earns a spot if BOTH sides hold up: it has to be something THIS
+    PERSON would personally champion (their own role/career, not a generic pitch)
+    AND something THIS COMPANY would strategically fund (its actual business, not
+    "any manufacturer could use this"). Either side unconvincing and it's dropped --
+    caller-side too, via the stakeholder_why/company_why presence check below, not
+    just prompt instruction.
+
+    brief = the already-extracted literal brief (needs/avoid/account), so this never
+    re-proposes what extract_brief already covered. Returns a list of
+    {"name","description","stakeholder_why","company_why"}, capped at 2. Fails safe
+    to [] -- an inferred pick is a bonus on top of the literal ones, never required."""
+    research = (research or "").strip()
+    profile = (profile or "").strip()
+    transcript = (transcript or "").strip()
+    if not (research or profile):
+        return []      # nothing to extrapolate a CAREER PATTERN or COMPANY context from
+    brief = brief or {}
+    acct = brief.get("account") or {}
+    covered = sorted({n["name"] for n in (brief.get("needs") or [])})
+    avoid = brief.get("avoid") or []
+
+    parts = []
+    if profile:
+        parts.append("STAKEHOLDER PROFILE (their career/role):\n\"\"\"\n" + profile[:6000] + "\n\"\"\"")
+    if research:
+        parts.append("COMPANY / DEEP RESEARCH:\n\"\"\"\n" + research[:9000] + "\n\"\"\"")
+    if transcript:
+        parts.append("MEETING NOTES:\n\"\"\"\n" + transcript[:4000] + "\n\"\"\"")
+    if acct.get("industry") or acct.get("company_context"):
+        parts.append(f"ACCOUNT CONTEXT: industry={acct.get('industry','')} "
+                     f"company_context={acct.get('company_context','')}")
+
+    prompt = (
+        "You are doing STRATEGIC ACCOUNT RESEARCH, not literal extraction. The literally "
+        "stated needs have already been pulled out separately -- your job is different: "
+        "propose up to 2 capability bets that are NOT stated anywhere in the sources, but "
+        "that a sharp account researcher would infer by connecting the stakeholder's own "
+        "career pattern to the company's business.\n\n"
+        "For each bet you must argue BOTH sides, or don't propose it:\n"
+        "- stakeholder_why: why THIS SPECIFIC PERSON, given their actual role/career "
+        "history, would personally want it -- something that helps THEM do their job or "
+        "look good to their own leadership. Cite the actual role/project detail you're "
+        "extrapolating from.\n"
+        "- company_why: why THIS COMPANY, given its actual business/industry, would "
+        "strategically fund it -- not just 'it's generally useful,' but a reason tied to "
+        "what this specific company does.\n"
+        "A bet that only satisfies one side is not good enough -- skip it rather than force "
+        "a weak connection. Do not propose a generic capability that could apply to any "
+        "account; the whole point is that it's specific to THIS person at THIS company.\n"
+        + (f"Already covered by literal needs, don't repeat: {', '.join(covered)}.\n" if covered else "")
+        + (("Known mismatches, don't propose these: " +
+           "; ".join(f"{a['capability']} ({a['reason']})" for a in avoid) + ".\n") if avoid else "")
+        + "\n" + "\n\n".join(parts) + "\n\n"
+        'Return ONLY this JSON: {"bets":[{"name":"...","description":"...",'
+        '"stakeholder_why":"...","company_why":"..."}]} -- 0, 1, or 2 items; fewer is '
+        "fine if you can't honestly argue both sides for more."
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You are a strategic account researcher who "
+                 "makes reasoned, evidence-grounded inferences -- not wild guesses. Reply "
+                 "with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    out = []
+    for b in (data.get("bets") or [])[:2]:
+        if not isinstance(b, dict):
+            continue
+        name = (b.get("name") or "").strip()
+        sw = (b.get("stakeholder_why") or "").strip()
+        cw = (b.get("company_why") or "").strip()
+        if name and sw and cw:      # BOTH sides required -- enforced in code, not just prompt
+            out.append({"name": name, "description": (b.get("description") or "").strip(),
+                        "stakeholder_why": sw, "company_why": cw})
+    return out
 
 
 def explain_picks(brief, items):

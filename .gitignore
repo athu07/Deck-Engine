@@ -30,12 +30,12 @@ node_modules/
 !/meetings/.gitkeep
 /staging/*
 !/staging/.gitkeep
-/saved_templates/*
-!/saved_templates/.gitkeep
 /learned_templates/*
 !/learned_templates/.gitkeep
 /build_context/*
 !/build_context/.gitkeep
+/client_logos/*
+!/client_logos/.gitkeep
 /static/renders/
 
 # Logs & scratch dumps

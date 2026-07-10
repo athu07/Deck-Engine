@@ -6,31 +6,63 @@
 </div>
 {% if error %}<div class="card" style="border-left:4px solid var(--neg);margin-bottom:18px;color:var(--neg)"><b>{{ error }}</b></div>{% endif %}
 
-<!-- F1 · content shortcut: already have the content? build one case-study slide -->
+<!-- F1 · content shortcut: already have the content? build slides one at a time,
+     queue them, then either take just those to review or fold them into the
+     full deck built below (owner's spec, 2026-07-09) -->
 <form id="contentForm" method="post" action="/from_content" enctype="multipart/form-data"
-      class="card shortcut-card" style="margin-bottom:20px" onsubmit="return cfSubmit()">
+      class="card shortcut-card" style="margin-bottom:12px" onsubmit="return cfSubmit(event)">
   <div class="shortcut-head">
     <span class="shortcut-ic"><i class="ti ti-file-text"></i></span>
     <div>
       <h2 class="sec-title" style="margin:0">Already have the content?</h2>
-      <p class="hint" style="font-size:13px;margin:3px 0 0">Paste a full case study (or attach a document) and we'll build one branded slide, then take you straight to editing.</p>
+      <p class="hint" style="font-size:13px;margin:3px 0 0">Paste it (or attach a document) and we'll figure out the right slide shape — a case study, a four-box breakdown, whatever fits — and build one branded slide. Got several? Build them one at a time — each queues up below, then either fold the queue into the full deck you build below, or skip straight to reviewing just these.</p>
     </div>
   </div>
-  <textarea name="content" placeholder="Paste the complete case-study content here — client situation, what was delivered, the numbers…" style="min-height:96px;margin-top:14px"></textarea>
-  <div class="shortcut-actions">
+  <textarea id="cf-content" name="content" placeholder="Paste the complete content here — a case study, a four-way breakdown, whatever you have…" style="min-height:96px;margin-top:14px"></textarea>
+  <div class="shortcut-actions" style="flex-wrap:wrap">
+    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--hint)">
+      Work type <span style="color:var(--neg)">*</span>
+      <select class="input" name="work_type" required style="min-width:190px">
+        <option value="" selected disabled>Choose one — needed to save this to the library</option>
+        <option value="WORKFORCE">Workforce</option>
+        <option value="AI_POD">AI Pods</option>
+        <option value="MS">Managed services</option>
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--hint)">
+      Template
+      <select class="input" name="template_hint" style="min-width:200px">
+        <option value="auto" selected>Auto-detect (recommended)</option>
+        {% for t in content_templates %}
+        <option value="{{ t.key }}">{{ t.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label class="shortcut-file"><i class="ti ti-paperclip"></i>
       <span id="cf-fname">Attach a document (PDF, Word, text)</span>
-      <input type="file" name="content_file" accept=".pdf,.txt,.md,.docx"
+      <input id="cf-file" type="file" name="content_file" accept=".pdf,.txt,.md,.docx"
              onchange="document.getElementById('cf-fname').textContent=this.files[0]?this.files[0].name:'Attach a document (PDF, Word, text)'"></label>
     <input type="hidden" name="client_name" id="cf-client">
     <input type="hidden" name="industry" id="cf-industry">
-    <button class="btn btn-primary" type="submit"><i class="ti ti-wand"></i> Build the slide</button>
+    <button class="btn btn-primary" type="submit" id="cf-submit-btn"><i class="ti ti-wand"></i> Build the slide</button>
   </div>
+  <div id="cf-error" class="hint" style="display:none;color:var(--neg);margin-top:8px;font-size:13px"></div>
 </form>
+
+<div id="cf-queue-wrap" style="display:none;margin-bottom:20px">
+  <div class="hint" style="font-size:12.5px;margin:0 0 8px">Queued content slides — these will slot into the deck below (case studies with the case studies, everything else just above them):</div>
+  <ul id="cf-queue" class="slide-list" style="margin-bottom:10px"></ul>
+  <form method="post" action="/review" id="cf-review-form">
+    <input type="hidden" name="order" id="cf-review-order">
+    <input type="hidden" name="client_name" id="cf-review-client">
+    <button class="btn" type="submit">Skip the full deck — review just these slides →</button>
+  </form>
+</div>
 
 <div class="or-divider"><span>or build a full deck from context</span></div>
 
 <form id="deckForm" method="post" action="/build" class="form-layout" enctype="multipart/form-data">
+  <input type="hidden" name="content_slide_ids" id="content-slide-ids">
   <div>
     <!-- 1 · WORK TYPE (the primary choice, first) -->
     <div class="card" style="margin-bottom:18px">
@@ -104,6 +136,38 @@
             <span class="fp-name">Choose a file (PDF, text)</span>
             <input type="file" name="profile_file" accept=".pdf,.txt,.md"
                    onchange="this.parentNode.querySelector('.fp-name').textContent=this.files[0]?this.files[0].name:'Choose a file (PDF, text)'"></label>
+        </div>
+        <div class="attach">
+          <div class="attach-h"><i class="ti ti-photo"></i> Client logo <span class="hint">— optional</span></div>
+          <p class="hint">Auto-found from the client name above, placed side by side with the JoulesToWatts mark on the title slide — a solid background is removed automatically. Best-effort, so check the preview before relying on it.</p>
+          <div id="logo-preview-box" style="display:none;margin:8px 0;padding:10px;background:#fff;border:1px solid var(--line-2);border-radius:var(--r-md)">
+            <img id="logo-preview-img" style="max-width:160px;max-height:90px;display:block;margin-bottom:6px">
+            <span class="hint" style="font-size:12px">Found this — will be used unless you upload your own below.</span>
+          </div>
+          <div id="logo-error" class="hint" style="display:none;color:#c0392b;margin:8px 0"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input class="input" id="logo-domain" placeholder="Company domain, e.g. waaree.com — optional, improves accuracy" style="flex:1">
+            <button type="button" class="btn" id="logo-find-btn" onclick="findLogo()" style="flex:0 0 auto"><i class="ti ti-search"></i> Search</button>
+          </div>
+          <p class="hint" style="margin:10px 0 6px">Or upload your own:</p>
+          <label class="file-pick"><i class="ti ti-paperclip"></i>
+            <span class="fp-name">Choose an image (PNG, JPG)</span>
+            <input type="file" name="client_logo_file" accept=".png,.jpg,.jpeg"
+                   onchange="this.parentNode.querySelector('.fp-name').textContent=this.files[0]?this.files[0].name:'Choose an image (PNG, JPG)';logoFileChosen(this)"></label>
+          <input type="hidden" name="client_logo_data_uri" id="client-logo-data-uri">
+        </div>
+      </div>
+
+      <div class="attach" style="margin-top:12px">
+        <div class="attach-h"><i class="ti ti-search"></i> Or, let us research it for you</div>
+        <p class="hint">A live, executive-grade strategic account brief — synergies, transformation priorities, named accelerator opportunities, ROI cases — using the client name (and stakeholder, if given) above. Doesn't replace the files above; review and edit everything before it's used.</p>
+        <button type="button" class="btn" id="research-btn" onclick="researchAccount()"><i class="ti ti-search"></i> Research this account</button>
+        <div id="research-error" class="hint" style="display:none;color:#c0392b;margin-top:8px"></div>
+        <div id="research-results" style="display:none;margin-top:12px">
+          <div class="field" style="margin-bottom:0">
+            <label>Auto-researched strategic brief <span class="hint">— review, edit, or clear before submitting</span></label>
+            <textarea name="auto_company_text" id="auto-company-text" rows="10"></textarea>
+          </div>
         </div>
       </div>
     </div>

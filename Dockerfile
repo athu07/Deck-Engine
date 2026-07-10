@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p output meetings staging build_context saved_templates static/renders
+RUN mkdir -p output meetings staging build_context static/renders
 
 EXPOSE 5000
 

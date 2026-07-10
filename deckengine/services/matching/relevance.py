@@ -64,6 +64,30 @@ MAIL_WEIGHT = 0.7
 _OUTCOME = ("roi", "cost", "saving", "revenue", "margin", "risk", "spend",
             "downtime", "compliance", "efficiency", "productivity")
 
+W_METRIC_PREF = 1.5   # explicit "give me the strongest-numbers case studies" ask
+                      # (owner's spec, 2026-07-09) -- bigger than the passive CXO
+                      # nudge above (W_METRIC), since this is a deliberate request,
+                      # not an inferred persona heuristic
+_PCT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+_MULT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[xX]\b")
+
+
+def _metric_strength(row):
+    """0.0-1.0: how strong this case's OWN quantified results are, not just
+    whether it has any. Percentages are the library's dominant unit, so they're
+    read directly (capped at 100 -> 1.0); a multiplier ('3.2x faster') is
+    treated as roughly equivalent scale to keep the two comparable. 0.0 if the
+    case states no extractable number -- a case with real numbers should win
+    over one with only qualitative claims when the salesperson explicitly
+    asked for proof points with strong figures."""
+    text = " ".join(row.get("_record", {}).get("results") or [])
+    if not text:
+        return 0.0
+    pct = [float(m) for m in _PCT_RE.findall(text)]
+    mult = [float(m) * 25 for m in _MULT_RE.findall(text)]   # 4x ~= 100(%)-equivalent
+    nums = pct + mult
+    return min(1.0, max(nums) / 100.0) if nums else 0.0
+
 
 # ── tokenisation ─────────────────────────────────────────────────────────────
 def _tokens(text):
@@ -86,6 +110,16 @@ _GENERIC_BIZ = {
     "model", "build", "support", "engineering", "technology", "data", "analytics",
     "digital", "business", "capability", "capabilities", "delivery", "innovation",
     "planning", "process", "quality", "team", "teams", "project", "projects", "leading",
+    # single-word PLATFORM/PRODUCT brand names -- e.g. "sap" -- are too broad to
+    # trust as a discriminating title-match once the library holds several
+    # genuinely different sub-capabilities under the same platform (owner-
+    # reported, 2026-07-09: "SAP BTP Extension Development" -- cosine 0.405,
+    # below the 0.42 semantic bar -- still counted as COVERED by an unrelated
+    # "Agentic SAP S/4HANA Migration" case purely because both titles contain
+    # the word "sap", bypassing the real similarity check entirely). A
+    # genuinely specific word (s4hana, btp, abap, migration) still tells cases
+    # apart correctly; the bare platform name doesn't.
+    "sap",
 }
 
 
@@ -199,12 +233,23 @@ AVOID_PENALTY = 5.0
 
 def rank_cases(transcript, rows, *, industry="", functions=None,
                persona_codes=(), wanted=None, cxo=False, use_semantic=True, research="",
-               avoid=None):
+               avoid=None, prefer_high_impact=False, deck_theme=""):
     """Rank every case row (best first). The DEEP RESEARCH drives: a case that
     matches the research outranks one that only matches the generic mail thread.
     `avoid` = the brief's mismatch flags [{capability,reason}] — a case that is ABOUT
     a flagged capability but sits in a DIFFERENT industry than the account (a wrong-
     domain term-match) is pushed down so it can't sneak into the fill.
+    `prefer_high_impact` (owner's spec, 2026-07-09) -- the salesperson explicitly
+    asked (in the brief/transcript) for case studies with strong/proven numbers;
+    among cases that are already relevant, ones with bigger quantified results
+    win the tiebreak (see _metric_strength) -- distinct from the passive `cxo`
+    nudge above, which only checks a case HAS a metric, not how big it is.
+    `deck_theme` (owner's spec, 2026-07-09) -- the titles of the standard slides
+    ALREADY chosen for this deck (see matcher.plan); a case that reinforces what
+    the deck is already about (e.g. its own GCC-build/Greenfield slides) should
+    outrank one that's merely topically relevant. Given FULL weight alongside
+    `research` -- both are equally authoritative signals of what this deck needs
+    to prove, one textual, one concretely already committed to the deck.
     Returns dicts {row, score, sem, lex, matched, industry_hit, function_hit,
     eligible, persona_why}. NOTHING is filtered — matcher decides the cut."""
     functions = {f.upper() for f in (functions or set())}
@@ -217,13 +262,23 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
         if terms:
             avoid_termsets.append(terms)
 
+    # deck_theme is a SEMANTIC-similarity signal only (see the embedding block
+    # below) -- deliberately kept OUT of the always-on lexical terms here. A
+    # standard slide's own title ("End to End GCC Build Offerings") is full of
+    # generic words (build/offerings/end) that would inject noisy, unintended
+    # lexical collisions into every capability's keyword match if folded in
+    # unconditionally; the offline/no-AI fallback path stays exactly as it was.
     terms = transcript_terms((transcript or "") + " " + (research or ""))
-    # research asks weigh full; mail asks are down-weighted so the research leads
+    # research asks (and the deck's own already-chosen theme) weigh full;
+    # mail asks are down-weighted so the research/theme leads
     res_chunks = _split_asks(research) if (use_semantic and (research or "").strip()) else []
+    theme_chunks = _split_asks(deck_theme) if (use_semantic and (deck_theme or "").strip()) else []
     mail_chunks = _split_asks(transcript) if (use_semantic and (transcript or "").strip()) else []
-    all_vecs = embed_texts(res_chunks + mail_chunks) if (res_chunks or mail_chunks) else None
+    all_vecs = embed_texts(res_chunks + theme_chunks + mail_chunks) \
+        if (res_chunks or theme_chunks or mail_chunks) else None
     res_vecs = all_vecs[:len(res_chunks)] if all_vecs else []
-    mail_vecs = all_vecs[len(res_chunks):] if all_vecs else []
+    theme_vecs = all_vecs[len(res_chunks):len(res_chunks) + len(theme_chunks)] if all_vecs else []
+    mail_vecs = all_vecs[len(res_chunks) + len(theme_chunks):] if all_vecs else []
     case_emb = _load_case_embeddings() if all_vecs else {}
 
     out = []
@@ -241,10 +296,12 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
         sem = 0.0
         if all_vecs:
             v = case_emb.get(row["slide_id"])
-            if v:                          # best-matching ask; research weighs full
+            if v:                          # best-matching ask; research/theme weigh full
                 sem_res = max((max(0.0, _cosine(a, v)) for a in res_vecs), default=0.0)
+                sem_theme = max((max(0.0, _cosine(a, v)) for a in theme_vecs), default=0.0)
                 sem_mail = max((max(0.0, _cosine(a, v)) for a in mail_vecs), default=0.0)
-                sem = max(sem_res, MAIL_WEIGHT * sem_mail) if res_vecs else sem_mail
+                sem = max(sem_res, sem_theme, MAIL_WEIGHT * sem_mail) \
+                    if (res_vecs or theme_vecs) else sem_mail
 
         ind_hit = bool(industry and (row.get("primary_industry") or "").upper() == industry)
         fn_hit = bool(functions and (row.get("primary_function") or "").upper() in functions)
@@ -253,6 +310,7 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
         eligible = ind_hit or sem >= CROSS_INDUSTRY_MIN or weighted >= LEX_FULL
         p_boost, p_why = personas.score_boost(persona_codes, row)
         metric = W_METRIC if (cxo and _has_outcome_metrics(row)) else 0.0
+        impact = W_METRIC_PREF * _metric_strength(row) if prefer_high_impact else 0.0
 
         score = (W_SEMANTIC * sem
                  + W_LEXICAL * lex_norm
@@ -260,7 +318,8 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
                  + (W_INDUSTRY if ind_hit else 0.0)
                  + (W_FUNCTION if fn_hit else 0.0)
                  + W_PERSONA * p_boost
-                 + metric)
+                 + metric
+                 + impact)
 
         # mismatch-flag demotion: a case ABOUT a flagged capability, in a DIFFERENT
         # industry than the account, is a wrong-domain term-match -> push it down.

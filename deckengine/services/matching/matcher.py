@@ -80,7 +80,7 @@ def _case_reason(wt, item):
     if item.get("persona_why"):
         bits.append("for " + "/".join(sorted(set(item["persona_why"]))))
     note = " · ".join(bits) if bits else "related"
-    return f"case [{wt}] · {note} (score {item['score']:.1f})"
+    return f"case [{wt}] · {note} (score {item.get('score', 0.0):.1f})"
 
 REGISTRY_XLSX = config.REGISTRY_XLSX
 LIBRARY_JSON = config.TAGGED_LIBRARY_JSON
@@ -159,6 +159,18 @@ _ASKED_KEYWORDS = {
     "CS146": ["interview as a service", "interview-as-a-service", "iaas"],      # AI Pods + Interview-as-a-Service
 }
 
+# Semantic fallback for the "asked" trigger (owner's spec, 2026-07-09): a
+# literal phrase match is fragile -- a client who says "how are you different
+# from Deloitte" never hits CS13's "big 4" keyword. Maps a slide id to the
+# matching boolean field on ai_matcher.extract_brief()'s output; either the
+# literal phrase OR this AI-judged intent flag satisfies the trigger. Scoped
+# to just these two for now (the ones actually reported missing from a real
+# deck) rather than generalising every _ASKED_KEYWORDS entry at once.
+_ASKED_SEMANTIC_FLAGS = {
+    "CS12": "asks_differentiation",
+    "CS13": "asks_why_not_big_si",
+}
+
 # Two genuinely idiosyncratic slides whose rule can't be expressed as a flat
 # stage/composition/trigger row (see SLIDE_SELECTION_BRIEF.md Slides 8, 28-29).
 # Each function returns True/False given (stage, composition, wanted work types).
@@ -189,6 +201,13 @@ def _rule_cs02b(stage, composition, wanted):
     return stage == "intro" and composition == "pure" and "MS" in wanted
 
 
+def _rule_cs147(stage, composition, wanted):
+    """CS147 - "CASE STUDIES" section divider: every stage except Intro (owner-
+    confirmed 2026-07-08 -- an Intro deck should read as one continuous flow,
+    not broken up by a section-header slide before its case studies)."""
+    return stage != "intro"
+
+
 def _rule_ai_pod_pair(stage, composition, wanted):
     """Slides 28-29 - AI-First Pod Model + J2W AI Research Wing: pure-AIP-only
     at Intro/First; ALWAYS included at Second whenever AI Pods is in the deck
@@ -208,6 +227,7 @@ _SPECIAL_STAGE_RULES = {
     "CS16": _rule_ai_pod_pair,
     "CS02": _rule_cs02,
     "CS02B": _rule_cs02b,
+    "CS147": _rule_cs147,
 }
 
 
@@ -387,12 +407,19 @@ def _capability_gaps(asks, reg, chosen, max_missing=5, max_suggest=6):
     return missing[:max_missing], asked_existing[:max_suggest]
 
 
-def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
+def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_high_impact=False,
+        asked_flags=None):
     """Returns {'picks','gaps','suggestions','ai_used'}. Reads the research/notes,
     ranks the LIBRARY case studies OF THE SELECTED WORK TYPES by how well they match,
     prefers the account's industry, and de-dups. priority_ids = the cases that
     matched a named research need (ordered) — they LEAD the deck. avoid = the brief's
-    mismatch flags, used to demote wrong-domain term-matches in the fill."""
+    mismatch flags, used to demote wrong-domain term-matches in the fill.
+    prefer_high_impact = the brief's own explicit ask for strong-numbers case
+    studies (owner's spec, 2026-07-09) -- see relevance.rank_cases.
+    asked_flags = {field_name: bool} from ai_matcher.extract_brief() -- the AI-
+    judged semantic fallback for the 'asked' trigger (see _ASKED_SEMANTIC_FLAGS),
+    used alongside the literal _ASKED_KEYWORDS phrase match, not instead of it."""
+    asked_flags = asked_flags or {}
     priority_list, _seen = [], set()
     for p in (priority_ids or []):
         pu = str(p).upper()
@@ -470,11 +497,27 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
             continue
         if trig == "asked":
             phrases = _ASKED_KEYWORDS.get(sid, [])
-            if phrases and not any(p in transcript for p in phrases):
+            literal_hit = any(p in transcript for p in phrases) if phrases else False
+            flag_name = _ASKED_SEMANTIC_FLAGS.get(sid)
+            semantic_hit = bool(flag_name and asked_flags.get(flag_name))
+            if phrases and not (literal_hit or semantic_hit):
                 continue
         chosen[sid] = f"standard block (stage={stage})"
         # NOTE: registry CASE_STUDY rows (legacy master slides) are no longer the
         # source of case studies — they now come from the content store (below).
+
+    # ---- deck theme: the titles of the standard slides ALREADY chosen above --
+    #      case studies that reinforce what THIS deck is already about (e.g. its
+    #      "End to End GCC Build Offerings" / "Greenfield & Brownfield Use Cases"
+    #      slides mean a Greenfield GCC-build case study should outrank one
+    #      that's merely topically relevant) (owner's spec, 2026-07-09: a real
+    #      hand-built deck for a major account favoured exactly this kind of
+    #      case, every one of which already existed in the content store -- a
+    #      pure ranking gap, not a missing-content one). Given FULL weight
+    #      alongside the deep-research brief in rank_cases -- both are equally
+    #      authoritative signals of what this deck needs to prove.
+    _chosen_titles = _title_lookup()
+    deck_theme = " ".join(t for sid in chosen if (t := _chosen_titles.get(sid, ""))).strip()
 
     # ---- Case studies: candidates come ONLY from the SELECTED work types (an MS
     #      deck shows MS cases, never AI-Pod), ranked by how well they match the
@@ -489,7 +532,8 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
         transcript_raw, all_case_rows,
         industry=industry, functions=account_functions,
         persona_codes=persona_codes, wanted=wanted, cxo=cxo, use_semantic=use_semantic,
-        research=research_raw, avoid=avoid)
+        research=research_raw, avoid=avoid, prefer_high_impact=prefer_high_impact,
+        deck_theme=deck_theme)
     ranked = [it for it in ranked if it.get("eligible")]   # drop weak cross-industry
     ai_used = use_semantic and relevance.semantic_available()
     ai_optional = []                     # optional-slide AI selection retired
@@ -516,7 +560,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None):
             break
         it = ranked_by_id.get(pid)
         if it is None and pid in row_by_id:            # matched a hook but ranked low
-            it = {"row": row_by_id[pid], "sem": 0.0, "matched": set(),
+            it = {"row": row_by_id[pid], "score": 0.0, "sem": 0.0, "matched": set(),
                   "industry_hit": False, "function_hit": False, "persona_why": []}
         if it is None or it["row"]["slide_id"] in selected_ids:
             continue

@@ -132,14 +132,3 @@ def test_bulk_slides_zip():
     assert "CS01.pptx" in names and "MSS001.pptx" in names   # master + content-store case
     assert c.get("/slides/download?ids=").status_code == 400  # nothing selected
 
-
-# ── F3: saved-templates store round-trip ──────────────────────────────────────
-def test_saved_templates_roundtrip(tmp_path, monkeypatch):
-    from deckengine import config
-    from deckengine.services import saved_templates
-    monkeypatch.setattr(config, "SAVED_TEMPLATES_DIR", str(tmp_path))
-    row = saved_templates.save("My Deck", b"PK-fake-pptx-bytes", 5)
-    assert saved_templates.get(row["id"])["name"] == "My Deck"
-    assert saved_templates.file_path(row["id"])
-    assert saved_templates.delete(row["id"]) is True
-    assert saved_templates.all_templates() == []

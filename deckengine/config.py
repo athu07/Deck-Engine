@@ -63,10 +63,11 @@ STAGING_JSON      = os.path.join(STAGING_DIR, "staging.json")
 # per-build context (deep research + profile + full transcript), keyed by build_id,
 # so the AI case-study generator can synthesise from it after /build.
 BUILD_CONTEXT_DIR = os.environ.get("DECK_BUILD_CONTEXT_DIR") or _p("build_context")
-# user-uploaded decks saved as reusable templates (Templates page).
-SAVED_TEMPLATES_DIR = os.environ.get("DECK_SAVED_TEMPLATES_DIR") or _p("saved_templates")
 # "learn a template from a deck" -- one slide extracted + its role-map (Templates page).
 LEARNED_TEMPLATES_DIR = os.environ.get("DECK_LEARNED_TEMPLATES_DIR") or _p("learned_templates")
+# uploaded client logos, one PNG per client (background-removed), stamped onto the
+# title slide next to the J2W wordmark at finalize time.
+CLIENT_LOGOS_DIR = os.environ.get("DECK_CLIENT_LOGOS_DIR") or _p("client_logos")
 # rendered slide-preview images (served from /static/renders/); regenerated on demand.
 RENDERS_DIR = os.environ.get("DECK_RENDERS_DIR") or _p("static", "renders")
 

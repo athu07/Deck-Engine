@@ -483,6 +483,440 @@ def _mapping_target_skill_profile(profile, n_slots=6):
     return mapping
 
 
+def _mapping_four_box(data):
+    """title/heading text is forced to caps here (not at extraction) -- owner's
+    spec: headings are always caps, kept as a display-layer transform so the
+    AI extraction itself stays plain text, same separation used in reskin.py."""
+    boxes = (data.get("boxes") or [])[:4]
+    mapping = {"TITLE": (data.get("title") or "").upper(),
+              "SUBHEAD": data.get("subhead") or ""}
+    for i in range(1, 5):
+        b = boxes[i - 1] if i <= len(boxes) else {}
+        mapping[f"BOX{i}_HEAD"] = b.get("heading", "")
+        mapping[f"BOX{i}_BODY"] = b.get("body", "")
+    return mapping
+
+
+def _mapping_roadmap_head(data):
+    """Header markers only -- the columns/legend/footer are drawn programmatically
+    by _draw_roadmap_columns since, unlike four_box, this shape has no fixed slot
+    count for a static template to carry."""
+    return {"TITLE": (data.get("title") or "").upper(),
+            "SUBHEAD": data.get("subhead") or "",
+            "INTRO": data.get("intro") or ""}
+
+
+# ── Shared programmatic-drawing toolkit ────────────────────────────────────────
+# Every "variable count" shape below (roadmap_board, box_grid, pillar_deepdive,
+# scored_list, stat_overview, data_table) draws its OWN body directly with
+# python-pptx instead of filling a fixed-slot template -- the slot count varies
+# with the content, so there's no fixed template to fill. These are the shared
+# low-level primitives (same pattern reskin.py's/create_skills_templates.py's
+# bar/card/text helpers use), promoted to module level so every _draw_* below
+# shares ONE implementation instead of five copies.
+_CARD_BG = RGBColor(0xF5, 0xF5, 0xF5)
+_LINE = RGBColor(0xDE, 0xDE, 0xDE)
+_INK = RGBColor(0x11, 0x11, 0x10)
+_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+_BODY = RGBColor(0x3E, 0x3E, 0x3E)
+_MUTE = RGBColor(0x6E, 0x6E, 0x69)
+_RED = RGBColor(0xD6, 0x28, 0x39)
+_TEAL = RGBColor(0x2A, 0x9D, 0x8F)
+_NAVY = RGBColor(0x1C, 0x2B, 0x44)
+
+# Owner's house rule (2026-07-09, restated from reskin.py's identical SZ_BODY/
+# SZ_BODY_HEAD convention): plain content text is ALWAYS 11pt; a bold mini-
+# heading nested inside a card/row is ALWAYS 13pt. Applied to every _draw_*
+# function below with exactly ONE deliberate exception -- a stat tile's own
+# big display number (_draw_stat_overview), which isn't prose or a heading,
+# it's a hero figure, matching the pre-existing metric_tile() convention in
+# create_skills_templates.py that this shape's design is modelled on.
+_SZ_BODY = 11
+_SZ_HEAD = 13
+
+
+def _draw_bar(slide, l, t, w, h, fill):
+    from pptx.util import Inches
+    from pptx.enum.shapes import MSO_SHAPE
+    s = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(l), Inches(t), Inches(w), Inches(h))
+    s.fill.solid(); s.fill.fore_color.rgb = fill
+    s.line.fill.background(); s.shadow.inherit = False
+    return s
+
+
+def _draw_card(slide, l, t, w, h, fill, line):
+    from pptx.util import Inches, Pt
+    from pptx.enum.shapes import MSO_SHAPE
+    s = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(l), Inches(t), Inches(w), Inches(h))
+    s.fill.solid(); s.fill.fore_color.rgb = fill
+    s.line.color.rgb = line; s.line.width = Pt(0.75)
+    s.shadow.inherit = False
+    return s
+
+
+def _draw_text(slide, l, t, w, h, text, size, color, bold=False, align=None, font="Raleway", anchor=None):
+    from pptx.util import Inches, Pt
+    from pptx.enum.text import PP_ALIGN
+    align = align or PP_ALIGN.LEFT
+    tb = slide.shapes.add_textbox(Inches(l), Inches(t), Inches(w), Inches(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_top = tf.margin_bottom = Pt(2)
+    if anchor:
+        tf._txBody.bodyPr.set("anchor", anchor)   # 'ctr' for vertical centring
+    p = tf.paragraphs[0]
+    p.alignment = align
+    r = p.add_run(); r.text = text
+    r.font.name = font; r.font.size = Pt(size); r.font.color.rgb = color; r.font.bold = bold
+    return tb
+
+
+def _draw_bullets(slide, l, t, w, h, items, size, color, marker="• "):
+    from pptx.util import Inches, Pt
+    from pptx.enum.text import MSO_AUTO_SIZE
+    tb = slide.shapes.add_textbox(Inches(l), Inches(t), Inches(w), Inches(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_top = tf.margin_bottom = Pt(2)
+    tf.auto_size = MSO_AUTO_SIZE.NONE
+    for i, item in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        r = p.add_run(); r.text = marker + item
+        r.font.name = "Raleway"; r.font.size = Pt(size); r.font.color.rgb = color
+    return tb
+
+
+def _fit_size(item_count, box_h_in, base=_SZ_BODY, floor=7, per_item_lines=2):
+    """Pick a font size that keeps `item_count` short lines inside a box of
+    `box_h_in` height, baked in rather than left to a renderer's autofit (same
+    reasoning as reskin.py's _fit_body_text)."""
+    if item_count <= 0:
+        return base
+    per_item_in = per_item_lines * base * 1.2 / 72.0
+    needed = item_count * per_item_in
+    if needed <= box_h_in:
+        return base
+    return max(floor, int(base * (box_h_in / needed)))
+
+
+# First 2 distinct tag/category values get a filled colour badge (red, then
+# dark navy); any further one falls back to a neutral outline style -- shared
+# by roadmap_board's columns/legend and data_table's row pills.
+_TAG_FILLS = [(_RED, _WHITE), (_NAVY, _WHITE)]
+_TAG_OUTLINE = (_WHITE, _INK)
+
+
+def _tag_style(tag, style_by_tag):
+    if tag not in style_by_tag:
+        i = len(style_by_tag)
+        style_by_tag[tag] = _TAG_FILLS[i] if i < len(_TAG_FILLS) else _TAG_OUTLINE
+    return style_by_tag[tag]
+
+
+def _draw_footer_banner(slide, footer_title, footer_body, y, sw=13.33, margin=0.30):
+    """The full-width closing summary bar shared by roadmap_board and
+    stat_overview (e.g. 'THE FOUNDATION, ESTABLISHED IN PHASE 1'). Returns the
+    banner's own height so the caller can advance past it."""
+    from pptx.enum.text import PP_ALIGN
+    if not (footer_title or footer_body):
+        return 0.0
+    h = 0.62
+    _draw_bar(slide, margin, y, sw - 2 * margin, h, _INK)
+    if footer_title:
+        _draw_text(slide, margin + 0.2, y + 0.08, sw - 2 * margin - 0.4, 0.26,
+                   footer_title.upper(), _SZ_HEAD, _WHITE, bold=True, align=PP_ALIGN.CENTER)
+    if footer_body:
+        _draw_text(slide, margin + 0.3, y + 0.34, sw - 2 * margin - 0.6, 0.26,
+                   footer_body, _SZ_BODY, RGBColor(0xDD, 0xDD, 0xDD), align=PP_ALIGN.CENTER)
+    return h
+
+
+def _draw_roadmap_columns(slide, data):
+    """Add the column board + legend + footer banner to a copied roadmap_board
+    template slide (which already carries the filled TITLE/SUBHEAD/INTRO
+    header via fill_markers). Pure python-pptx shape drawing -- no markers --
+    since the column count is whatever the content has, not a fixed slot set."""
+    from pptx.enum.text import PP_ALIGN
+
+    SW = 13.33
+    MARGIN = 0.30
+    columns = data.get("columns") or []
+    n = len(columns)
+    if n == 0:
+        return
+
+    top = 1.55 if (data.get("intro") or "").strip() else 1.15
+    footer_h = 0.62 if (data.get("footer_title") or data.get("footer_body")) else 0.0
+    legend_h = 0.30 if data.get("legend") else 0.0
+    bottom = 7.50 - 0.24 - footer_h - legend_h - (0.12 if footer_h or legend_h else 0)
+    col_h = bottom - top
+
+    # wrap into 2 rows once columns would otherwise get unreadably thin
+    max_per_row = max(1, int((SW - 2 * MARGIN) / 1.35))
+    rows = [columns[i:i + max_per_row] for i in range(0, n, max_per_row)] if n > max_per_row \
+        else [columns]
+    row_gap = 0.20
+    row_h = (col_h - (len(rows) - 1) * row_gap) / len(rows) if len(rows) > 1 else col_h
+
+    style_by_tag = {}
+    gap = 0.16
+    for ri, row_cols in enumerate(rows):
+        m = len(row_cols)
+        col_w = (SW - 2 * MARGIN - (m - 1) * gap) / m
+        row_top = top + ri * (row_h + row_gap)
+        head_h = 0.56
+        for ci, col in enumerate(row_cols):
+            l = MARGIN + ci * (col_w + gap)
+            fill, text_color = _tag_style(col.get("tag", ""), style_by_tag)
+            outline = (fill == _TAG_OUTLINE[0])
+            _draw_card(slide, l, row_top, col_w, head_h, fill, _LINE) if outline else \
+                _draw_bar(slide, l, row_top, col_w, head_h, fill)
+            _draw_text(slide, l + 0.08, row_top + 0.05, col_w - 0.16, 0.28, col.get("name", ""),
+                       _SZ_HEAD, text_color, bold=True)
+            if col.get("tag"):
+                _draw_text(slide, l + 0.08, row_top + 0.32, col_w - 0.16, 0.20, col["tag"].upper(),
+                           8, text_color)
+            body_top = row_top + head_h + 0.08
+            body_h = row_h - head_h - 0.08
+            _draw_card(slide, l, body_top, col_w, body_h, _CARD_BG, _LINE)
+            items = col.get("items") or []
+            size = _fit_size(len(items), body_h - 0.16)
+            _draw_bullets(slide, l + 0.10, body_top + 0.08, col_w - 0.20, body_h - 0.16, items,
+                         size, _BODY)
+
+    y = top + col_h + 0.12
+    y += _draw_footer_banner(slide, data.get("footer_title"), data.get("footer_body"), y, SW, MARGIN)
+    if data.get("footer_title") or data.get("footer_body"):
+        y += 0.10
+
+    legend = data.get("legend") or []
+    if legend:
+        lw = (SW - 2 * MARGIN) / len(legend)
+        for i, item in enumerate(legend):
+            fill, _tc = _tag_style(item.get("tag", ""), style_by_tag)
+            lx = MARGIN + i * lw
+            _draw_bar(slide, lx, y + 0.03, 0.14, 0.14, fill)
+            label = item.get("tag", "") + (", " + item["note"] if item.get("note") else "")
+            _draw_text(slide, lx + 0.20, y, lw - 0.24, 0.24, label, 9, _BODY)
+
+
+def _mapping_box_grid_head(data):
+    return {"TITLE": (data.get("title") or "").upper(), "SUBHEAD": data.get("subhead") or ""}
+
+
+def _draw_box_grid(slide, data):
+    """N boxes (2-8), auto-arranged in a grid -- the same box_grid, evaluated
+    on the header markers, does not need EXACTLY 4 (that's four_box; this is
+    the generalisation used by 'Recreate with AI' for a source slide whose own
+    grid has 3, 5, or 6 items)."""
+    boxes = data.get("boxes") or []
+    n = len(boxes)
+    if n == 0:
+        return
+    cols = 2 if n <= 4 else (3 if n <= 6 else 4)
+    cols = min(cols, n)
+    rows = -(-n // cols)   # ceil
+
+    SW, SH = 13.33, 7.50
+    MARGIN = 0.30
+    gap = 0.24
+    top = 1.35
+    bottom = SH - 0.24
+    box_w = (SW - 2 * MARGIN - (cols - 1) * gap) / cols
+    box_h = (bottom - top - (rows - 1) * gap) / rows
+
+    for i, b in enumerate(boxes):
+        r, c = divmod(i, cols)
+        bl = MARGIN + c * (box_w + gap)
+        bt = top + r * (box_h + gap)
+        _draw_card(slide, bl, bt, box_w, box_h, _CARD_BG, _LINE)
+        _draw_bar(slide, bl + 0.16, bt + 0.16, 0.06, 0.34, _RED)
+        _draw_text(slide, bl + 0.16 + 0.16, bt + 0.16, box_w - 0.32 - 0.16, 0.34,
+                   b.get("heading", ""), _SZ_HEAD, _INK, bold=True)
+        _draw_text(slide, bl + 0.16, bt + 0.16 + 0.44, box_w - 0.32, box_h - 0.32 - 0.44,
+                   b.get("body", ""), _SZ_BODY, _BODY)
+
+
+def _mapping_pillar_head(data):
+    return {"TITLE": (data.get("title") or "").upper(), "SUBHEAD": data.get("eyebrow") or ""}
+
+
+_PILLAR_ACCENTS = [_TEAL, _RED, _NAVY]
+
+
+def _draw_pillar_blocks(slide, data):
+    """2-4 feature blocks stacked vertically, each an accent-bar card with a
+    heading + one-line body on the left portion and its own bullet sub-points
+    on the right -- matches the 'PILLAR 0N' deep-dive layout (owner's
+    reference deck, 2026-07-09)."""
+    blocks = data.get("blocks") or []
+    n = len(blocks)
+    if n == 0:
+        return
+    SW, SH = 13.33, 7.50
+    MARGIN = 0.30
+    top = 1.35
+    bottom = SH - 0.24
+    gap = 0.18
+    block_h = (bottom - top - (n - 1) * gap) / n
+    left_w = 4.20
+
+    for i, b in enumerate(blocks):
+        bt = top + i * (block_h + gap)
+        _draw_card(slide, MARGIN, bt, SW - 2 * MARGIN, block_h, _WHITE, _LINE)
+        _draw_bar(slide, MARGIN, bt, 0.06, block_h, _PILLAR_ACCENTS[i % len(_PILLAR_ACCENTS)])
+        _draw_text(slide, MARGIN + 0.22, bt + 0.14, left_w - 0.3, 0.32, b.get("heading", ""),
+                   _SZ_HEAD, _INK, bold=True)
+        if b.get("body"):
+            _draw_text(slide, MARGIN + 0.22, bt + 0.50, left_w - 0.3, block_h - 0.64,
+                       b["body"], _SZ_BODY, _BODY)
+        subs = b.get("subpoints") or []
+        if subs:
+            _draw_bullets(slide, MARGIN + left_w + 0.20, bt + 0.14,
+                         SW - 2 * MARGIN - left_w - 0.40, block_h - 0.28, subs,
+                         _fit_size(len(subs), block_h - 0.28, base=11, per_item_lines=1), _BODY)
+
+
+def _mapping_scored_list_head(data):
+    return {"TITLE": (data.get("title") or "").upper(), "SUBHEAD": data.get("subhead") or ""}
+
+
+def _draw_scored_rows(slide, data):
+    """2-8 stacked rows: name + description on the left, an optional stat chip
+    right-aligned -- matches the 'Agent Architecture' style row list (owner's
+    reference deck, 2026-07-09)."""
+    from pptx.enum.text import PP_ALIGN
+    rows = data.get("rows") or []
+    n = len(rows)
+    if n == 0:
+        return
+    SW, SH = 13.33, 7.50
+    MARGIN = 0.30
+    top = 1.35
+    bottom = SH - 0.24
+    gap = 0.14
+    row_h = min(0.72, (bottom - top - (n - 1) * gap) / n)
+
+    for i, row in enumerate(rows):
+        rt = top + i * (row_h + gap)
+        _draw_card(slide, MARGIN, rt, SW - 2 * MARGIN, row_h, _CARD_BG, _LINE)
+        name_w = 3.0
+        stat_w = 1.8 if row.get("stat") else 0.0
+        desc_w = SW - 2 * MARGIN - name_w - stat_w - 0.4
+        _draw_text(slide, MARGIN + 0.18, rt, name_w, row_h, row.get("name", ""),
+                   _SZ_HEAD, _INK, bold=True, anchor="ctr")
+        if row.get("description"):
+            _draw_text(slide, MARGIN + 0.18 + name_w, rt, desc_w, row_h, row["description"],
+                       _SZ_BODY, _BODY, anchor="ctr")
+        if row.get("stat"):
+            _draw_text(slide, SW - MARGIN - stat_w - 0.15, rt, stat_w, row_h, row["stat"],
+                       _SZ_BODY, _TEAL, bold=True, align=PP_ALIGN.RIGHT, anchor="ctr")
+
+
+def _mapping_stat_overview_head(data):
+    return {"TITLE": (data.get("title") or "").upper(), "SUBHEAD": data.get("subhead") or "",
+            "INTRO": data.get("intro") or ""}
+
+
+def _draw_stat_overview(slide, data):
+    """2-6 stat tiles + an optional named-items row + an optional closing
+    banner -- matches the 'What is X?' overview layout (owner's reference
+    deck, 2026-07-09)."""
+    from pptx.enum.text import PP_ALIGN
+    stats = data.get("stats") or []
+    items = data.get("items") or []
+    SW = 13.33
+    MARGIN = 0.30
+    top = 1.55 if (data.get("intro") or "").strip() else 1.15
+
+    if stats:
+        n = len(stats)
+        gap = 0.20
+        tile_w = (SW - 2 * MARGIN - (n - 1) * gap) / n
+        tile_h = 1.15
+        for i, s in enumerate(stats):
+            l = MARGIN + i * (tile_w + gap)
+            _draw_card(slide, l, top, tile_w, tile_h, _WHITE, _LINE)
+            _draw_bar(slide, l, top, tile_w, 0.05, _TEAL)
+            # the stat VALUE is a deliberate exception to the 11/13 rule -- a
+            # hero display figure, not prose or a heading (matches the pre-
+            # existing metric_tile() convention this shape is modelled on)
+            _draw_text(slide, l + 0.06, top + 0.16, tile_w - 0.12, 0.5, s.get("value", ""),
+                       24, _TEAL, bold=True, align=PP_ALIGN.CENTER)
+            _draw_text(slide, l + 0.06, top + 0.72, tile_w - 0.12, 0.35, s.get("label", ""),
+                       _SZ_BODY, _MUTE, align=PP_ALIGN.CENTER)
+        y = top + tile_h + 0.25
+    else:
+        y = top
+
+    if items:
+        _draw_text(slide, MARGIN, y, SW - 2 * MARGIN, 0.24, "CORE CAPABILITIES", _SZ_BODY, _TEAL, bold=True)
+        y += 0.32
+        n = len(items)
+        col_w = (SW - 2 * MARGIN) / n
+        for i, label in enumerate(items):
+            _draw_text(slide, MARGIN + i * col_w, y, col_w - 0.1, 0.3, label, _SZ_HEAD, _INK, bold=True)
+        y += 0.45
+
+    y += 0.15
+    _draw_footer_banner(slide, data.get("footer_title"), data.get("footer_body"), y, SW, MARGIN)
+
+
+def _mapping_data_table_head(data):
+    return {"TITLE": (data.get("title") or "").upper(), "SUBHEAD": data.get("subhead") or ""}
+
+
+def _draw_data_table(slide, data):
+    """A left narrative panel (its own intro paragraph, drawn here -- NOT via
+    a header marker, see build_slide11's docstring) + a right-side data table
+    with a colour-coded pill per row's category -- matches the 'Market
+    Heatmap' layout (owner's reference deck, 2026-07-09)."""
+    from pptx.enum.text import PP_ALIGN
+    rows = data.get("rows") or []
+    if not rows:
+        return
+    SW, SH = 13.33, 7.50
+    MARGIN = 0.30
+    top = 1.35
+    bottom = SH - 0.24
+    panel_w = 5.60
+    gap = 0.30
+    table_l = MARGIN + panel_w + gap
+    table_w = SW - table_l - MARGIN
+
+    _draw_card(slide, MARGIN, top, panel_w, bottom - top, _CARD_BG, _LINE)
+    _draw_bar(slide, MARGIN, top, panel_w, 0.05, _TEAL)
+    if data.get("intro"):
+        _draw_text(slide, MARGIN + 0.2, top + 0.2, panel_w - 0.4, bottom - top - 0.4,
+                   data["intro"], _SZ_BODY, _BODY)
+
+    cols = data.get("col_labels") or ["Item", "Category", "Value"]
+    col_w = [table_w * 0.46, table_w * 0.34, table_w * 0.20]
+    col_l = [table_l, table_l + col_w[0], table_l + col_w[0] + col_w[1]]
+    head_h = 0.34
+    _draw_text(slide, col_l[0], top, col_w[0], head_h, cols[0], _SZ_BODY, _MUTE, bold=True)
+    _draw_text(slide, col_l[1], top, col_w[1], head_h, cols[1], _SZ_BODY, _MUTE, bold=True)
+    _draw_text(slide, col_l[2], top, col_w[2], head_h, cols[2], _SZ_BODY, _MUTE, bold=True, align=PP_ALIGN.RIGHT)
+    _draw_bar(slide, table_l, top + head_h, table_w, 0.015, _LINE)
+
+    n = len(rows)
+    row_h = min(0.42, (bottom - top - head_h - 0.1) / n)
+    style_by_tag = {}
+    for i, r in enumerate(rows):
+        rt = top + head_h + 0.1 + i * row_h
+        _draw_text(slide, col_l[0], rt, col_w[0], row_h, r.get("label", ""), _SZ_HEAD, _INK)
+        if r.get("tag"):
+            fill, text_color = _tag_style(r["tag"], style_by_tag)
+            pill_w = min(col_w[1] - 0.1, 1.3)
+            _draw_bar(slide, col_l[1], rt + 0.03, pill_w, row_h - 0.14, fill)
+            _draw_text(slide, col_l[1], rt + 0.03, pill_w, row_h - 0.14, r["tag"], 8.5,
+                       text_color, bold=True, align=PP_ALIGN.CENTER)
+        _draw_text(slide, col_l[2], rt, col_w[2], row_h, r.get("value", ""), _SZ_BODY, _INK,
+                   bold=True, align=PP_ALIGN.RIGHT)
+        if i < n - 1:
+            _draw_bar(slide, table_l, rt + row_h - 0.01, table_w, 0.012, _LINE)
+
+
 # ------------------------------------------------------------------ #
 # Charts
 # ------------------------------------------------------------------ #
@@ -650,6 +1084,33 @@ def build_into(deck_path, order, cands, master_path=config.MASTER_DECK):
 
         elif kind == "target_skill_profile":
             fill_markers(new, _mapping_target_skill_profile(data))
+
+        elif kind == "four_box":
+            fill_markers(new, _mapping_four_box(data))
+
+        elif kind == "roadmap_board":
+            fill_markers(new, _mapping_roadmap_head(data))
+            _draw_roadmap_columns(new, data)
+
+        elif kind == "box_grid":
+            fill_markers(new, _mapping_box_grid_head(data))
+            _draw_box_grid(new, data)
+
+        elif kind == "pillar_deepdive":
+            fill_markers(new, _mapping_pillar_head(data))
+            _draw_pillar_blocks(new, data)
+
+        elif kind == "scored_list":
+            fill_markers(new, _mapping_scored_list_head(data))
+            _draw_scored_rows(new, data)
+
+        elif kind == "stat_overview":
+            fill_markers(new, _mapping_stat_overview_head(data))
+            _draw_stat_overview(new, data)
+
+        elif kind == "data_table":
+            fill_markers(new, _mapping_data_table_head(data))
+            _draw_data_table(new, data)
 
         skill_elem[sid] = list(sld_id_lst)[-1]
 
