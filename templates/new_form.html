@@ -6,51 +6,26 @@
 </div>
 {% if error %}<div class="card" style="border-left:4px solid var(--neg);margin-bottom:18px;color:var(--neg)"><b>{{ error }}</b></div>{% endif %}
 
-<!-- F1 · content shortcut: already have the content? build slides one at a time,
-     queue them, then either take just those to review or fold them into the
-     full deck built below (owner's spec, 2026-07-09) -->
-<form id="contentForm" method="post" action="/from_content" enctype="multipart/form-data"
-      class="card shortcut-card" style="margin-bottom:12px" onsubmit="return cfSubmit(event)">
+<!-- F1 · content shortcut: already have the content? The building happens on the
+     Custom Slide Builder page (/builder) -- paste slide-by-slide, check the library
+     for duplicates, see a real render of each slide. The queue it fills is the SAME
+     localStorage key read below, so those slides fold into the deck built here
+     (owner's spec, 2026-07-10). -->
+<div class="card shortcut-card" style="margin-bottom:12px">
   <div class="shortcut-head">
     <span class="shortcut-ic"><i class="ti ti-file-text"></i></span>
     <div>
       <h2 class="sec-title" style="margin:0">Already have the content?</h2>
-      <p class="hint" style="font-size:13px;margin:3px 0 0">Paste it (or attach a document) and we'll figure out the right slide shape — a case study, a four-box breakdown, whatever fits — and build one branded slide. Got several? Build them one at a time — each queues up below, then either fold the queue into the full deck you build below, or skip straight to reviewing just these.</p>
+      <p class="hint" style="font-size:13px;margin:3px 0 0">Build the slides yourself, one at a time — paste the content and we'll apply the right J2W template, check the library first so you never rebuild a slide we already have, and show you the real rendered slide. They'll slot into the deck you build below, automatically.</p>
     </div>
   </div>
-  <textarea id="cf-content" name="content" placeholder="Paste the complete content here — a case study, a four-way breakdown, whatever you have…" style="min-height:96px;margin-top:14px"></textarea>
-  <div class="shortcut-actions" style="flex-wrap:wrap">
-    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--hint)">
-      Work type <span style="color:var(--neg)">*</span>
-      <select class="input" name="work_type" required style="min-width:190px">
-        <option value="" selected disabled>Choose one — needed to save this to the library</option>
-        <option value="WORKFORCE">Workforce</option>
-        <option value="AI_POD">AI Pods</option>
-        <option value="MS">Managed services</option>
-      </select>
-    </label>
-    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--hint)">
-      Template
-      <select class="input" name="template_hint" style="min-width:200px">
-        <option value="auto" selected>Auto-detect (recommended)</option>
-        {% for t in content_templates %}
-        <option value="{{ t.key }}">{{ t.label }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label class="shortcut-file"><i class="ti ti-paperclip"></i>
-      <span id="cf-fname">Attach a document (PDF, Word, text)</span>
-      <input id="cf-file" type="file" name="content_file" accept=".pdf,.txt,.md,.docx"
-             onchange="document.getElementById('cf-fname').textContent=this.files[0]?this.files[0].name:'Attach a document (PDF, Word, text)'"></label>
-    <input type="hidden" name="client_name" id="cf-client">
-    <input type="hidden" name="industry" id="cf-industry">
-    <button class="btn btn-primary" type="submit" id="cf-submit-btn"><i class="ti ti-wand"></i> Build the slide</button>
+  <div class="shortcut-actions" style="margin-top:14px">
+    <a class="btn btn-primary" href="/builder"><i class="ti ti-wand"></i> Open Custom Slide Builder</a>
   </div>
-  <div id="cf-error" class="hint" style="display:none;color:var(--neg);margin-top:8px;font-size:13px"></div>
-</form>
+</div>
 
 <div id="cf-queue-wrap" style="display:none;margin-bottom:20px">
-  <div class="hint" style="font-size:12.5px;margin:0 0 8px">Queued content slides — these will slot into the deck below (case studies with the case studies, everything else just above them):</div>
+  <div class="hint" style="font-size:12.5px;margin:0 0 8px">Slides you built — these will slot into the deck below (case studies with the case studies, everything else just above them):</div>
   <ul id="cf-queue" class="slide-list" style="margin-bottom:10px"></ul>
   <form method="post" action="/review" id="cf-review-form">
     <input type="hidden" name="order" id="cf-review-order">
@@ -195,4 +170,4 @@
     <div style="font-size:13px;color:var(--muted);margin-top:5px">The AI is working — a few seconds.</div>
   </div>
 </div>
-<script src="/static/js/new-form.js"></script>
+<script src="{{ asset('js/new-form.js') }}"></script>

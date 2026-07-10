@@ -1,0 +1,133 @@
+
+<div style="margin:14px 0 22px">
+  <div class="eyebrow">Custom Slide Builder</div>
+  <h1 class="display" style="font-size:38px">Bring the content. We'll design it.</h1>
+  <p class="lede">Paste a whole deck's worth of content in one go, marked up slide by slide. We show you the split before we build anything, then apply the J2W design to every slide. Nothing is invented — the content stays yours.</p>
+</div>
+
+<div class="form-layout">
+  <div>
+    <!-- 1 · PASTE -->
+    <form id="cbForm" class="card" enctype="multipart/form-data" onsubmit="return false">
+      <div class="card-num">1</div>
+      <h2 class="sec-title" style="margin-bottom:4px">Where these slides belong</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Applies to every slide in the paste.</p>
+      <div class="fgrid" style="gap:12px">
+        <div class="field" style="margin-bottom:0">
+          <label>Work type <span style="color:var(--neg)">*</span></label>
+          <select class="input" id="cb-worktype" name="work_type" required>
+            <option value="" selected disabled>Choose one — needed to save to the library</option>
+            {% for w in work_types %}<option value="{{ w }}">{{ wt_labels.get(w, w) }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Industry <span class="hint">— optional</span></label>
+          <select class="input" id="cb-industry" name="industry">
+            <option value="">Select…</option>
+            {% for i in industries %}<option>{{ i }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Client <span class="hint">— optional</span></label>
+          <input class="input" id="cb-client" name="client_name" placeholder="Acme Bank">
+        </div>
+      </div>
+
+      <div class="soft-divider"></div>
+
+      <h2 class="sec-title" style="margin-bottom:4px">The content</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 6px">Start each slide with its own line — <code>slide 1 - case study</code> — then the content underneath. Don't know what kind of slide it is? Write its title instead (<code>slide 2: How we think before we build</code>), or nothing at all, and we'll read the content and work it out.</p>
+      <details style="margin-bottom:10px">
+        <summary class="hint" style="font-size:12.5px;cursor:pointer">See the format</summary>
+        <pre style="background:#fbfbfa;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:8px 0 0">slide 1 - case study
+A bank couldn't close its procurement cycles…
+
+slide 2 - four box section
+Four pillars: intake, triage, delivery, assurance…
+
+slide 3 - road map
+Phase 1 discovery. Phase 2 pilot. Phase 3 scale-out…</pre>
+        <p class="hint" style="font-size:12px;margin:8px 0 0">Recognised shapes: {% for t in content_templates %}{{ t.label }}{% if not loop.last %} · {% endif %}{% endfor %}. Anything else falls back to auto-detect.</p>
+      </details>
+
+      <textarea id="cb-content" name="content" style="min-height:280px;font-family:var(--mono, ui-monospace, monospace);font-size:13px"
+                placeholder="slide 1 - case study&#10;…&#10;&#10;slide 2 - road map&#10;…"></textarea>
+
+      <div class="shortcut-actions" style="margin-top:12px;flex-wrap:wrap">
+        <label class="shortcut-file"><i class="ti ti-paperclip"></i>
+          <span id="cb-fname">Or attach the document (PDF, Word, text)</span>
+          <input id="cb-file" type="file" name="content_file" accept=".pdf,.txt,.md,.docx"
+                 onchange="document.getElementById('cb-fname').textContent=this.files[0]?this.files[0].name:'Or attach the document (PDF, Word, text)'"></label>
+        <button class="btn btn-primary btn-lg" type="button" id="cb-parse-btn" onclick="cbParse()">
+          <i class="ti ti-wand"></i> Check the library &amp; build</button>
+      </div>
+      <div id="cb-error" class="hint" style="display:none;color:var(--neg);margin-top:10px;font-size:13px"></div>
+    </form>
+
+    <!-- 2 · REVIEW THE SPLIT — nothing is generated until this is confirmed -->
+    <div class="card" id="cb-review" style="display:none;margin-top:18px;border-left:4px solid var(--teal)">
+      <div class="section-head">
+        <h2 class="sec-title" style="margin:0"><i class="ti ti-list-check"></i> <span id="cb-review-head">We read your slides</span></h2>
+        <button type="button" class="btn" onclick="cbEditText()"><i class="ti ti-pencil"></i> Fix the split</button>
+      </div>
+      <p class="hint" style="font-size:13px;margin:4px 0 14px">Check each slide got the right shape and the split landed where you meant. Nothing has been generated yet — correct anything here first.</p>
+      <div id="cb-review-list"></div>
+      <div class="soft-divider"></div>
+      <button type="button" class="btn btn-primary btn-lg" id="cb-build-btn" onclick="cbBuildParsed()">
+        <i class="ti ti-sparkles"></i> <span id="cb-build-label">Build these slides</span></button>
+      <p class="hint" style="font-size:12px;margin:8px 0 0" id="cb-build-note"></p>
+    </div>
+
+    <!-- 3 · THE SLIDES — the same editable slide cards the review page shows,
+         filled in as each one finishes building -->
+    <div id="cb-results" style="display:none;margin-top:18px">
+      <div class="section-head">
+        <h2 class="sec-title" style="margin:0">Your slides</h2>
+        <span class="tag" id="cb-progress">0 of 0 built</span>
+      </div>
+      <p class="hint" style="font-size:13px;margin:4px 0 14px">Click straight onto any title, paragraph or capability to change it. Your changes flow into the downloaded .pptx, the deck, and the library.</p>
+      <div id="cb-result-list" class="rev-deck"></div>
+    </div>
+  </div>
+
+  <aside class="side-card">
+    <div class="card">
+      <h2 class="sec-title" style="margin-bottom:16px">How it works</h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><div class="st"><b>Paste</b>The whole document, one line marking each slide</div></div>
+        <div class="step"><div class="n">2</div><div class="st"><b>Check the split</b>We show what we read, and flag anything already in the library — before spending a thing</div></div>
+        <div class="step"><div class="n">3</div><div class="st"><b>Build &amp; edit</b>Every slide designed, and editable right on the slide</div></div>
+      </div>
+
+      <div class="soft-divider"></div>
+      <div class="summary">
+        <div class="sum-row"><span>Slides ready</span><b id="cb-sum-count">0</b></div>
+        <div class="sum-row"><span>Case studies</span><b id="cb-sum-cases">0</b></div>
+      </div>
+      <p class="hint" id="cb-dirty" style="display:none;font-size:12px;color:var(--teal);margin:8px 0 0">
+        <i class="ti ti-pencil"></i> Unsaved edits — they'll be saved when you download or use them in a deck.</p>
+
+      <button class="btn btn-primary btn-lg btn-block" id="cb-download" style="margin-top:18px" onclick="cbDownload()" disabled>
+        <i class="ti ti-download"></i> Download these slides</button>
+      <a class="btn btn-block" id="cb-usedeck" href="/new" style="margin-top:10px">
+        <i class="ti ti-arrow-right"></i> Use in a deck</a>
+      <a href="#" id="cb-clear" onclick="cbClear();return false" class="hint"
+         style="display:none;text-align:center;margin-top:10px;font-size:13px">Clear these slides</a>
+      <p class="hint" style="font-size:12px;text-align:center;margin:10px 0 0">Case studies are saved to the shared library when you download them or build a deck with them.</p>
+      <div class="side-tip"><i class="ti ti-bulb"></i> Slides built here also appear on the New deck page and slot into a generated deck automatically.</div>
+    </div>
+  </aside>
+</div>
+
+<div id="loader" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.55);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="width:40px;height:40px;border:4px solid #e6e6e3;border-top-color:var(--teal);border-radius:50%;margin:0 auto 16px;animation:j2wspin .8s linear infinite"></div>
+    <div class="loader-title" style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ink)" id="cb-loader-title">Reading your slides…</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:5px" id="cb-loader-sub">Splitting the content and checking the library.</div>
+  </div>
+</div>
+
+<script>
+  window.CB_THRESHOLD_PCT = {{ threshold_pct }};
+</script>
+<script src="{{ asset('js/builder.js') }}"></script>

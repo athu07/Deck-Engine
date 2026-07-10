@@ -85,46 +85,8 @@ function cfRemoveQueued(id){
   cfSaveQueue(cfLoadQueue().filter(function(item){ return item.id!==id; }));
   cfRenderQueue();
 }
-function cfSubmit(e){
-  if(e) e.preventDefault();
-  var cn=document.querySelector('#deckForm [name="client_name"]');
-  var ind=document.querySelector('#deckForm [name="industry"]');
-  var cf=document.getElementById('cf-client'); if(cf&&cn) cf.value=cn.value;
-  var ci=document.getElementById('cf-industry'); if(ci&&ind) ci.value=ind.value;
-  var content=document.getElementById('cf-content');
-  var file=document.getElementById('cf-file');
-  var hasContent=(content&&content.value.trim()) || (file&&file.files&&file.files.length);
-  var err=document.getElementById('cf-error');
-  if(!hasContent){
-    if(err){ err.textContent='Paste the case-study content or attach a document first.'; err.style.display='block'; }
-    return false;
-  }
-  if(err) err.style.display='none';
-  var btn=document.getElementById('cf-submit-btn');
-  var old=btn?btn.innerHTML:'';
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Building…'; }
-  var form=document.getElementById('contentForm');
-  var fd=new FormData(form);
-  fetch('/from_content',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(d){
-    if(btn){ btn.disabled=false; btn.innerHTML=old; }
-    if(!d.ok){
-      if(err){ err.textContent=d.error||'Could not build that slide.'; err.style.display='block'; }
-      return;
-    }
-    var q=cfLoadQueue();
-    q.push({id:d.id, title:d.title, content_type:d.content_type, template_label:d.template_label});
-    cfSaveQueue(q);
-    cfRenderQueue();
-    if(content) content.value='';
-    if(file) file.value='';
-    var fname=document.getElementById('cf-fname');
-    if(fname) fname.textContent='Attach a document (PDF, Word, text)';
-  }).catch(function(){
-    if(btn){ btn.disabled=false; btn.innerHTML=old; }
-    if(err){ err.textContent='Could not reach the server.'; err.style.display='block'; }
-  });
-  return false;
-}
+// Slides are BUILT on /builder (the Custom Slide Builder) and land in this same
+// queue. This page only shows what's queued and folds it into the generated deck.
 (function(){
   cfRenderQueue();
   var deckForm=document.getElementById('deckForm');
@@ -142,7 +104,9 @@ function cfSubmit(e){
     reviewForm.addEventListener('submit', function(e){
       var q=cfLoadQueue();
       if(!q.length){ e.preventDefault(); return; }
-      var order=q.map(function(item){ return 'NEW:'+item.id; }).join(',');
+      // a REUSED library case rides as its own store id (AIP/WFS/MSS); only a
+      // slide we built here is a staging id and needs the NEW: prefix
+      var order=q.map(function(item){ return item.reused ? item.id : 'NEW:'+item.id; }).join(',');
       document.getElementById('cf-review-order').value=order;
       var cn=document.querySelector('#deckForm [name="client_name"]');
       document.getElementById('cf-review-client').value=cn?cn.value.trim():'Client';

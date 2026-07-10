@@ -1,3 +1,4 @@
+{% from "_slide_editor.html" import slide_editor %}
 
 <div style="margin:14px 0 20px">
   <div class="eyebrow">Review &amp; edit</div>
@@ -62,46 +63,12 @@
         <div class="lib-slide-foot">{{ s.id }} · from the library</div>
       </div>
 
-      {% elif s.kind == 'four_box' %}
-      <div class="lib-slide">
-        <div class="lib-slide-bar"></div>
-        <div class="lib-slide-title">{{ s.title }}</div>
-        {% if s.subhead %}<div class="lib-slide-sub" style="color:var(--teal)">{{ s.subhead }}</div>{% endif %}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-          {% for b in s.boxes %}
-          <div style="background:var(--card-bg,#f5f5f5);border:1px solid var(--line-2);border-radius:6px;padding:8px 10px">
-            <b style="font-size:13px">{{ b.heading }}</b>
-            <div class="hint" style="font-size:12px;margin-top:2px">{{ b.body }}</div>
-          </div>
-          {% endfor %}
-        </div>
-        <div class="lib-slide-foot">{{ s.id }} · four-box, from your pasted content — not inline-editable yet; re-paste to change the text</div>
-      </div>
-
-      {% elif s.kind == 'roadmap_board' %}
-      <div class="lib-slide">
-        <div class="lib-slide-bar"></div>
-        <div class="lib-slide-title">{{ s.title }}</div>
-        {% if s.subhead %}<div class="lib-slide-sub" style="color:var(--teal)">{{ s.subhead }}</div>{% endif %}
-        {% if s.intro %}<div class="hint" style="font-size:12.5px;margin-top:6px">{{ s.intro }}</div>{% endif %}
-        <div style="display:flex;gap:8px;overflow-x:auto;margin-top:10px;padding-bottom:4px">
-          {% for c in s.columns %}
-          <div style="flex:0 0 160px;background:var(--card-bg,#f5f5f5);border:1px solid var(--line-2);border-radius:6px;padding:8px 10px">
-            <b style="font-size:12.5px">{{ c.name }}</b>
-            {% if c.tag %}<div class="hint" style="font-size:10.5px;color:var(--teal);text-transform:uppercase">{{ c.tag }}</div>{% endif %}
-            <ul style="margin:6px 0 0;padding-left:16px;font-size:11.5px;color:var(--hint)">
-              {% for it in c['items'] %}<li>{{ it }}</li>{% endfor %}
-            </ul>
-          </div>
-          {% endfor %}
-        </div>
-        {% if s.footer_title or s.footer_body %}
-        <div style="background:#111110;color:#fff;border-radius:6px;padding:8px 12px;margin-top:10px;text-align:center">
-          {% if s.footer_title %}<b style="font-size:12px">{{ s.footer_title }}</b>{% endif %}
-          {% if s.footer_body %}<div style="font-size:11px;color:#ddd;margin-top:2px">{{ s.footer_body }}</div>{% endif %}
-        </div>
-        {% endif %}
-        <div class="lib-slide-foot">{{ s.id }} · phased roadmap, from your pasted content — not inline-editable yet; re-paste to change the text</div>
+      {% elif s.kind in shape_kinds %}
+      {# every pasted shape -- four-box, roadmap, box grid, deep-dive, scored list,
+         stat overview, data table -- rendered by the SAME editor macro the builder
+         uses. Before this they were read-only ("re-paste to change the text"). #}
+      <div data-shape-id="{{ s.id }}" data-content-type="{{ s.kind }}">
+        {{ slide_editor(s.kind, s.vm, s.schema) }}
       </div>
 
       {% else %}
@@ -153,4 +120,36 @@
    function grow(){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
    t.addEventListener('input',grow); grow();
  });
+ // The seven pasted shapes are edited through data-path inputs (the shared
+ // _slide_editor.html macro), which carry no form `name`. Serialise each slide into one
+ // hidden JSON field just before submit, so /finalize receives the edits. The case-study
+ // and library cards keep their own cs__/edit__ named inputs, untouched.
+ (function(){
+   var form=document.querySelector('form[action="/finalize"]');
+   if(!form) return;
+   function setPath(obj,path,value){
+     var parts=path.split('.'), cur=obj;
+     for(var i=0;i<parts.length-1;i++){
+       var key=parts[i], nextIsIndex=/^\d+$/.test(parts[i+1]);
+       if(/^\d+$/.test(key)) key=parseInt(key,10);
+       if(cur[key]===undefined) cur[key]=nextIsIndex?[]:{};
+       cur=cur[key];
+     }
+     var last=parts[parts.length-1];
+     cur[/^\d+$/.test(last)?parseInt(last,10):last]=value;
+   }
+   form.addEventListener('submit',function(){
+     document.querySelectorAll('[data-shape-id]').forEach(function(node){
+       var data={};
+       node.querySelectorAll('[data-path]').forEach(function(el){
+         setPath(data, el.dataset.path, (el.value||'').trim());
+       });
+       var h=document.createElement('input');
+       h.type='hidden';
+       h.name='shape__'+node.dataset.shapeId;
+       h.value=JSON.stringify(data);
+       form.appendChild(h);
+     });
+   });
+ })();
 </script>

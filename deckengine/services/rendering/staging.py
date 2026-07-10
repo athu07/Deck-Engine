@@ -18,12 +18,14 @@ is built from the template on demand. Keeps it simple and swap-safe.
 import json
 import os
 import re
+import threading
 from copy import deepcopy
 from datetime import datetime
 
 from pptx import Presentation
 
 from deckengine import config
+from deckengine.services import jsonstore
 from deckengine.services.rendering import slide_generator
 from deckengine.services.matching import tagger
 from deckengine.services.content.build_library import read_id
@@ -46,8 +48,12 @@ def _load():
 
 
 def _save(items):
+    """ATOMIC. A truncating write here let a concurrent reader see a half-written file,
+    _load() swallowed the error and returned [], and the caller concluded the slide did
+    not exist -- six of nine saves 404'd on records that were in the file the whole time
+    (owner-reported, 2026-07-10). See services/jsonstore.py."""
     os.makedirs(STAGE_DIR, exist_ok=True)
-    json.dump(items, open(STAGE_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    jsonstore.write_json(STAGE_JSON, items)
 
 
 def find(work_type, industry, topic=""):
@@ -64,10 +70,31 @@ def find(work_type, industry, topic=""):
     return cands[0] if cands else None
 
 
+# add() is a read-modify-write on ONE json file, and the id is derived from the current
+# item count -- so two concurrent adds would mint the SAME id and one would be lost.
+# The Custom Slide Builder builds a batch of slides in parallel, so serialise it.
+_ADD_LOCK = threading.Lock()
+
+
+def _next_id(items):
+    """The lowest unused G-number. `len(items) + 1` collided whenever a record had
+    been discarded (the count went down, the next add reused a live id)."""
+    used = {it["id"] for it in items}
+    n = 1
+    while ("G%03d" % n) in used:
+        n += 1
+    return "G%03d" % n
+
+
 def add(content, work_type, industry, client="", topic=""):
+    with _ADD_LOCK:
+        return _add_locked(content, work_type, industry, client, topic)
+
+
+def _add_locked(content, work_type, industry, client="", topic=""):
     items = _load()
     rec = {
-        "id": "G%03d" % (len(items) + 1),
+        "id": _next_id(items),
         "status": "pending",                                  # pending == needs expert verification
         "work_type": work_type,
         "topic": (topic or "").strip(),                       # the client ask, if this filled one
@@ -79,12 +106,13 @@ def add(content, work_type, industry, client="", topic=""):
         "for_client": client,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
-    # rich case-study fields (the "Create with AI" feature), stored when present
-    for k in ("subhead", "challenge", "solution", "capabilities", "results", "review", "kind",
-             "content_type", "boxes",                    # boxes: the four_box alternative shape
-             "intro", "columns", "legend", "footer_title", "footer_body"):  # the roadmap_board shape
-        if k in content:
-            rec[k] = content[k]
+    # Copy EVERY content field the shape carries. This used to be a hand-maintained
+    # list of keys, so each new slide shape silently lost its fields on save and
+    # rendered empty (owner-reported for five shapes, 2026-07-10). Bookkeeping keys are
+    # set above and must never be overwritten by content.
+    _RESERVED = {"id", "status", "work_type", "topic", "industry", "for_client",
+                 "created_at", "promoted_id"}
+    rec.update({k: v for k, v in content.items() if k not in _RESERVED})
     items.append(rec)
     _save(items)
     return rec
@@ -94,18 +122,47 @@ def get(stg_id):
     return next((it for it in _load() if it["id"] == stg_id), None)
 
 
+def update_fields(stg_id, fields):
+    """Overwrite the content fields of a staged slide with the salesperson's edits (see
+    slide_schema.apply_edits, which decides which keys are allowed and re-normalizes
+    them). Bookkeeping keys -- id, status, work_type, promoted_id -- are never touched.
+    Returns the updated record, or None if there is no such slide."""
+    with _ADD_LOCK:                      # same file, same read-modify-write race as add()
+        items = _load()
+        for it in items:
+            if it["id"] == stg_id:
+                it.update(fields)
+                _save(items)
+                return it
+    return None
+
+
+def mark_promoted(stg_id, case_id):
+    """Record the content-store id a staged case study was saved as, so it is never
+    saved twice (see deck_build.promote_case). Returns True if the record was found."""
+    with _ADD_LOCK:                      # read-modify-write on the same file as add()
+        items = _load()
+        for it in items:
+            if it["id"] == stg_id:
+                it["promoted_id"] = case_id
+                _save(items)
+                return True
+    return False
+
+
 def update_content(stg_id, title=None, keywords=None, bullets=None):
     """Save a reviewer's edits onto a pending slide before it's accepted/promoted."""
-    items = _load()
-    for it in items:
-        if it["id"] == stg_id:
-            if title is not None:
-                it["title"] = title
-            if keywords is not None:
-                it["keywords"] = keywords
-            if bullets is not None:
-                it["bullets"] = bullets
-    _save(items)
+    with _ADD_LOCK:                      # read-modify-write on the same file as add()
+        items = _load()
+        for it in items:
+            if it["id"] == stg_id:
+                if title is not None:
+                    it["title"] = title
+                if keywords is not None:
+                    it["keywords"] = keywords
+                if bullets is not None:
+                    it["bullets"] = bullets
+        _save(items)
 
 
 def pending():
@@ -117,11 +174,12 @@ def all_items():
 
 
 def _set_status(stg_id, status):
-    items = _load()
-    for it in items:
-        if it["id"] == stg_id:
-            it["status"] = status
-    _save(items)
+    with _ADD_LOCK:                      # read-modify-write on the same file as add()
+        items = _load()
+        for it in items:
+            if it["id"] == stg_id:
+                it["status"] = status
+        _save(items)
 
 
 def discard(stg_id):
@@ -183,9 +241,9 @@ def _add_to_library_and_registry(new_id, rec):
 
     # rebuild library + tags from the (now larger) master
     recs = build_library.build(MASTER)
-    json.dump(recs, open(config.LIBRARY_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    jsonstore.write_json(config.LIBRARY_JSON, recs)
     recs = tagger.tag_library(recs)
-    json.dump(recs, open(config.TAGGED_LIBRARY_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    jsonstore.write_json(config.TAGGED_LIBRARY_JSON, recs)
 
     # infer a function tag from the content for the registry row
     pseudo = {"title": rec["title"], "subtitle": rec["keywords"],

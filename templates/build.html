@@ -83,12 +83,24 @@
     {% if missing %}
     <div class="card" style="margin-top:18px;border-left:4px solid #C02026">
       <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-bulb"></i> Not in our library — worth building <span class="hint" style="font-size:14px;font-weight:400">— {{ missing|length }}</span></h2>
-      <p class="hint" style="font-size:13px;margin:0 0 12px">The account needs these, but we have no case study yet. Click <b>Draft with AI</b> to pre-fill the creator below.</p>
+      <p class="hint" style="font-size:13px;margin:0 0 12px">The account needs these, but we have no case study yet. Click <b>Draft with AI</b> and we'll write one, grounded in your research, the stakeholder profile, and your notes.</p>
       {% for m in missing %}
-      <div style="background:#fdf2f2;border:1px solid #f2d2d2;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div class="gap-card" id="gap-{{ loop.index0 }}" style="background:#fdf2f2;border:1px solid #f2d2d2;border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <div><b>{{ m.name }}</b><br><span class="hint" style="font-size:13px">{{ m.description }}</span></div>
-          <button type="button" class="btn" style="flex:0 0 auto;white-space:nowrap" onclick="prefillAI({{ m.name|tojson }}, {{ m.description|tojson }}, {{ (m.domain or '')|tojson }}, {{ (m.use_case or '')|tojson }})"><i class="ti ti-wand"></i> Draft with AI</button>
+          <div><b>{{ m.name }}</b><br><span class="hint" style="font-size:13px">{{ m.description }}</span>
+            <span class="gap-done" style="display:none;color:#2C6E66;font-size:12.5px;font-weight:600"><br><i class="ti ti-check"></i> Drafted and added to your deck</span></div>
+          {# The gap's text rides on data-* attributes, which Jinja escapes properly.
+             It used to be an inline onclick="draftAI({{ m.name|tojson }}, ...)" -- and
+             |tojson emits real double quotes, so the attribute ended at the first one
+             and the browser only ever saw `onclick="draftAI("`. Every click threw
+             "Unexpected end of input" into the console and did nothing. build.js binds
+             the listener instead (and CLAUDE.md rule 5: JS lives in static/js). #}
+          <button type="button" class="btn draft-btn" style="flex:0 0 auto;white-space:nowrap"
+                  data-idx="{{ loop.index0 }}"
+                  data-name="{{ m.name }}"
+                  data-desc="{{ m.description }}"
+                  data-domain="{{ m.domain or '' }}"
+                  data-usecase="{{ m.use_case or '' }}"><i class="ti ti-wand"></i> Draft with AI</button>
         </div>
       </div>
       {% endfor %}
@@ -98,7 +110,7 @@
     {% if gaps %}
     <div class="card" style="margin-top:18px;border-left:4px solid #c47d27">
       <h2 class="sec-title">Heads-up — not in this deck <span class="hint" style="font-size:14px;font-weight:400">— {{ gaps|length }}</span></h2>
-      <p class="hint" style="font-size:13px;margin:0 0 14px">Flagged so you're aware. If you want a slide for any of these, use <b>Create a slide with AI</b> below, or add one from the panel.</p>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Flagged so you're aware. Add a slide for any of these from the panel above, or build one yourself in the <a href="/builder">Custom Slide Builder</a>.</p>
       {% for g in gaps %}
       {% if g.type == 'missing_capability' %}
       <div class="gap-row" style="display:flex;align-items:flex-start;gap:8px;background:#fff8f0;border:1px solid #f0d9bf;border-radius:8px;padding:10px 12px;margin-bottom:8px">
@@ -115,9 +127,15 @@
     </div>
     {% endif %}
 
+    {% if missing %}
     <div class="card" id="ai-create" style="margin-top:18px;border-left:4px solid #2C6E66">
-      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Create a slide with AI</h2>
-      <p class="hint" style="font-size:13px;margin:0 0 14px">Fill in what you know — the AI writes it in J2W's strict format (6 capabilities · 3 results), self-checks it, and shows it here before you add it.</p>
+      <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-sparkles"></i> Draft the missing slide</h2>
+      <p class="hint" style="font-size:13px;margin:0 0 14px">Pick a gap above and click <b>Draft with AI</b>. It's written in J2W's strict format (6 capabilities · 3 results), self-checked, and shown here before you add it — grounded in your research brief, the stakeholder profile, and your full notes.</p>
+
+      {#  ── "Create a slide with AI" (the MANUAL form) — DISABLED, owner's spec 2026-07-10.
+          Draft with AI replaces it: the gap cards above already know what's missing, so
+          nothing needs typing in by hand. Restore by deleting this comment wrapper (the
+          createAI() function it calls is still live in static/js/build.js).
       <div class="fgrid" style="gap:12px;margin-bottom:10px">
         <div>
           <label style="font-size:12px;font-weight:500;color:#6E6E69;margin-bottom:5px;display:block">Topic / Use case <span style="color:#C2503C">*</span></label>
@@ -143,6 +161,8 @@
         </div>
       </div>
       <button type="button" id="ca-genbtn" class="btn btn-primary" onclick="createAI(this)"><i class="ti ti-wand"></i> Generate</button>
+      #}
+
       <div id="ca-loader" style="display:none;margin-top:12px">
         <div style="height:4px;background:#e0ece9;border-radius:99px;overflow:hidden">
           <div id="ca-bar" style="height:100%;width:0%;background:#2C6E66;border-radius:99px;transition:width 0.4s ease"></div>
@@ -150,7 +170,9 @@
         <p style="font-size:12px;color:#6E6E69;margin:6px 0 0"><i class="ti ti-sparkles" style="font-size:13px"></i> Writing your case study…</p>
       </div>
       <div id="ca-preview" style="display:none;margin-top:14px"></div>
+      <p class="hint" id="ca-idle" style="font-size:13px;margin:0">Nothing drafted yet.</p>
     </div>
+    {% endif %}
 
     {% if suggested %}
     <div class="card" style="margin-top:18px">
@@ -214,5 +236,5 @@
  try { localStorage.setItem('j2w_deck', JSON.stringify({{ reopen_seed|tojson }})); } catch (e) {}
  {% endif %}
 </script>
-<script src="/static/js/deck-tray.js"></script>
-<script src="/static/js/build.js"></script>
+<script src="{{ asset('js/deck-tray.js') }}"></script>
+<script src="{{ asset('js/build.js') }}"></script>

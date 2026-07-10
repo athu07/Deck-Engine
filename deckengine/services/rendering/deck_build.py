@@ -42,6 +42,54 @@ def ai_to_store_record(content, industry_code):
     }
 
 
+def staged_item(oid, rec, industry, case_edit=None):
+    """One staged record (a pasted or AI-drafted slide) -> the item shape
+    `skills.build_into` renders. `oid` is the deck order id ("NEW:<staging_id>").
+
+    Every non-case-study shape goes down the same generic path: the staged record
+    IS the data dict `skills._mapping_*` / `_draw_*` read. Before this existed only
+    four_box and roadmap_board were handled, so a pasted box_grid / pillar_deepdive /
+    scored_list / stat_overview / data_table fell through to the case-study branch --
+    it rendered as a case study AND was promoted into the library as one.
+
+    Case studies also carry a content-store `record` (the branded case_study_v2
+    template fills from it); `case_edit` overrides it with the user's /review edits.
+    """
+    content_type = rec.get("content_type", "case_study")
+    if content_type != "case_study":
+        return {"id": oid, "template": rec.get("template", content_type),
+                "kind": content_type, "data": rec}
+    record = ai_to_store_record(rec, industry)
+    if case_edit:
+        record.update(case_edit)                       # user edits win
+    return {"id": oid, "template": "case_study_v2", "kind": "case_study", "record": record}
+
+
+def promote_case(stg_id, rec, record, fallback_work_type, industry):
+    """Auto-save an accepted case study into the shared library (content-store JSON +
+    the source Excel + an embedding), so it's searchable/reusable on future projects.
+
+    Idempotent: `promote_ai_case` mints a fresh id every call, so a slide that is both
+    downloaded from the Custom Slide Builder AND folded into a deck would otherwise be
+    saved twice. The new id is stamped onto the staging record; a record that already
+    carries one is skipped.
+
+    The record's OWN work type wins (the builder requires one per slide); the deck's
+    first work type is only a fallback for a mixed-work-type deck. Best-effort by
+    design -- a library-save failure never blocks the deck.
+    """
+    if rec.get("promoted_id"):
+        return rec["promoted_id"]
+    work_type = (rec.get("work_type") or "").strip() or fallback_work_type
+    try:
+        new_id = case_library.promote_ai_case(record, work_type, industry)
+    except Exception:
+        return None
+    if new_id:
+        staging.mark_promoted(stg_id, new_id)
+    return new_id
+
+
 def assemble(final_ids, path, *, client, industry, work_types, transcript, edits,
              case_edits=None, phase=""):
     """Build the deck at `path` from `final_ids`, applying edits/tokens and rendering
@@ -60,40 +108,16 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
     create_items = []
     for oid in final_ids:
         if oid.startswith("NEW:"):
-            rec = staging.get(oid[4:])
+            stg_id = oid[4:]
+            rec = staging.get(stg_id)
             if not rec:
                 continue
-            if rec.get("content_type") == "four_box":
-                # a 4-way breakdown, not a case study (owner's spec, 2026-07-08) --
-                # goes through skills.build_into's generic marker-fill path
-                # instead of the case-study-specific one; no content-store save,
-                # since case_library's schema is case-study-shaped, not this.
-                create_items.append({"id": oid, "template": "four_box", "kind": "four_box",
-                                     "data": {"title": rec.get("title", ""),
-                                             "subhead": rec.get("subhead", ""),
-                                             "boxes": rec.get("boxes", [])}})
-                continue
-            if rec.get("content_type") == "roadmap_board":
-                # a variable-column phased roadmap/board, not a case study --
-                # drawn programmatically (skills.build_into's roadmap_board
-                # branch), same no-content-store-save reasoning as four_box.
-                create_items.append({"id": oid, "template": "roadmap_board", "kind": "roadmap_board",
-                                     "data": {"title": rec.get("title", ""),
-                                             "subhead": rec.get("subhead", ""),
-                                             "intro": rec.get("intro", ""),
-                                             "columns": rec.get("columns", []),
-                                             "legend": rec.get("legend", []),
-                                             "footer_title": rec.get("footer_title", ""),
-                                             "footer_body": rec.get("footer_body", "")}})
-                continue
-            record = ai_to_store_record(rec, industry)
-            if case_edits.get(oid):
-                record.update(case_edits[oid])     # user edits win
-            create_items.append({"id": oid, "template": "case_study_v2", "record": record})
-            try:
-                case_library.promote_ai_case(record, first_wt, industry)
-            except Exception:
-                pass    # never let a library-save failure block the deck
+            item = staged_item(oid, rec, industry, case_edits.get(oid))
+            create_items.append(item)
+            # Only case studies reach the library -- case_library's schema is
+            # case-study-shaped, so the other seven shapes have nowhere to go.
+            if item["kind"] == "case_study":
+                promote_case(stg_id, rec, item["record"], first_wt, industry)
     # Content-store case studies (AIP/WFS/MSS ids) -> rendered fresh from the shared
     # case_study_v2 template, anonymised + dash-clean, into THIS deck.
     store_recs = content_store()

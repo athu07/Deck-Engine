@@ -20,7 +20,8 @@ from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC
                                   INDUSTRIES, FUNCTIONS, PHASES)
 from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher
-from deckengine.services.rendering import skills, staging, deck_build, fill_case_study, slide_generator, client_context
+from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
+                                           slide_generator, slide_schema, client_context)
 from deckengine.services.content import case_library, editor
 from deckengine.services.content.content_store import content_store
 from deckengine.services.content.build_library import read_id
@@ -32,6 +33,10 @@ from .view_helpers import (shell, file_busy_page, current_salesperson,
                            legacy_case_ids as _legacy_case_ids)
 
 bp = Blueprint("decks", __name__)
+
+# the pasted shapes that render through the shared inline-editor macro on /review
+# (a case study has its own richer card; library slides have their own title/subtitle form)
+_SHAPE_KINDS = tuple(k for k in slide_schema.SCHEMA if k != "case_study")
 
 
 def _is_avoided(rec, avoid):
@@ -402,6 +407,19 @@ def build():
                              len(picks))
         standard_extra, case_extra = [], []
         for cid in content_ids:
+            # A REUSED library case (the Custom Slide Builder's duplicate check offers
+            # "use this one") rides as its own store id, not a staging id -- it needs no
+            # NEW: prefix and no rebuild; it just joins the case-study zone. Skipping it
+            # here would silently drop a slide the salesperson deliberately queued.
+            store_rec = case_library.record(cid.upper())
+            if store_rec:
+                if cid.upper() in {p["slide_id"] for p in picks}:
+                    continue                     # the matcher already picked it
+                titles[cid.upper()] = store_rec.get("title", "")
+                case_extra.append({"slide_id": cid.upper(), "reason": "you reused this slide",
+                                   "skill": True, "tag": "YOU",
+                                   "label": store_rec.get("title", "")})
+                continue
             rec = staging.get(cid)
             if not rec:
                 continue
@@ -503,19 +521,22 @@ def _build_review_slides(ids, client):
             slides.append({"kind": "library", "id": sid, "fields": fields})
         elif sid in store:                                     # content-store case
             slides.append(_case_slide(sid, store[sid]))
-        elif sid.startswith("NEW:"):                           # AI-created case
+        elif sid.startswith("NEW:"):                           # pasted or AI-created slide
             rec = staging.get(sid[4:])
-            if rec and rec.get("content_type") == "four_box":
-                slides.append({"kind": "four_box", "id": sid, "title": rec.get("title", ""),
-                               "subhead": rec.get("subhead", ""), "boxes": rec.get("boxes", [])})
-            elif rec and rec.get("content_type") == "roadmap_board":
-                slides.append({"kind": "roadmap_board", "id": sid, "title": rec.get("title", ""),
-                               "subhead": rec.get("subhead", ""), "intro": rec.get("intro", ""),
-                               "columns": rec.get("columns", []), "legend": rec.get("legend", []),
-                               "footer_title": rec.get("footer_title", ""),
-                               "footer_body": rec.get("footer_body", "")})
-            elif rec:
+            if not rec:
+                continue
+            kind = rec.get("content_type", "case_study")
+            if kind == "case_study":
                 slides.append(_case_slide(sid, rec))
+            else:
+                # every other shape is drawn by the SHARED inline editor macro
+                # (templates/_slide_editor.html), the same one the Custom Slide Builder
+                # uses. Before this, only four_box and roadmap_board rendered here, and
+                # both were read-only; the other five fell through to the "no text to
+                # edit" placeholder below.
+                slides.append({"kind": kind, "id": sid,
+                               "vm": slide_schema.view_model(rec),
+                               "schema": slide_schema.fields_for(kind)})
         elif sid.startswith("SK:") or sid.startswith("FP:") or sid.startswith("TSP:"):   # data-driven skills slide
             slides.append({"kind": "skills", "id": sid})
     return slides
@@ -526,7 +547,8 @@ def _render_review(client, ids, *, industry="", transcript="", phase="", recipie
     slides = _build_review_slides(ids, client)
     body = render_template("review.html", client=client, order=",".join(ids), slides=slides,
                            industry=industry, transcript=transcript, phase=phase, recipient=recipient,
-                           functions=functions or [], work_types=work_types or [])
+                           functions=functions or [], work_types=work_types or [],
+                           shape_kinds=_SHAPE_KINDS)
     return shell(body, active="new", crumb="<b>New deck</b> / Review &amp; edit")
 
 
@@ -574,14 +596,8 @@ def from_content():
         err = ("Paste the case-study content or attach a document first." if not content
               else "Choose a work type — it's needed to save this into the shared library.")
         return jsonify({"ok": False, "error": err})
-    valid_keys = {t["key"] for t in slide_generator.CONTENT_TEMPLATES}
-    template_hint = request.form.get("template_hint", "auto").strip()
-    template = template_hint if template_hint in valid_keys \
-        else slide_generator.classify_content(content)
-    tdef = next((t for t in slide_generator.CONTENT_TEMPLATES if t["key"] == template),
-               slide_generator.CONTENT_TEMPLATES[0])
-    rec = tdef["builder"](content, {"industry": industry})
-    rec["kind"] = "user_created"
+    rec, tdef = slide_generator.build_content_slide(
+        content, industry, request.form.get("template_hint", "auto").strip())
     staged = staging.add(rec, work_type, industry, client)
     return jsonify({"ok": True, "id": staged["id"], "title": staged.get("title", "Untitled"),
                     "content_type": staged.get("content_type", "case_study"),
@@ -626,6 +642,26 @@ def finalize():
         insert_at = next((i for i, s in enumerate(final_ids) if s in matcher.PIN_TO_END),
                          len(final_ids))
         final_ids[insert_at:insert_at] = accepted
+
+    # Pasted non-case shapes (four-box, roadmap, box grid, deep-dive, scored list, stat
+    # overview, data table) are edited through the shared inline-editor macro, which posts
+    # ONE json field per slide. Apply them to the staged record straight away -- that
+    # record is what deck_build reads, so the edit needs no further threading. Each goes
+    # through its own normalizer (slide_schema.apply_edits), which also means a hand-edit
+    # can't hand the renderer a shape it can't fill.
+    for key, val in request.form.items():
+        if not key.startswith("shape__NEW:"):
+            continue
+        stg_id = key[len("shape__NEW:"):]
+        rec = staging.get(stg_id)
+        if not rec:
+            continue
+        try:
+            fields = slide_schema.apply_edits(rec, json.loads(val),
+                                              request.form.get("industry", ""))
+        except (ValueError, TypeError):
+            continue                # a malformed payload leaves the slide as it was built
+        staging.update_fields(stg_id, fields)
 
     # collect inline edits from the review slide-view: edit__ = library title/subtitle,
     # cs__ = case-study body fields (title/domain/function/challenge/solution/caps/results).

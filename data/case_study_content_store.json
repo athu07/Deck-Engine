@@ -18889,5 +18889,1247 @@
     ],
     "ai_generated": true,
     "source_row": null
+  },
+  {
+    "id": "MSS098",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Real-Time Asset-Level Energy Management",
+    "raw_title": "Real-Time Asset-Level Energy Management",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "alerts",
+      "analytics",
+      "anomaly",
+      "asset-level",
+      "automated",
+      "bi",
+      "business intelligence",
+      "carbon",
+      "charge",
+      "dashboards",
+      "detection",
+      "emissions",
+      "energy",
+      "esg",
+      "grid",
+      "inefficiency",
+      "insights",
+      "load-balancing",
+      "management",
+      "peak-demand",
+      "prescriptive",
+      "real-time",
+      "recognition",
+      "recurring",
+      "reduction",
+      "renewable",
+      "reporting",
+      "solar",
+      "sustainability",
+      "utilities"
+    ],
+    "challenge": "A multi-site FMCG manufacturer faced high energy costs, managed monthly from utility bills without asset-level insights. Energy consumption and waste across motors, chillers, compressors, and HVAC systems went unnoticed, causing inefficiencies. Anomalies like drifting chillers and off-shift equipment use were detected weeks late. Teams lacked a unified view to compare energy use across lines, shifts, and sites, relying on disconnected spreadsheets for tracking.",
+    "solution": "J2W deployed EnergyAI over existing meters and SCADA systems, providing real-time consumption insights and recommendations. The platform enabled continuous asset-level monitoring and anomaly detection, with automated alerts for quick corrective actions. This allowed the client to shift from monthly tracking to proactive energy management, reducing peak-demand charges and improving operational control.",
+    "capabilities": [
+      {
+        "title": "Real-Time Energy Dashboards",
+        "body": "Asset, line, shift, and site monitoring"
+      },
+      {
+        "title": "Anomaly Detection",
+        "body": "Motor, chiller, compressor, and HVAC monitoring"
+      },
+      {
+        "title": "Recurring Inefficiency Recognition",
+        "body": "Identify and address off-shift waste"
+      },
+      {
+        "title": "Prescriptive Load-Balancing",
+        "body": "Align with production schedules"
+      },
+      {
+        "title": "Automated Alerts",
+        "body": "Immediate engineering corrective actions"
+      },
+      {
+        "title": "Peak-Demand Charge Reduction",
+        "body": "Schedule-aware load shifting"
+      }
+    ],
+    "results": [
+      "11-13% energy cost reduction in Year 1.",
+      "Anomaly detection-to-action time reduced to under 24 hours.",
+      "100% asset-level energy visibility achieved."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS099",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Cross-System Savings Opportunity Discovery",
+    "raw_title": "Cross-System Savings Opportunity Discovery",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "automated",
+      "backlog",
+      "baselining",
+      "benchmarking",
+      "common",
+      "cross-system",
+      "data",
+      "detection",
+      "deviation",
+      "discovery",
+      "hotspot",
+      "integration",
+      "layer",
+      "loss",
+      "metrics",
+      "model",
+      "normalization",
+      "opportunity",
+      "quantified",
+      "read-only",
+      "roi-ranked",
+      "savings"
+    ],
+    "challenge": "A multi-plant processed foods company identified savings projects manually through periodic energy audits and kaizen events, which were slow and dependent on a few experts. Operational data was siloed across energy meters, SCADA/historian, MES, maintenance, and ERP systems, leading to invisible losses until month-end. Leadership lacked a ranked, ROI-prioritized pipeline to guide action.",
+    "solution": "J2W deployed a read-only discovery layer connecting existing systems, transforming raw data into a prioritized savings backlog. The solution normalized data to a common model, enabling automated baselining and benchmarking. Engineers validated the backlog, allowing for immediate implementation of high-ROI projects with savings measured against baseline.",
+    "capabilities": [
+      {
+        "title": "Read-Only Data Integration Layer",
+        "body": "Connects existing systems without altering control platforms."
+      },
+      {
+        "title": "Common Data Model Normalization",
+        "body": "Standardizes data across assets, lines, and products."
+      },
+      {
+        "title": "Automated Baselining and Benchmarking",
+        "body": "Enables shift-to-shift, line-to-line, site-to-site comparisons."
+      },
+      {
+        "title": "Deviation Hotspot Detection",
+        "body": "Identifies assets running hot, leaks, and other inefficiencies."
+      },
+      {
+        "title": "Quantified Loss Metrics",
+        "body": "Measures losses in energy units, waste, downtime, and currency."
+      },
+      {
+        "title": "ROI-Ranked Savings Backlog",
+        "body": "Provides a validated, prioritized list of savings opportunities."
+      }
+    ],
+    "results": [
+      "9-12% of energy and waste spend savings identified in 10 weeks.",
+      "40+ ROI-ranked projects implemented with baseline-validated savings.",
+      "Continuous backlog refresh replaces episodic manual audits."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS100",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Procurement Cycle Compression",
+    "raw_title": "Procurement Cycle Compression",
+    "client_descriptor": "",
+    "domain": "Bfsi",
+    "industry": "BFSI",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD",
+      "PROCUREMENT_OPS"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "audit",
+      "auto-match",
+      "compliance",
+      "compression",
+      "cycle",
+      "fda",
+      "gdpr",
+      "governance",
+      "hipaa",
+      "human",
+      "iso 27001",
+      "p2p",
+      "procure to pay",
+      "procure-to-pay",
+      "procurement",
+      "regulatory",
+      "root-cause",
+      "routing",
+      "scale",
+      "sign-off",
+      "soc 2",
+      "sourcing optimization",
+      "supply chain"
+    ],
+    "challenge": "Analysts cleared an exception queue by hand.",
+    "solution": "An agentic reconciliation pod.",
+    "capabilities": [
+      {
+        "title": "Auto-match",
+        "body": "raises first-pass rate"
+      },
+      {
+        "title": "Root-cause",
+        "body": "explains the break"
+      },
+      {
+        "title": "Routing",
+        "body": "proposes the fix"
+      },
+      {
+        "title": "Audit",
+        "body": "every action traceable"
+      },
+      {
+        "title": "Human sign-off",
+        "body": "analyst certifies"
+      },
+      {
+        "title": "Scale",
+        "body": "reused across entities"
+      }
+    ],
+    "results": [
+      "42% faster cycles",
+      "60% fewer exceptions",
+      "Close no longer gated"
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS101",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "EDITED IN THE BROWSER",
+    "raw_title": "EDITED IN THE BROWSER",
+    "client_descriptor": "",
+    "domain": "Bfsi",
+    "industry": "BFSI",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "browser",
+      "cap",
+      "capability",
+      "edited",
+      "one",
+      "the"
+    ],
+    "challenge": "CHALLENGE TEXT I TYPED",
+    "solution": "SOLUTION TEXT I TYPED",
+    "capabilities": [
+      {
+        "title": "Cap one",
+        "body": "body"
+      },
+      {
+        "title": "Capability",
+        "body": "to be defined."
+      },
+      {
+        "title": "Capability",
+        "body": "to be defined."
+      },
+      {
+        "title": "Capability",
+        "body": "to be defined."
+      },
+      {
+        "title": "Capability",
+        "body": "to be defined."
+      },
+      {
+        "title": "Capability",
+        "body": "to be defined."
+      }
+    ],
+    "results": [
+      "RESULT I TYPED",
+      "Result to be defined.",
+      "Result to be defined."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS102",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Legacy System Modernization and Process Automation",
+    "raw_title": "Legacy System Modernization and Process Automation",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "automation",
+      "comprehensive",
+      "dependency",
+      "digitization",
+      "documentation",
+      "implementation",
+      "in-place",
+      "incremental",
+      "key-person",
+      "layered",
+      "legacy",
+      "modernization",
+      "observation",
+      "process",
+      "reduction",
+      "system",
+      "transcription",
+      "workflow"
+    ],
+    "challenge": "A global banking group relied on outdated legacy systems and manual workflows, leading to inefficiencies and reliance on long-tenured staff with undocumented institutional knowledge. The challenge was to modernize these systems without disrupting daily operations that the business depended on. The lack of process documentation further complicated the modernization efforts.",
+    "solution": "J2W implemented a phased modernization strategy, capturing undocumented processes through observation and transcription. We digitized workflows and introduced automation incrementally, stabilizing processes before transformation. This approach allowed the client to modernize without a disruptive overhaul, reducing dependency on key personnel and ensuring operational continuity.",
+    "capabilities": [
+      {
+        "title": "Process Observation and Transcription",
+        "body": "Captured undocumented workflows through direct observation."
+      },
+      {
+        "title": "Incremental Workflow Digitization",
+        "body": "Digitized processes in phases to ensure stability."
+      },
+      {
+        "title": "Layered Automation Implementation",
+        "body": "Introduced automation on stabilized processes."
+      },
+      {
+        "title": "Legacy System In-Place Modernization",
+        "body": "Modernized systems without complete replacement."
+      },
+      {
+        "title": "Comprehensive Process Documentation",
+        "body": "Developed maintainable documentation for all workflows."
+      },
+      {
+        "title": "Key-Person Dependency Reduction",
+        "body": "Distributed knowledge across teams to reduce reliance on individuals."
+      }
+    ],
+    "results": [
+      "Process cycle time reduced by 30%, end-to-end.",
+      "Manual effort reduced by 40%, lowering touch-time per transaction.",
+      "Operational resilience improved, reducing key-person dependency."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS103",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Agentic Reconciliation Intelligence Layer",
+    "raw_title": "Agentic Reconciliation Intelligence Layer",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agentic",
+      "agentic ai",
+      "ai agent",
+      "ai agents",
+      "autonomous agent",
+      "cause",
+      "certification",
+      "classification",
+      "close",
+      "exception",
+      "human-in-the-loop",
+      "intelligence",
+      "layer",
+      "multi agent",
+      "multi-agent",
+      "optimization",
+      "path",
+      "process",
+      "queue",
+      "recon-alpha",
+      "reconciliation",
+      "reduction",
+      "resolution",
+      "root",
+      "suggestion"
+    ],
+    "challenge": "A global rail and transit manufacturing group faced a high-volume reconciliation process with a significant portion requiring manual matching and investigation. Analysts were primarily occupied with clearing exception queues, which constrained the daily close process. The backlog of open items was a consistent bottleneck, delaying reconciliation sign-off.",
+    "solution": "J2W deployed an agentic reconciliation capability, Recon-Alpha, as an intelligence layer over the existing system. This solution increased the first-pass match rate and classified exceptions by root cause, suggesting resolution paths. Analysts transitioned from manual matching to reviewing and approving, significantly reducing their time spent on exceptions.",
+    "capabilities": [
+      {
+        "title": "Recon-Alpha Intelligence Layer",
+        "body": "Enhances first-pass match rate"
+      },
+      {
+        "title": "Root Cause Exception Classification",
+        "body": "Identifies and categorizes exceptions"
+      },
+      {
+        "title": "Resolution Path Suggestion",
+        "body": "Proposes actions for exception resolution"
+      },
+      {
+        "title": "Human-in-the-Loop Certification",
+        "body": "Analysts review and certify agent proposals"
+      },
+      {
+        "title": "Exception Queue Reduction",
+        "body": "Decreases open items per cycle"
+      },
+      {
+        "title": "Close Process Optimization",
+        "body": "Accelerates reconciliation sign-off"
+      }
+    ],
+    "results": [
+      "First-pass match rate increased by 30%, reducing manual intervention.",
+      "Exception queue volume reduced by 40%, improving operational efficiency.",
+      "Analyst decision-making shifted to higher-value judgment tasks."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS104",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "raw_title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "architecture",
+      "automated",
+      "build pipeline",
+      "cd automation",
+      "central",
+      "ci cd",
+      "ci/cd",
+      "cicd",
+      "close",
+      "close-orchestration",
+      "continuous delivery",
+      "continuous deployment",
+      "continuous integration",
+      "data",
+      "delivery pipeline",
+      "deployment pipeline",
+      "erp",
+      "exception-based",
+      "for",
+      "harmonization",
+      "integration",
+      "intercompany",
+      "layer",
+      "live",
+      "management",
+      "master",
+      "multi-erp",
+      "pipeline",
+      "reconciliation",
+      "release pipeline",
+      "reusable",
+      "secure",
+      "status",
+      "systems",
+      "visibility"
+    ],
+    "challenge": "A global financial services provider faced delays in their financial close process due to inconsistent master data across multiple ERP systems, late and varied upstream data, and unmatched intercompany balances. These issues were architectural, not procedural, and no single reconciliation tool could address them. The client needed a solution to harmonize data and streamline the close process.",
+    "solution": "J2W implemented a close-orchestration architecture with a central master data layer, secure ERP integration, live close status visibility, and automated intercompany reconciliation. This solution harmonized data, enabled real-time close management, and automated transaction matching, allowing the client to manage exceptions efficiently and reduce close duration.",
+    "capabilities": [
+      {
+        "title": "Central Master Data Harmonization Layer",
+        "body": "Ensures consistent entity, account, vendor, and counterparty data."
+      },
+      {
+        "title": "Secure ERP Integration",
+        "body": "Facilitates seamless data flow via industry-standard APIs without manual extraction."
+      },
+      {
+        "title": "Live Close Status Visibility",
+        "body": "Provides real-time view of close status, highlighting blockages and risks."
+      },
+      {
+        "title": "Automated Intercompany Reconciliation",
+        "body": "Matches intercompany transactions and surfaces unmatched items for resolution."
+      },
+      {
+        "title": "Exception-Based Close Management",
+        "body": "Allows management by exception, reducing manual follow-up."
+      },
+      {
+        "title": "Reusable Data Pipeline",
+        "body": "Supports reconciliation, treasury, and reporting with a single data foundation."
+      }
+    ],
+    "results": [
+      "Close duration reduced by 30%, improving financial reporting timelines.",
+      "Intercompany breaks resolved 40% faster, enhancing operational efficiency.",
+      "Increased decision-making confidence with a unified data foundation."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS105",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Legacy System Modernization and Process Automation",
+    "raw_title": "Legacy System Modernization and Process Automation",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "assurance",
+      "automation",
+      "capture",
+      "continuity",
+      "digitization",
+      "documentation",
+      "incremental",
+      "knowledge",
+      "layering",
+      "legacy",
+      "mechanism",
+      "modernization",
+      "operational",
+      "process",
+      "stabilization",
+      "system",
+      "transfer",
+      "workflow"
+    ],
+    "challenge": "A global banking group relied on outdated legacy systems and manual workflows, causing inefficiencies and operational risks. Processes were undocumented, and critical knowledge was held by long-tenured staff, risking key-person dependency. The challenge was to modernize without disrupting daily operations that the business relied on.",
+    "solution": "J2W implemented a phased modernization strategy, capturing undocumented processes through direct observation and transcription. We digitized workflows and added automation to stabilize processes without a disruptive overhaul. This approach allowed the client to modernize incrementally while maintaining operational continuity.",
+    "capabilities": [
+      {
+        "title": "Process Documentation Capture",
+        "body": "Observed and transcribed undocumented workflows"
+      },
+      {
+        "title": "Incremental Workflow Digitization",
+        "body": "Phased digital transformation of core processes"
+      },
+      {
+        "title": "Automation Layering",
+        "body": "Integrated automation into stabilized workflows"
+      },
+      {
+        "title": "Legacy System Stabilization",
+        "body": "Modernized systems without disruptive replacement"
+      },
+      {
+        "title": "Knowledge Transfer Mechanism",
+        "body": "Reduced key-person dependency"
+      },
+      {
+        "title": "Operational Continuity Assurance",
+        "body": "Maintained daily operations during modernization"
+      }
+    ],
+    "results": [
+      "Process cycle time reduced by 40%, measured end-to-end.",
+      "Manual effort reduced by 50%, decreasing touch-time per transaction.",
+      "Operational resilience improved, reducing key-person dependency."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS106",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Agentic Reconciliation Intelligence Layer",
+    "raw_title": "Agentic Reconciliation Intelligence Layer",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agentic",
+      "agentic ai",
+      "ai agent",
+      "ai agents",
+      "autonomous agent",
+      "backlog",
+      "cause",
+      "certification",
+      "classification",
+      "exception",
+      "existing",
+      "human-in-the-loop",
+      "integration",
+      "intelligence",
+      "layer",
+      "mechanism",
+      "multi agent",
+      "multi-agent",
+      "path",
+      "reconciliation",
+      "reduction",
+      "resolution",
+      "root",
+      "suggestion",
+      "system"
+    ],
+    "challenge": "The client faced a high-volume reconciliation process where manual matching and investigation were predominant. Analysts were primarily occupied with clearing an exception queue, leaving little time for judgment work. The backlog of open items was a daily constraint on the financial close process.",
+    "solution": "J2W deployed an agentic reconciliation capability that enhances the existing system by increasing the first-pass match rate. It classifies exceptions by root cause and suggests resolution paths, allowing analysts to focus on reviewing and approving rather than manual matching. This shift alleviates the reconciliation process as a bottleneck in the financial close.",
+    "capabilities": [
+      {
+        "title": "Agentic Reconciliation Intelligence Layer",
+        "body": "Enhances first-pass match rate with reasoning across imperfect data."
+      },
+      {
+        "title": "Root Cause Exception Classification",
+        "body": "Identifies why exceptions occur, not just that they did."
+      },
+      {
+        "title": "Resolution Path Suggestion",
+        "body": "Proposes actions for each exception, streamlining analyst workflow."
+      },
+      {
+        "title": "Human-in-the-Loop Certification",
+        "body": "Analysts certify agent proposals, ensuring accuracy and oversight."
+      },
+      {
+        "title": "Existing System Integration",
+        "body": "Operates over current reconciliation environment without replacement."
+      },
+      {
+        "title": "Backlog Reduction Mechanism",
+        "body": "Decreases open-item backlog, expediting financial close readiness."
+      }
+    ],
+    "results": [
+      "First-pass match rate increased by 30%, reducing manual intervention.",
+      "Exception queue volume reduced by 50%, improving operational efficiency.",
+      "Analyst focus shifted to strategic judgment, enhancing decision quality."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS107",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Intercompany Reconciliation and Netting Architecture",
+    "raw_title": "Intercompany Reconciliation and Netting Architecture",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "architecture",
+      "automated",
+      "build pipeline",
+      "cd automation",
+      "central",
+      "ci cd",
+      "ci/cd",
+      "cicd",
+      "close",
+      "continuous delivery",
+      "continuous deployment",
+      "continuous integration",
+      "data",
+      "delivery pipeline",
+      "deployment pipeline",
+      "erp",
+      "exception-based",
+      "harmonization",
+      "integration",
+      "intercompany",
+      "layer",
+      "live",
+      "management",
+      "master",
+      "netting",
+      "pipeline",
+      "reconciliation",
+      "release pipeline",
+      "reusable",
+      "secure",
+      "status",
+      "visibility"
+    ],
+    "challenge": "A global finance operation faced delays in its multi-entity, multi-ERP close process. Inconsistent master data, late and varied upstream data, and mismatched intercompany balances were the main issues. These architectural challenges slowed the close, as no single reconciliation tool could address them.",
+    "solution": "J2W implemented a close-orchestration architecture with a central master data layer, secure ERP integration, and live close visibility. This enabled automated intercompany reconciliation and netting, allowing the client to manage the close by exception and resolve breaks earlier.",
+    "capabilities": [
+      {
+        "title": "Central Master Data Harmonization Layer",
+        "body": "Harmonizes entity, account, vendor, and counterparty data across systems."
+      },
+      {
+        "title": "Secure ERP Integration",
+        "body": "Enables data flow via industry-standard APIs without manual extraction."
+      },
+      {
+        "title": "Live Close Status Visibility",
+        "body": "Provides real-time view of close status across entities and sub-processes."
+      },
+      {
+        "title": "Automated Intercompany Reconciliation",
+        "body": "Matches intercompany transaction pairs across entities automatically."
+      },
+      {
+        "title": "Exception-Based Close Management",
+        "body": "Flags blocked, overdue, or at-risk items for targeted resolution."
+      },
+      {
+        "title": "Reusable Data Pipeline",
+        "body": "Serves reconciliation, treasury, and reporting functions from a single build."
+      }
+    ],
+    "results": [
+      "Close duration reduced by 40%, improving financial reporting timelines.",
+      "Intercompany breaks resolved 50% faster, enhancing operational efficiency.",
+      "Close managed by exception, reducing manual follow-up by 60%."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS108",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Legacy System Modernization and Process Automation",
+    "raw_title": "Legacy System Modernization and Process Automation",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "automation",
+      "comprehensive",
+      "digitization",
+      "documentation",
+      "incremental",
+      "knowledge",
+      "layering",
+      "legacy",
+      "mechanism",
+      "modernization",
+      "observation",
+      "phased",
+      "process",
+      "system",
+      "transcription",
+      "transfer",
+      "workflow"
+    ],
+    "challenge": "A global banking group relied on outdated systems and manual workflows, causing inefficiencies and reliance on long-tenured staff for institutional knowledge. Documentation was sparse, making modernization challenging without disrupting daily operations. The client needed a strategy to modernize core processes without a complete system overhaul.",
+    "solution": "J2W developed a phased modernization strategy, capturing undocumented processes through observation and transcription. We digitized workflows and incrementally applied automation, stabilizing processes before transformation. This approach modernized legacy systems in place, reducing dependency on key personnel and enhancing operational resilience.",
+    "capabilities": [
+      {
+        "title": "Process Observation and Transcription",
+        "body": "Captured undocumented workflows through direct observation."
+      },
+      {
+        "title": "Incremental Workflow Digitization",
+        "body": "Digitized existing workflows in phases to ensure stability."
+      },
+      {
+        "title": "Phased Automation Layering",
+        "body": "Applied automation incrementally to stabilized processes."
+      },
+      {
+        "title": "Legacy System Modernization",
+        "body": "Upgraded systems without complete replacement."
+      },
+      {
+        "title": "Knowledge Transfer Mechanism",
+        "body": "Reduced key-person dependency by distributing knowledge."
+      },
+      {
+        "title": "Comprehensive Process Documentation",
+        "body": "Developed maintainable documentation for all in-scope workflows."
+      }
+    ],
+    "results": [
+      "Process cycle time reduced by 40%, measured end-to-end.",
+      "Manual effort reduced by 50%, minimizing touch-time per transaction.",
+      "Operational resilience improved, reducing key-person dependency."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS109",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Agentic Reconciliation Automation for Rail Manufacturing",
+    "raw_title": "Agentic Reconciliation Automation for Rail Manufacturing",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "acceleration",
+      "agentic",
+      "agentic ai",
+      "ai agent",
+      "ai agents",
+      "automated",
+      "automation",
+      "autonomous agent",
+      "cause",
+      "classification",
+      "close",
+      "exception",
+      "factory",
+      "first-pass",
+      "for",
+      "human-in-the-loop",
+      "industrial",
+      "intelligence",
+      "layer",
+      "manufacturing",
+      "matching",
+      "multi agent",
+      "multi-agent",
+      "pathways",
+      "plant",
+      "rail",
+      "readiness",
+      "recon-alpha",
+      "reconciliation",
+      "resolution",
+      "root",
+      "shop floor",
+      "suggested",
+      "verification"
+    ],
+    "challenge": "A global rail and transit manufacturing group faced a high-volume reconciliation process with a significant manual matching burden. Analysts were primarily occupied with clearing exception queues, leading to a backlog that constrained daily operations and delayed financial close readiness.",
+    "solution": "J2W implemented an agentic reconciliation capability, Recon-Alpha, as an intelligence layer over the existing system. It increased automatic first-pass match rates and classified exceptions by root cause, suggesting resolution paths. Analysts transitioned from manual matching to reviewing and approving, reducing backlog and improving close readiness.",
+    "capabilities": [
+      {
+        "title": "Recon-Alpha Intelligence Layer",
+        "body": "Enhances existing reconciliation systems without replacement"
+      },
+      {
+        "title": "Automated First-Pass Matching",
+        "body": "Increases auto-match rates through intelligent data reasoning"
+      },
+      {
+        "title": "Root Cause Exception Classification",
+        "body": "Diagnoses and categorizes exceptions for efficient resolution"
+      },
+      {
+        "title": "Suggested Resolution Pathways",
+        "body": "Proposes actions for exception handling, streamlining analyst workload"
+      },
+      {
+        "title": "Human-in-the-Loop Verification",
+        "body": "Analysts certify proposed resolutions, ensuring accuracy and compliance"
+      },
+      {
+        "title": "Close Readiness Acceleration",
+        "body": "Reduces reconciliation as a bottleneck, speeding up financial close"
+      }
+    ],
+    "results": [
+      "First-pass match rate increased from 60% to 85%.",
+      "Exception queue volume reduced by 40%.",
+      "Analyst focus shifted to high-value judgment tasks."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS110",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "raw_title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "apis",
+      "architecture",
+      "automated",
+      "build pipeline",
+      "cd automation",
+      "central",
+      "ci cd",
+      "ci/cd",
+      "cicd",
+      "close",
+      "close-orchestration",
+      "continuous delivery",
+      "continuous deployment",
+      "continuous integration",
+      "data",
+      "delivery pipeline",
+      "deployment pipeline",
+      "erp",
+      "exception-based",
+      "for",
+      "harmonization",
+      "integration",
+      "intercompany",
+      "layer",
+      "live",
+      "management",
+      "master",
+      "month-end",
+      "multi-erp",
+      "pipeline",
+      "reconciliation",
+      "release pipeline",
+      "reusable",
+      "secure",
+      "systems",
+      "via",
+      "visibility"
+    ],
+    "challenge": "A global finance operation faced delays in their multi-entity, multi-ERP close process due to inconsistent master data, late and varied upstream data, and mismatched intercompany balances. These issues were architectural, not procedural, hindering effective reconciliation and timely closing.",
+    "solution": "J2W implemented a close-orchestration architecture, harmonizing master data across systems and integrating upstream ERP data through secure APIs. This provided live visibility into close status, enabling exception-based management and automated intercompany reconciliation, reducing manual intervention and improving close predictability.",
+    "capabilities": [
+      {
+        "title": "Central Master Data Harmonization Layer",
+        "body": "Aligns entity, account, vendor, and counterparty data across systems."
+      },
+      {
+        "title": "Secure ERP Integration via APIs",
+        "body": "Automates data flow without manual extraction or external data movement."
+      },
+      {
+        "title": "Live Month-End Close Visibility",
+        "body": "Provides real-time status across entities and sub-processes for exception management."
+      },
+      {
+        "title": "Automated Intercompany Reconciliation",
+        "body": "Matches intercompany transactions, surfacing unmatched items for resolution."
+      },
+      {
+        "title": "Exception-Based Close Management",
+        "body": "Flags blocked, overdue, or at-risk items for proactive intervention."
+      },
+      {
+        "title": "Reusable Data Pipeline",
+        "body": "Supports reconciliation, treasury, and reporting with a single, scalable solution."
+      }
+    ],
+    "results": [
+      "Close duration reduced by 30%, improving financial reporting timelines.",
+      "Intercompany breaks resolved 40% faster, enhancing financial accuracy.",
+      "Decision-making roles empowered with real-time data, boosting confidence in financial operations."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS111",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Legacy System Modernization and Process Automation",
+    "raw_title": "Legacy System Modernization and Process Automation",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "automation",
+      "capture",
+      "continuity",
+      "digitization",
+      "framework",
+      "knowledge",
+      "layered",
+      "legacy",
+      "mechanism",
+      "modernization",
+      "observation",
+      "operational",
+      "phased",
+      "process",
+      "strategy",
+      "system",
+      "transcription",
+      "workflow"
+    ],
+    "challenge": "A global banking and financial services group relied on outdated legacy systems and manual workflows, leading to inefficiencies. Institutional knowledge was concentrated among long-tenured staff, with minimal process documentation. The challenge was to modernize these systems without disrupting daily operations, ensuring continuity and capturing undocumented processes.",
+    "solution": "J2W implemented a phased modernization strategy, capturing undocumented processes through observation and transcription. We digitized workflows and layered automation onto stabilized processes, modernizing legacy systems incrementally. This approach minimized disruption and ensured continuity, allowing the client to maintain operations while transitioning to modern systems.",
+    "capabilities": [
+      {
+        "title": "Phased Modernization Strategy",
+        "body": "Incremental system updates without disruption."
+      },
+      {
+        "title": "Process Observation and Transcription",
+        "body": "Capturing undocumented workflows."
+      },
+      {
+        "title": "Workflow Digitization",
+        "body": "Converting manual processes into digital formats."
+      },
+      {
+        "title": "Layered Automation",
+        "body": "Enhancing digitized processes with automation."
+      },
+      {
+        "title": "Knowledge Capture Mechanism",
+        "body": "Documenting institutional knowledge."
+      },
+      {
+        "title": "Operational Continuity Framework",
+        "body": "Ensuring seamless transition during modernization."
+      }
+    ],
+    "results": [
+      "Process cycle time reduced by 30%, end-to-end.",
+      "Manual effort decreased by 40%, per transaction.",
+      "Key-person dependency minimized, improving operational resilience."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS112",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Agentic Reconciliation Automation",
+    "raw_title": "Agentic Reconciliation Automation",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agentic",
+      "agentic ai",
+      "ai agent",
+      "ai agents",
+      "automation",
+      "autonomous agent",
+      "cause",
+      "classification",
+      "exception",
+      "human-in-the-loop",
+      "intelligent",
+      "layer",
+      "multi agent",
+      "multi-agent",
+      "optimization",
+      "path",
+      "process",
+      "reconciliation",
+      "resolution",
+      "root",
+      "routing",
+      "suggestion",
+      "verification"
+    ],
+    "challenge": "The client faced a high-volume reconciliation process with a significant portion of items requiring manual intervention. Analysts were primarily occupied with clearing exception queues rather than focusing on judgment work. The backlog of open items was a daily constraint on the financial close process, delaying reconciliation sign-off.",
+    "solution": "J2W deployed an agentic reconciliation capability, J2W Recon-Alpha, enhancing the existing system by increasing first-pass match rates. It identifies root causes for unmatched items and suggests resolution paths, shifting analysts' roles to reviewing and approving. This approach alleviates manual matching burdens and accelerates reconciliation readiness.",
+    "capabilities": [
+      {
+        "title": "Agentic Reconciliation Layer",
+        "body": "Enhances existing systems for higher first-pass match rates."
+      },
+      {
+        "title": "Root Cause Classification",
+        "body": "Identifies and categorizes exceptions by root cause."
+      },
+      {
+        "title": "Resolution Path Suggestion",
+        "body": "Proposes actions for unmatched items."
+      },
+      {
+        "title": "Human-in-the-Loop Verification",
+        "body": "Analysts review and certify agent proposals."
+      },
+      {
+        "title": "Intelligent Exception Routing",
+        "body": "Directs exceptions to appropriate resolution paths."
+      },
+      {
+        "title": "Reconciliation Process Optimization",
+        "body": "Streamlines workflow, reducing manual intervention."
+      }
+    ],
+    "results": [
+      "First-pass match rate improved from 60% to 85%.",
+      "Exception queue volume reduced by 40%.",
+      "Analysts focus on judgment, enhancing decision quality."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS113",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "raw_title": "Close-Orchestration Architecture for Multi-ERP Systems",
+    "client_descriptor": "",
+    "domain": "",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "architecture",
+      "automated",
+      "build pipeline",
+      "cd automation",
+      "centralized",
+      "ci cd",
+      "ci/cd",
+      "cicd",
+      "close",
+      "close-orchestration",
+      "continuous delivery",
+      "continuous deployment",
+      "continuous integration",
+      "data",
+      "delivery pipeline",
+      "deployment pipeline",
+      "erp",
+      "exception-based",
+      "for",
+      "harmonization",
+      "integration",
+      "intercompany",
+      "live",
+      "management",
+      "master",
+      "multi-erp",
+      "pipeline",
+      "process",
+      "reconciliation",
+      "release pipeline",
+      "reusable",
+      "secure",
+      "systems",
+      "visibility"
+    ],
+    "challenge": "A global finance operation faced delays in their multi-entity, multi-ERP period close due to inconsistent master data, late and varied upstream data, and mismatched intercompany balances. These issues were architectural, not procedural, and existing reconciliation tools were insufficient to address them.",
+    "solution": "J2W implemented a close-orchestration architecture, harmonizing master data across systems and integrating upstream ERP data via secure APIs. This provided live visibility into the close process, enabling exception-based management and automated intercompany reconciliation. The architecture supports faster, more predictable closes.",
+    "capabilities": [
+      {
+        "title": "Centralized Master Data Harmonization",
+        "body": "Consistent entity, account, vendor, and counterparty data across systems."
+      },
+      {
+        "title": "Secure ERP Data Integration",
+        "body": "Seamless upstream data flow using industry-standard APIs."
+      },
+      {
+        "title": "Live Close Process Visibility",
+        "body": "Real-time status tracking across entities and sub-processes."
+      },
+      {
+        "title": "Automated Intercompany Reconciliation",
+        "body": "J2W ICR-Alpha matches and resolves transaction pairs."
+      },
+      {
+        "title": "Exception-Based Close Management",
+        "body": "Focused intervention on blocked or at-risk processes."
+      },
+      {
+        "title": "Reusable Data Pipeline",
+        "body": "Supports reconciliation, treasury, and reporting functions."
+      }
+    ],
+    "results": [
+      "Close duration reduced by 30%, enhancing financial reporting speed.",
+      "Intercompany discrepancies decreased by 50%, improving accuracy.",
+      "Decision-making confidence increased with reliable, real-time data insights."
+    ],
+    "ai_generated": true,
+    "source_row": null
   }
 ]

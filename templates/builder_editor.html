@@ -1,0 +1,5 @@
+{# The editable slide card body for ONE built slide, injected into its .rev-slide-card by
+   builder.js. Same macro the review page uses, so there is one editor, not two.
+   The card wrapper (and its data-content-type) is supplied by the caller. #}
+{% from "_slide_editor.html" import slide_editor %}
+{{ slide_editor(kind, s, schema) }}

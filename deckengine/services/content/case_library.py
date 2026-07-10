@@ -18,6 +18,7 @@ import json
 import re
 
 from deckengine import config
+from deckengine.services import jsonstore
 
 CONTENT_STORE = config.CONTENT_STORE_JSON
 MIDDOT = "·"   # the keyword separator matcher splits on
@@ -134,8 +135,11 @@ def _append_embedding(record):
         except (OSError, ValueError):
             data = {"model": "text-embedding-3-small", "dim": len(vec), "vectors": {}}
         data.setdefault("vectors", {})[record["id"]] = vec
-        with open(config.CASE_EMBEDDINGS_JSON, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+        jsonstore.write_json(config.CASE_EMBEDDINGS_JSON, data, indent=None)
+        # drop relevance.py's in-process vector cache, so this case is semantically
+        # matchable (and visible to the duplicate check) immediately, not after a restart
+        from deckengine.services.matching import relevance
+        relevance.invalidate_case_embeddings()
         return True
     except Exception:
         return False
@@ -195,8 +199,7 @@ def promote_ai_case(content, work_type_code, industry_code):
 
     store = _load()
     store.append(record)
-    with open(CONTENT_STORE, "w", encoding="utf-8") as f:
-        json.dump(store, f, ensure_ascii=False, indent=2)
+    jsonstore.write_json(CONTENT_STORE, store)
     global _cache
     _cache = store   # keep the in-process cache in sync so this build's own
                      # re-reads (and the next one) see the new case immediately

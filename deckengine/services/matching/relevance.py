@@ -172,6 +172,15 @@ def _load_case_embeddings():
     return _case_emb
 
 
+def invalidate_case_embeddings():
+    """Drop the in-process vector cache so the next read picks up a case saved since
+    startup. Called by case_library._append_embedding after it writes a new vector --
+    without this, a case study saved from the Custom Slide Builder stays invisible to
+    the duplicate check (and to semantic matching) until the process restarts."""
+    global _case_emb
+    _case_emb = None
+
+
 def _split_asks(transcript):
     """Break the notes into individual asks so each can be matched on its own.
     A multi-solution email is a blurry average as ONE embedding; per-ask matching

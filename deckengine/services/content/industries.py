@@ -15,6 +15,7 @@ import json
 import os
 
 from deckengine import config
+from deckengine.services import jsonstore
 
 _PATH = config.CUSTOM_INDUSTRIES_JSON
 
@@ -41,6 +42,5 @@ def add(name):
         return False
     items.append(name)
     os.makedirs(os.path.dirname(_PATH), exist_ok=True)
-    with open(_PATH, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
+    jsonstore.write_json(_PATH, items)
     return True

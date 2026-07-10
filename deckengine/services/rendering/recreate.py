@@ -31,11 +31,12 @@ in between is recreated or restyled.
 import io
 import json
 import os
+import string
 
 from pptx import Presentation
 
 from deckengine import config
-from deckengine.services.rendering import reskin, skills, slide_generator
+from deckengine.services.rendering import draw_templates, reskin, skills, slide_generator
 from deckengine.services.rendering.slide_generator import CONTENT_TEMPLATES
 
 _NONE_KEY = "_none"
@@ -60,6 +61,13 @@ _DRAW_FNS = {
     "stat_overview": skills._draw_stat_overview,
     "data_table": skills._draw_data_table,
 }
+
+# The ten style-guide shapes register themselves in draw_templates.DRAWERS -- fold them
+# in rather than maintaining a second list here. Without this, Recreate-with-AI could
+# classify a slide as (say) governance_list and then render only its header.
+for _key, (_map_fn, _draw_fn) in draw_templates.DRAWERS.items():
+    _MAPPING_FNS.setdefault(_key, _map_fn)
+    _DRAW_FNS.setdefault(_key, _draw_fn)
 
 
 def _as_stream(data):
@@ -87,7 +95,9 @@ def _classify_slide(text):
     text = (text or "").strip()
     if not text:
         return _NONE_KEY
-    letters = "ABCDEFGHIJK"
+    # one letter per template, plus one for "none of these". A fixed 11-letter string
+    # here silently became an IndexError the moment the registry grew past 10 shapes.
+    letters = string.ascii_uppercase
     choices = "\n".join(f"({letters[i]}) {t['classify_desc']}"
                         for i, t in enumerate(CONTENT_TEMPLATES))
     none_letter = letters[len(CONTENT_TEMPLATES)]

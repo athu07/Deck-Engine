@@ -74,19 +74,32 @@
   {% endif %}
 </div>
 
-<!-- fill templates the engine writes into -->
+<!-- every slide shape the engine can build (the CONTENT_TEMPLATES registry) -->
 <div class="section">
-  <div class="section-head"><h2 class="sec-title">Fill templates</h2><span class="hint">the engine pours AI-written content into these</span></div>
-  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+  <div class="section-head">
+    <h2 class="sec-title">Slide templates <span class="hint" style="font-size:14px;font-weight:400">— {{ items|length }}</span></h2>
+    <span class="hint">the shapes your content is designed into</span>
+  </div>
+  <p class="hint" style="font-size:13px;margin:-6px 0 14px">Every one of these is available wherever content becomes a slide: name it in a pasted document (<code>slide 3 - road map</code>), pick it in the <a href="/builder">Custom Slide Builder</a>, or let the engine read your content and choose. <b>Recreate with AI</b> matches each uploaded slide against the same list.</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
     {% for t in items %}
     <div class="card">
-      <div class="lib-head"><span class="sid">{{ t.name }}</span><span class="chip flat">{{ t.status }}</span></div>
-      <div class="lib-title" style="margin-bottom:10px">For {{ t.name.replace('_',' ') }} slides</div>
-      <p class="hint" style="font-size:12px;margin:0 0 9px">Marker tokens it fills</p>
-      <div class="kw">{% for m in t.markers %}<span>{{ m }}</span>{% endfor %}{% if not t.markers %}<span>none found</span>{% endif %}</div>
+      <div class="lib-head">
+        <span class="sid">{{ t.key }}</span>
+        <span class="chip flat">{{ t.fields }} field{{ '' if t.fields == 1 else 's' }}</span>
+      </div>
+      <div class="lib-title" style="margin-bottom:6px">{{ t.label }}</div>
+      <p class="hint" style="font-size:12.5px;margin:0 0 10px">{{ t.what }}</p>
+      {% if t.holds %}
+      <p class="hint" style="font-size:12px;margin:0 0 6px">What you fill in</p>
+      <div class="kw">{% for h in t.holds %}<span>{{ h }}</span>{% endfor %}</div>
+      {% endif %}
+      {% if not t.has_frame %}
+      <p class="hint" style="font-size:12px;color:var(--neg);margin:10px 0 0"><i class="ti ti-alert-triangle"></i> No template slide — run <code>scripts/create_skills_templates.py</code></p>
+      {% endif %}
     </div>
     {% endfor %}
-    {% if not items %}<div class="lib-empty">No fill templates found.</div>{% endif %}
+    {% if not items %}<div class="lib-empty">No slide templates registered.</div>{% endif %}
   </div>
 </div>
 

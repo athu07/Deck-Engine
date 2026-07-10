@@ -450,6 +450,30 @@ def build_slide11(prs):
     _header_only_frame(prs, "data_table", with_intro=False, slide_label="Slide 11")
 
 
+# ── The ten style-guide templates (owner's designs, 2026-07-10) ───────────────
+# All ten are header-only frames: the title block + two-tone bar live here, the body
+# is drawn per-slide by services/rendering/draw_templates.py, because none of these
+# shapes has a fixed slot count a static template could carry.
+_STYLE_GUIDE_TEMPLATES = [
+    ("pain_point_list",    False, "the problem / pain-point list"),
+    ("platform_overview",  False, "stat row + capability chips + dark footer band"),
+    ("before_after_split", False, "before/after workflow lanes + the questions raised"),
+    ("comparison_split",   False, "capability cards left, metric table right"),
+    ("pillar_grid",        False, "numbered capability pillars in a grid"),
+    ("option_columns",     False, "three architecture options compared row by row"),
+    ("agent_architecture", False, "agent card grid with metric pills + footer bar"),
+    ("governance_list",    False, "chips on a vertical spine, each with a card"),
+    ("guardrail_columns",  False, "bold-lead bullet columns + a quick-win callout"),
+    ("opportunity_cards",  False, "numbered columns, each an opportunity and outcome"),
+]
+
+
+def build_style_guide_templates(prs, first_index=12):
+    for i, (key, with_intro, what) in enumerate(_STYLE_GUIDE_TEMPLATES):
+        _header_only_frame(prs, key, with_intro=with_intro,
+                           slide_label="Slide %d" % (first_index + i))
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     prs = Presentation()
@@ -467,6 +491,7 @@ if __name__ == "__main__":
     build_slide9(prs)
     build_slide10(prs)
     build_slide11(prs)
+    build_style_guide_templates(prs)
 
     prs.save(OUT)
     print(f"\nSaved: {OUT}  ({len(prs.slides)} slides)")

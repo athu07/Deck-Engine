@@ -24,22 +24,44 @@ bp = Blueprint("templates", __name__)
 _PENDING_DIR = os.path.join(config.LEARNED_TEMPLATES_DIR, "_pending")
 
 
+def _slide_shapes():
+    """Every slide shape the engine can build, straight from the CONTENT_TEMPLATES
+    registry -- the single source of truth the paste-a-document flow, the Custom Slide
+    Builder, and Recreate-with-AI all classify against.
+
+    This page used to list the tagged slides in the legacy `templates.pptx` instead: a
+    stale file holding five tags, so it never showed four_box, box_grid, or any of the
+    ten style-guide shapes. It was describing a file, not the app.
+    """
+    from deckengine.services.rendering import slide_schema
+
+    frames = set()
+    try:                                # which shapes have a template frame of their own
+        frames = set(slide_generator.list_templates(config.SKILLS_TEMPLATES_PPTX))
+    except Exception:
+        pass
+
+    out = []
+    for t in slide_generator.CONTENT_TEMPLATES:
+        key = t["key"]
+        fields = slide_schema.fields_for(key)
+        # the repeating part of the shape is what the salesperson actually fills in
+        holds = [f["label"] for f in fields if f["type"] in ("objects", "strings")]
+        out.append({
+            "key": key,
+            "label": t["label"],
+            "what": t["classify_desc"],
+            "holds": holds,
+            "fields": len(fields),
+            # case_study fills the branded case_study_v2 file, not a drawn frame
+            "has_frame": key in frames or key == "case_study",
+        })
+    return out
+
+
 @bp.route("/templates")
 def templates_page():
-    items = []
-    try:
-        for name, slide in slide_generator.list_templates().items():
-            markers = set()
-            text = ""
-            for sh in slide.shapes:
-                if sh.has_text_frame:
-                    markers.update(re.findall(r"\{\{[A-Z]+\}\}", sh.text_frame.text))
-                    text += sh.text_frame.text
-            status = "placeholder" if "Generated slide" in text else "active"
-            items.append({"name": name, "markers": sorted(markers), "status": status})
-    except Exception:
-        items = []
-    body = render_template("templates_page.html", items=items,
+    body = render_template("templates_page.html", items=_slide_shapes(),
                            learned=templatize.all_templates())
     return shell(body, active="templates", crumb="<b>Templates</b>")
 

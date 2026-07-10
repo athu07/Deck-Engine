@@ -2,13 +2,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="{{ asset('app.css') }}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css">
 </head><body>
 <div class="app">
   <aside class="sidebar">
     <div class="logo"><i class="ti ti-stack-2"></i></div>
     <a class="nav-btn {{ 'active' if active=='new' else '' }}" href="/"><i class="ti ti-sparkles"></i><span class="nav-tip">New deck</span></a>
+    <a class="nav-btn {{ 'active' if active=='builder' else '' }}" href="/builder"><i class="ti ti-file-text"></i><span class="nav-tip">Custom Slide Builder</span></a>
     <a class="nav-btn {{ 'active' if active=='library' else '' }}" href="/library"><i class="ti ti-books"></i><span class="nav-tip">Slide library</span></a>
     <a class="nav-btn {{ 'active' if active=='templates' else '' }}" href="/templates"><i class="ti ti-template"></i><span class="nav-tip">Templates</span></a>
     <a class="nav-btn {{ 'active' if active=='staging' else '' }}" href="/staging"><i class="ti ti-checkup-list"></i><span class="nav-tip">AI history</span></a>

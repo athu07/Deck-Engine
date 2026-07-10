@@ -289,7 +289,7 @@ def classify_content(content):
     default_key = CONTENT_TEMPLATES[0]["key"]
     if not content:
         return default_key
-    letters = "ABCDEFGHIJ"
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"   # one per CONTENT_TEMPLATES entry (18 and counting)
     choices = "\n".join(f"({letters[i]}) {t['classify_desc']}"
                         for i, t in enumerate(CONTENT_TEMPLATES))
     key_by_letter = {letters[i]: t["key"] for i, t in enumerate(CONTENT_TEMPLATES)}
@@ -998,6 +998,297 @@ def append_generated(deck_path, items):
     return len(items)
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# The ten style-guide shapes (owner's designs, 2026-07-10).
+#
+# Each is: a JSON field spec the model fills, and a normalizer that guarantees the
+# record the renderer (services/rendering/draw_templates.py) can actually draw --
+# right number of cards, no missing keys, no None. Adding an eleventh means one spec,
+# one normalizer, one CONTENT_TEMPLATES entry, one SCHEMA entry, one editor branch.
+#
+# They all share _restructure(): the OpenAI boilerplate is identical for every shape,
+# and ten copies of it would rot independently. Every one fails safe to a placeholder
+# record, exactly as case_from_content and four_box_from_content do.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_RESTRUCTURE_SYSTEM = ("You restructure pasted content into one strict slide format "
+                       "without losing facts or inventing them. Reply with one JSON "
+                       "object only.")
+
+
+def _restructure(content, context, spec, normalize, what):
+    """Pasted content -> one shape's record. `what` names the shape for the prompt."""
+    context = context or {}
+    industry = context.get("industry", "")
+    prompt = (
+        "Below is content the user pasted that reads as %s. Restructure it into that "
+        "format. PRESERVE their facts, numbers and wording where you can -- only "
+        "reformat, tighten and organise. Do NOT invent content that isn't there; if a "
+        "field has no source material, leave it empty.\n\n" % what
+        + (f"Account domain (context only, need not appear verbatim): {industry}\n\n" if industry else "")
+        + "CONTENT:\n\"\"\"\n" + (content or "")[:12000] + "\n\"\"\"\n\n"
+        + spec
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": _RESTRUCTURE_SYSTEM},
+                      {"role": "user", "content": prompt}],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        data = {}
+    return normalize(data)
+
+
+def _dicts(data, key, cap):
+    return [d for d in (data.get(key) or []) if isinstance(d, dict)][:cap]
+
+
+def _strs(data, key, cap):
+    return [_clean(x) for x in (data.get(key) or []) if _clean(x)][:cap]
+
+
+def _head_fields(data, content_type):
+    return {"content_type": content_type, "template": content_type,
+            "title": _clean(data.get("title")) or "Untitled",
+            "subhead": _clean(data.get("subhead"))}
+
+
+# ── 1. pain_point_list ────────────────────────────────────────────────────────
+def _normalize_pain_point_list(data):
+    rows = [{"label": _clean(r.get("label")) or "Untitled",
+             "body": _clean(r.get("body")) or "Content to be defined."}
+            for r in _dicts(data, "rows", 6)]
+    if not rows:
+        rows = [{"label": "Untitled", "body": "Content to be defined."}]
+    return dict(_head_fields(data, "pain_point_list"), rows=rows)
+
+
+def pain_point_list_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"rows":[{"label":"...","body":"..."},...]}\n'
+        "- rows: 3-6 problems/pain points, in the content's own order. label is 2-4 "
+        "words; body is ONE sentence naming the concrete consequence.\n",
+        _normalize_pain_point_list, "a list of problems or pain points")
+
+
+# ── 2. platform_overview ──────────────────────────────────────────────────────
+def _normalize_platform_overview(data):
+    stats = [{"value": _clean(s.get("value")) or "-",
+              "label": _clean(s.get("label")) or "Untitled"}
+             for s in _dicts(data, "stats", 4)]
+    return dict(_head_fields(data, "platform_overview"),
+                stats=stats or [{"value": "-", "label": "Untitled"}],
+                capabilities=_strs(data, "capabilities", 6),
+                footer_title=_clean(data.get("footer_title")),
+                footer_items=_strs(data, "footer_items", 5))
+
+
+def platform_overview_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"stats":[{"value":"112","label":"Markets indexed"},...],'
+        '"capabilities":["...",...],"footer_title":"...","footer_items":["...",...]}\n'
+        "- stats: up to 4 headline numbers. value is the figure ONLY (112, 85%, 47s).\n"
+        "- capabilities: up to 6 named capabilities, 1-3 words each.\n"
+        "- footer_title + footer_items: the one cross-cutting layer and what it covers "
+        "(empty if the content names none).\n",
+        _normalize_platform_overview, "a platform overview: headline stats plus named capabilities")
+
+
+# ── 3. before_after_split ─────────────────────────────────────────────────────
+def _stages(data, key):
+    return [{"tag": _clean(s.get("tag")), "label": _clean(s.get("label")) or "Stage"}
+            for s in _dicts(data, key, 4)]
+
+
+def _normalize_before_after_split(data):
+    qs = [{"title": _clean(q.get("title")) or "Question",
+           "body": _clean(q.get("body"))} for q in _dicts(data, "questions", 5)]
+    return dict(_head_fields(data, "before_after_split"),
+                intro=_clean(data.get("intro")),
+                before_title=_clean(data.get("before_title")) or "Before",
+                before_stages=_stages(data, "before_stages"),
+                after_title=_clean(data.get("after_title")) or "After",
+                after_stages=_stages(data, "after_stages"),
+                questions=qs)
+
+
+def before_after_split_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...","intro":"...",'
+        '"before_title":"...","before_stages":[{"tag":"HUMAN","label":"..."},...],'
+        '"after_title":"...","after_stages":[{"tag":"AI AGENT","label":"..."},...],'
+        '"questions":[{"title":"...","body":"..."},...]}\n'
+        "- each lane has up to 4 stages, in order. tag says WHO does that stage "
+        "(HUMAN, AI AGENT, ...); label is 2-4 words.\n"
+        "- questions: up to 5 questions the change raises (empty list if none).\n",
+        _normalize_before_after_split, "a before/after workflow transformation")
+
+
+# ── 4. comparison_split ───────────────────────────────────────────────────────
+def _normalize_comparison_split(data):
+    feats = [{"heading": _clean(f.get("heading")) or "Untitled",
+              "body": _clean(f.get("body"))} for f in _dicts(data, "features", 4)]
+    rows = [{"metric": _clean(r.get("metric")) or "Metric",
+             "a": _clean(r.get("a")), "b": _clean(r.get("b"))}
+            for r in _dicts(data, "rows", 6)]
+    return dict(_head_fields(data, "comparison_split"),
+                panel_title=_clean(data.get("panel_title")) or "Capability overview",
+                panel_intro=_clean(data.get("panel_intro")),
+                features=feats or [{"heading": "Untitled", "body": ""}],
+                table_title=_clean(data.get("table_title")) or "Comparison",
+                col_a=_clean(data.get("col_a")) or "Option A",
+                col_b=_clean(data.get("col_b")) or "Option B",
+                rows=rows, takeaway=_clean(data.get("takeaway")))
+
+
+def comparison_split_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...","panel_title":"...",'
+        '"panel_intro":"...","features":[{"heading":"...","body":"..."},...],'
+        '"table_title":"...","col_a":"...","col_b":"...",'
+        '"rows":[{"metric":"...","a":"...","b":"..."},...],"takeaway":"..."}\n'
+        "- features: up to 4 capability cards for the left panel.\n"
+        "- rows: up to 6 metrics compared across the two options.\n"
+        "- takeaway: one italic closing line, or empty.\n",
+        _normalize_comparison_split, "capabilities on one side and a two-option comparison on the other")
+
+
+# ── 5. pillar_grid ────────────────────────────────────────────────────────────
+def _normalize_pillar_grid(data):
+    pillars = [{"heading": _clean(p.get("heading")) or "Untitled",
+                "body": _clean(p.get("body")),
+                "points": _strs(p, "points", 4)} for p in _dicts(data, "pillars", 6)]
+    if not pillars:
+        pillars = [{"heading": "Untitled", "body": "", "points": []}]
+    return dict(_head_fields(data, "pillar_grid"), pillars=pillars)
+
+
+def pillar_grid_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"pillars":[{"heading":"...","body":"...","points":["...",...]},...]}\n'
+        "- pillars: 3-6 parallel capability pillars, in the content's own order. "
+        "heading 2-5 words; body 1-2 sentences; points up to 4 short supporting items.\n",
+        _normalize_pillar_grid, "several parallel capability pillars, each with supporting points")
+
+
+# ── 6. option_columns ─────────────────────────────────────────────────────────
+def _normalize_option_columns(data):
+    opts = []
+    for o in _dicts(data, "options", 4):
+        rows = [{"label": _clean(r.get("label")) or "Item",
+                 "value": _clean(r.get("value"))} for r in _dicts(o, "rows", 6)]
+        opts.append({"name": _clean(o.get("name")) or "Option",
+                     "tag": _clean(o.get("tag")), "rows": rows})
+    if not opts:
+        opts = [{"name": "Option", "tag": "", "rows": []}]
+    return dict(_head_fields(data, "option_columns"), options=opts,
+                recommendation=_clean(data.get("recommendation")))
+
+
+def option_columns_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"options":[{"name":"...","tag":"...","rows":[{"label":"...","value":"..."},...]},...],'
+        '"recommendation":"..."}\n'
+        "- options: 2-4 options being compared. name is short; tag is its one-line "
+        "characterisation (e.g. Cloud native).\n"
+        "- rows: the SAME labels in the SAME order for every option, so they line up.\n",
+        _normalize_option_columns, "two to four options compared across the same dimensions")
+
+
+# ── 7. agent_architecture ─────────────────────────────────────────────────────
+def _normalize_agent_architecture(data):
+    agents = [{"name": _clean(a.get("name")) or "Agent",
+               "body": _clean(a.get("body")),
+               "badge": _clean(a.get("badge"))} for a in _dicts(data, "agents", 6)]
+    if not agents:
+        agents = [{"name": "Agent", "body": "", "badge": ""}]
+    return dict(_head_fields(data, "agent_architecture"), agents=agents,
+                footer=_clean(data.get("footer")))
+
+
+def agent_architecture_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"agents":[{"name":"...","body":"...","badge":"85% confidence"},...],'
+        '"footer":"..."}\n'
+        "- agents: 3-6 components/agents. body is one line on what it does; badge is "
+        "its headline metric, or empty if none is stated.\n"
+        "- footer: the orchestrating layer beneath them, or empty.\n",
+        _normalize_agent_architecture, "a set of components or agents, each with a metric")
+
+
+# ── 8. governance_list ────────────────────────────────────────────────────────
+def _normalize_governance_list(data):
+    items = [{"heading": _clean(i.get("heading")) or "Untitled",
+              "body": _clean(i.get("body"))} for i in _dicts(data, "items", 5)]
+    if not items:
+        items = [{"heading": "Untitled", "body": ""}]
+    return dict(_head_fields(data, "governance_list"), items=items)
+
+
+def governance_list_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"items":[{"heading":"...","body":"..."},...]}\n'
+        "- items: 3-5 layers/stages, in order. heading 1-3 words; body 1-3 sentences.\n",
+        _normalize_governance_list, "a sequence of layers, stages, or governance mechanisms")
+
+
+# ── 9. guardrail_columns ──────────────────────────────────────────────────────
+def _normalize_guardrail_columns(data):
+    cols = []
+    for c in _dicts(data, "columns", 4):
+        pts = [{"lead": _clean(p.get("lead")) or "Point",
+                "body": _clean(p.get("body"))} for p in _dicts(c, "points", 4)]
+        cols.append({"heading": _clean(c.get("heading")) or "Untitled", "points": pts})
+    if not cols:
+        cols = [{"heading": "Untitled", "points": []}]
+    return dict(_head_fields(data, "guardrail_columns"), columns=cols,
+                callout_label=_clean(data.get("callout_label")),
+                callout_body=_clean(data.get("callout_body")))
+
+
+def guardrail_columns_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"columns":[{"heading":"...","points":[{"lead":"...","body":"..."},...]},...],'
+        '"callout_label":"Quick win","callout_body":"..."}\n'
+        "- columns: 2-4 themes. Each point has a bold lead-in (2-4 words) and the rest "
+        "of the sentence as body.\n"
+        "- callout: the single takeaway strip at the bottom, or empty.\n",
+        _normalize_guardrail_columns, "several themes, each a list of points with a bold lead-in")
+
+
+# ── 10. opportunity_cards ─────────────────────────────────────────────────────
+def _normalize_opportunity_cards(data):
+    cards = [{"heading": _clean(c.get("heading")) or "Untitled",
+              "opportunity": _clean(c.get("opportunity")),
+              "outcome": _clean(c.get("outcome"))} for c in _dicts(data, "cards", 4)]
+    if not cards:
+        cards = [{"heading": "Untitled", "opportunity": "", "outcome": ""}]
+    return dict(_head_fields(data, "opportunity_cards"), cards=cards)
+
+
+def opportunity_cards_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...",'
+        '"cards":[{"heading":"...","opportunity":"...","outcome":"..."},...]}\n'
+        "- cards: 2-4 opportunities. heading names it; opportunity states the problem "
+        "and its scale; outcome states what we would deliver and the result.\n",
+        _normalize_opportunity_cards, "several opportunities, each paired with its outcome")
+
+
 # ── CONTENT_TEMPLATES registry ────────────────────────────────────────────────
 # The single source of truth for every built-in "quick content" slide shape --
 # classify_content() builds its prompt FROM this list, and callers (decks.py's
@@ -1026,10 +1317,10 @@ CONTENT_TEMPLATES = [
                       "four-way breakdown but not limited to exactly four",
      "builder": box_grid_from_content},
     {"key": "pillar_deepdive", "label": "Capability deep-dive",
-     "classify_desc": "a CAPABILITY DEEP-DIVE -- ONE single capability/pillar "
-                      "broken into a few features or components, each with its "
-                      "own supporting details/specifics (not several parallel "
-                      "capabilities surveyed side by side -- that's a box grid)",
+     "classify_desc": "a CAPABILITY DEEP-DIVE -- exactly ONE capability/pillar, "
+                      "broken into a few features or components, each with its own "
+                      "supporting details. If the content covers SEVERAL parallel "
+                      "capabilities or themes side by side, this is the WRONG choice",
      "builder": pillar_deepdive_from_content},
     {"key": "scored_list", "label": "Named list with stats",
      "classify_desc": "a NAMED LIST WITH STATS -- several named items (agents, "
@@ -1046,7 +1337,160 @@ CONTENT_TEMPLATES = [
                       "with a category/type and a figure), not prose to "
                       "summarise",
      "builder": data_table_from_content},
+
+    # ── the ten style-guide shapes (owner's designs, 2026-07-10) ──────────────
+    {"key": "pain_point_list", "label": "Problem / pain-point list",
+     "classify_desc": "a PROBLEM LIST -- several things that are broken or painful "
+                      "today, each a short label and one line on its consequence; "
+                      "the 'why this is hard' slide, with no solution in it",
+     "builder": pain_point_list_from_content},
+    {"key": "platform_overview", "label": "Platform overview (stats + capabilities)",
+     "classify_desc": "a PLATFORM OVERVIEW -- a handful of headline numbers ABOUT a "
+                      "named product/platform, plus the list of capabilities it is "
+                      "built from, and often one cross-cutting layer beneath them",
+     "builder": platform_overview_from_content},
+    {"key": "before_after_split", "label": "Before / after workflow",
+     "classify_desc": "a BEFORE AND AFTER -- the same workflow shown twice, as it "
+                      "runs today and as it would run afterwards, stage by stage; "
+                      "often noting who or what performs each stage",
+     "builder": before_after_split_from_content},
+    {"key": "comparison_split", "label": "Capabilities + comparison table",
+     "classify_desc": "CAPABILITIES BESIDE A COMPARISON -- a few capability "
+                      "descriptions AND a metric-by-metric comparison of exactly two "
+                      "options, together on one slide",
+     "builder": comparison_split_from_content},
+    {"key": "pillar_grid", "label": "Numbered capability pillars",
+     "classify_desc": "PARALLEL CAPABILITY PILLARS -- three to six capabilities "
+                      "surveyed side by side, each with a prose SENTENCE describing it "
+                      "and then a short checklist of plain supporting items (tools, "
+                      "techniques, deliverables). The checklist items are bare phrases, "
+                      "NOT 'Term: definition' pairs",
+     "builder": pillar_grid_from_content},
+    {"key": "option_columns", "label": "Option columns (A / B / C)",
+     "classify_desc": "OPTIONS COMPARED IN COLUMNS -- two to four named options "
+                      "(architectures, vendors, approaches) described against the "
+                      "SAME set of dimensions, usually with a recommendation",
+     "builder": option_columns_from_content},
+    {"key": "agent_architecture", "label": "Component / agent architecture",
+     "classify_desc": "AN ARCHITECTURE OF COMPONENTS -- several named agents, "
+                      "services or modules, each with what it does and often a "
+                      "headline metric, orchestrated by something beneath them",
+     "builder": agent_architecture_from_content},
+    {"key": "governance_list", "label": "Governance / timeline list",
+     "classify_desc": "A SEQUENCE OF LAYERS OR STAGES -- three to five named "
+                      "mechanisms in order, each with a paragraph; a governance "
+                      "model, an escalation path, a layered system",
+     "builder": governance_list_from_content},
+    {"key": "guardrail_columns", "label": "Themed columns with lead-in bullets",
+     "classify_desc": "THEMED COLUMNS OF DEFINITIONS -- two to four themes side by "
+                      "side, and crucially each bullet under them reads as "
+                      "'Term: what that term means' (a named control, policy or "
+                      "mechanism, then its definition). Governance, guardrails, "
+                      "controls and compliance slides look like this. Often closes on "
+                      "a 'quick win' line. Pick this rather than capability pillars "
+                      "when the bullets DEFINE things rather than list them",
+     "builder": guardrail_columns_from_content},
+    {"key": "opportunity_cards", "label": "Opportunity / outcome cards",
+     "classify_desc": "OPPORTUNITIES PAIRED WITH OUTCOMES -- two to four numbered "
+                      "opportunities, each stating the problem and its scale, then "
+                      "separately what would be delivered and the result",
+     "builder": opportunity_cards_from_content},
 ]
+
+
+def classify_content_many(slides):
+    """Which template shape fits each pasted slide -- for a WHOLE document, in ONE call.
+
+    `slides` is a list of {"heading", "content"} (heading may be ""). Used by
+    /builder/parse to resolve every slide whose category the salesperson didn't name
+    outright: they wrote a heading ("How we think before we build"), or a phrase we
+    don't recognise, or nothing at all. The heading is passed as a HINT, never as the
+    answer -- the content decides.
+
+    One call for the whole document: N slides must not cost N round-trips, and the
+    shapes are better decided together (a deck's slides inform each other -- three
+    consecutive client stories read as case studies; the slide between them that lists
+    three principles does not).
+
+    Differs from classify_content() in one deliberate way: that function is told to
+    answer (A) -- case_study -- whenever it is unsure, which is right for a single
+    unlabelled paste but wrong here. It made every slide of a real 9-slide deck come
+    back a case study. Here the model must choose the BEST fit for each slide, and only
+    a hard failure falls back to case_study.
+
+    Returns a list of CONTENT_TEMPLATES keys, positionally aligned with `slides`.
+    Fails safe: on any error every slide gets the registry's first key, exactly as the
+    single-slide classifier does.
+    """
+    slides = list(slides or [])
+    default_key = CONTENT_TEMPLATES[0]["key"]
+    if not slides:
+        return []
+    fallback = [default_key] * len(slides)
+
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"   # one per CONTENT_TEMPLATES entry (18 and counting)
+    choices = "\n".join(f"({letters[i]}) {t['classify_desc']}"
+                        for i, t in enumerate(CONTENT_TEMPLATES))
+    key_by_letter = {letters[i]: t["key"] for i, t in enumerate(CONTENT_TEMPLATES)}
+    blocks = "\n\n".join(
+        'SLIDE %d%s:\n"""\n%s\n"""' % (
+            i + 1,
+            (' (the author titled it "%s")' % s.get("heading")) if s.get("heading") else "",
+            (s.get("content") or "").strip()[:2500])
+        for i, s in enumerate(slides))
+    prompt = (
+        "Below are the slides of one presentation. For EACH slide, pick the template "
+        "shape that best fits its content.\n\n" + choices + "\n\n" + blocks + "\n\n"
+        "Judge each slide on its own content. A title is a hint, not the answer.\n\n"
+        "(A), the case study, is the most misused choice. Pick it ONLY when the slide "
+        "tells ONE specific client's story and contains all three of: the client's "
+        "situation, what was delivered for them, and the outcome that followed. If any "
+        "of those three is missing, it is NOT a case study -- pick the shape that "
+        "matches how the content is actually STRUCTURED. Guiding principles, a list of "
+        "questions, an engagement model, a set of reassurances, a capability blueprint "
+        "and an appendix are all not case studies, however much they discuss clients.\n\n"
+        'Reply with ONLY this JSON: {"choices":["A","D",...]} -- one letter per slide, '
+        "in order, exactly %d of them." % len(slides)
+    )
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        resp = OpenAI().chat.completions.create(
+            model=MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You classify each slide of a pasted "
+                 "document into one of several template shapes. Reply with one JSON "
+                 "object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        picks = json.loads(resp.choices[0].message.content).get("choices") or []
+    except Exception:
+        return fallback
+    if len(picks) != len(slides):
+        return fallback                 # a short/long list means it lost track -- don't guess
+    return [key_by_letter.get(str(p).strip().upper()[:1], default_key) for p in picks]
+
+
+def template_keys():
+    """Every valid template_hint value (plus 'auto', handled by the caller)."""
+    return {t["key"] for t in CONTENT_TEMPLATES}
+
+
+def build_content_slide(content, industry="", template_hint="auto"):
+    """Pasted content -> one branded slide record, ready for staging.add().
+
+    `template_hint` is a CONTENT_TEMPLATES key, or "auto" (anything unrecognised) to
+    let classify_content() pick the shape. Returns (record, template_def) so the caller
+    can show which shape was chosen. Shared by /from_content and the Custom Slide
+    Builder, so both classify and build identically."""
+    key = template_hint if template_hint in template_keys() else classify_content(content)
+    tdef = next((t for t in CONTENT_TEMPLATES if t["key"] == key), CONTENT_TEMPLATES[0])
+    rec = tdef["builder"](content, {"industry": industry})
+    rec["kind"] = "user_created"
+    return rec, tdef
 
 
 if __name__ == "__main__":

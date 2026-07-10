@@ -3422,3 +3422,502 @@ stat_overview/data_table slide currently falls through to the case-study
 edit form on /review, which won't show the right fields. Doesn't block
 today's fix (both tested shapes are fully supported); worth a dedicated
 pass if MS content starts arriving in those other shapes.
+
+------------------------------------
+CUSTOM SLIDE BUILDER + DRAFT WITH AI (2026-07-10)
+------------------------------------
+Two features, both extending code that already half-existed.
+
+FEATURE 1 -- the "Already have the content?" card becomes a real tool.
+The card on the new-deck form is now just a button; the work happens on a
+new page, /builder (deckengine/web/builder.py). Paste one slide's content
+(or attach a doc), pick the work type, and:
+  1. We search the library FIRST (new services/matching/dedupe.py). It
+     embeds the pasted text with ONE OpenAI embedding call and cosines it
+     against the 177 vectors already in data/case_embeddings.json -- no new
+     model, no new index. At or above 80% (dedupe.THRESHOLD, set by
+     Athithia) the matches are shown with a Preview button (renders the
+     EXISTING slide) and a "Use this one" button that drops that library
+     case straight into the queue -- nothing generated, nothing saved.
+     Below 80%: silence, the build runs straight through. Fail-safe: no
+     API key or any error -> no matches, build proceeds. A duplicate check
+     must never be why a salesperson can't build a slide.
+  2. The slide is built and RENDERED -- a real PNG of the real .pptx (new
+     services/rendering/preview.py), via the same LibreOffice -> poppler
+     path the re-skin preview uses. Cached per staging id under
+     static/renders/builder/. If LibreOffice is missing the page shows a
+     text card instead; a preview failure never blocks anything.
+  3. The queue lives in the SAME localStorage key the new-deck form reads
+     (j2w_content_queue), so both exits work with no server session:
+     "Download these slides" (one .pptx, queue order, no bookends) or
+     "Use in a deck" (folds into the generated deck as before).
+
+FEATURE 1.2 -- case studies reach the shared library ON COMMIT, not on
+build. Downloading the queue, or folding it into a deck, saves each case
+study to case_study_content_store.json + Case_Studies_Master_IDed.xlsx +
+an embedding. A slide you build and then delete never pollutes the
+library. New deck_build.promote_case() makes this idempotent -- do BOTH
+and it saves once (promote_ai_case mints a fresh id every call, so the
+new id is stamped onto the staging record as promoted_id and re-saves are
+skipped). The record's OWN work type now decides the id prefix, instead of
+best-effort-guessing the deck's first work type.
+
+TWO LATENT BUGS FOUND AND FIXED (the builder depends on both):
+  a. staging.add() only persisted shape fields for case_study, four_box
+     and roadmap_board. A pasted box_grid / pillar_deepdive / scored_list /
+     stat_overview / data_table lost eyebrow, blocks, rows, stats, items,
+     col_labels on save.
+  b. deck_build.assemble() only special-cased four_box and roadmap_board.
+     Those same five shapes fell through to ai_to_store_record() -- they
+     rendered AS A CASE STUDY and were promoted into the library as one.
+  Both fixed by a single new deck_build.staged_item(), which routes any
+  staged record to the right skills.build_into item. assemble() and the
+  new preview.py both use it, so there is one shape-routing rule, not two.
+  All 8 shapes already had templates in skills_templates.pptx -- only the
+  persistence and the routing were missing.
+
+Also: a REUSED library case in the queue is a store id (AIP/WFS/MSS), not
+a staging id. /build's content_slide_ids handler used to staging.get() it,
+find nothing, and silently drop the slide -- it now recognises store ids
+and slots them into the case-study zone. relevance.invalidate_case_
+embeddings() (called by case_library._append_embedding) drops the
+in-process vector cache, so a case saved from the builder is matchable
+(and visible to the duplicate check) immediately, not after a restart.
+
+FEATURE 2 -- "Draft with AI" now actually drafts.
+It was a misnomer: the button on each gap card called prefillAI(), which
+only scrolled down and pre-filled two fields of the manual "Create a slide
+with AI" form. Now draftAI() sends the gap's own name/description/domain/
+use-case as the brief straight to /create_ai (unchanged route), so the
+draft is grounded in this build's deep research + stakeholder profile +
+FULL transcript via build_id. The result renders in the SAME preview area,
+with the same Add to deck / Regenerate / Discard buttons.
+The manual Create-with-AI form is COMMENTED OUT, not deleted -- a {# … #}
+block in build.html with a restore note; createAI() stays live in build.js.
+Both now share one caGenerate() core. The card renders only when there are
+gaps (no gaps -> nothing to draft -> no card). One preview at a time:
+drafting a second gap while the first sits unadded asks first; once added,
+the gap card shows a "Drafted" tick and its button disables.
+The trigger condition Athithia asked for was already satisfied -- the
+buttons have always rendered inside {% if missing %} -- what was missing
+was the generation.
+
+VERIFIED end to end against the running app: /builder renders and all 7
+pages still 200; a pasted 3-phase plan auto-detected as roadmap_board and
+rendered correctly as a branded roadmap PNG; a box_grid rendered as a box
+grid (it would previously have become a case study); pasting an existing
+MS case's own text flags MSS001 at 91%, the same text under WORKFORCE
+flags nothing (work-type gate), unrelated text flags nothing; download
+produces a real .pptx; promote_case saves once across both commit points.
+23/23 pytest green (16 existing + 7 new), golden matcher pins untouched --
+nothing here goes near matching.
+
+Known follow-on gap, unchanged: /review's inline editing still only
+understands case_study / four_box / roadmap_board, so a queued box_grid or
+stat_overview slide falls through to the case-study edit form there. It
+BUILDS and DOWNLOADS correctly now; only the /review edit form is wrong.
+
+REVISION, same day: the Custom Slide Builder is a BATCH, not a loop.
+Athithia's actual workflow: she holds N slides' worth of content at once.
+The first build made her paste one slide, wait for it, paste the next,
+wait again. Rebuilt the page around one box per slide (three by default,
+add/remove freely), each with its OWN "what kind of slide is this?"
+template dropdown; work type / industry / client are set once for the
+whole batch (slides handed over together come from one team). One
+"Check the library & build" button builds them all.
+  - New /builder/batch route runs the rows through a ThreadPoolExecutor
+    (max 4 -- each worker holds a headless LibreOffice while it renders),
+    so 3 slides take about as long as 1. Measured: 3 slides, 3 different
+    shapes, 11.1s. Blank rows are skipped, not errors; a row that fails
+    reports itself and the rest of the batch still builds.
+  - A library match no longer blocks anything: every slide is built, and a
+    slide that matched shows it on its result card with "Preview it" and
+    "Use MSSxxx instead" (the swap replaces that queue entry with the
+    library case). Matches surface ONLY for case-study-shaped slides --
+    the library holds nothing else, so offering to swap a roadmap for a
+    case study would not be swapping in the same slide.
+  - Concurrency exposed a real bug in staging.add(): it read-modify-writes
+    one JSON file and derived the id from len(items)+1, so two parallel
+    adds minted the SAME id and one record was lost. Now serialised behind
+    a lock, and the id is the lowest UNUSED G-number -- which also fixes a
+    latent bug where discarding a record freed a number the next add
+    re-used, silently aliasing two records.
+VERIFIED live: a batch of 3 (an existing case's own text, a phased plan, a
+list of metrics) built concurrently into case_study + roadmap_board +
+scored_list, unique ids, correct branded renders; the case study flagged
+MSS001 at 91% and the other two flagged nothing. 25/25 pytest green.
+
+REVISION 2, same day: paste the WHOLE document, review the split, then build.
+Athithia's real input is one document holding a whole deck, marked up by
+hand ("slide 1 - case study", "slide 2 - for box section", ...). Splitting
+that into boxes by hand is busywork the app should do. The three-box UI is
+gone; one textarea replaces it.
+  - New services/content/paste_parser.py cuts the text at each header and
+    matches the human label ("road map", "for box section") to a
+    CONTENT_TEMPLATES key. Header detection is deliberately STRICT -- a
+    whole line, <= 60 chars, that is nothing but `slide <n>` plus a short
+    label -- so a sentence of CONTENT that merely mentions "slide 2" can
+    never split the document (tested). An unrecognised or absent label
+    becomes "auto"; the parser never guesses a shape. No headers at all ->
+    the whole paste is one auto-detected slide, so a single-slide paste
+    still works exactly as before.
+  - New /builder/parse reports the split WITHOUT building: pure text plus
+    ONE embedding call for the whole document (dedupe.similar_cases_many,
+    not one call per slide). The review screen then shows, per slide, a
+    shape dropdown to correct, the opening of its content to check the
+    split, and any library duplicate with "use it instead" (which skips
+    building that slide entirely). Nothing is spent until the salesperson
+    confirms. Getting the split wrong and finding out after a 40-second
+    build is exactly the failure this prevents. "Fix the split" goes back
+    to the textarea.
+  - Build streams: the browser fires /builder/slide four at a time and
+    fills each placeholder card as its render lands, so slides appear in
+    order as they finish instead of behind one long spinner. ~4s/slide.
+  - /builder/batch and /builder/check are DELETED -- superseded by
+    /builder/parse + per-slide streaming. No dead routes left behind.
+  - The duplicate check now runs BEFORE generation, which is what Athithia
+    originally asked for ("this prior search should run before generating
+    a slide"). The previous build checked, built anyway, then offered a
+    swap.
+CAUGHT A SERIOUS BUG doing this. Four concurrent /builder/slide calls all
+hit staging.add(), which is a read-modify-write on one JSON file with the
+id derived from len(items)+1. Measured with the lock removed: 24 concurrent
+adds produced 4 UNIQUE IDS AND 1 SURVIVING RECORD -- 23 slides silently
+destroyed. Now serialised behind a lock, with the id the lowest UNUSED
+G-number (which also fixes the latent aliasing after any discard). There is
+a regression test, and it was verified to fail without the lock.
+VERIFIED live: an 8-slide document (case study / four box / road map /
+headline stats / data table / deep dive / an unknown label / no label)
+parsed to exactly the right 8 shapes, the two unlabelled ones fell to
+"auto", and only the case study was flagged as a duplicate (MSS001, 82%).
+data_table and pillar_deepdive built and rendered correctly -- both shapes
+had never been exercised before. 31/31 pytest green.
+
+REVISION 3, same day: the intelligence layer, and two bugs it exposed.
+Athithia tested with a real 9-slide Voya document (slides 2..10). Only 7
+slides came out, and almost every one was rendered as a case study.
+
+BUG 1 -- two slides silently swallowed. The header guard capped a header
+line at 60 characters. "Slide 4: Case Study 1, Reconciliation automation
+with agentic AI" is 64, and "Slide 5: Case Study 2, Legacy modernization
+and process automation" is 66. Neither was recognised, so their content was
+absorbed into the slide above. 9 -> 7, exactly as reported. I then replaced
+the cap with a 14-word limit, which Athithia rightly rejected as the same
+mistake wearing a different hat -- an arbitrary limit on content nobody
+controls. BOTH are gone. The real structure was there all along: the SLIDE
+NUMBERS. Header candidates now have to form an increasing chain (longest
+increasing subsequence over the numbers), so a stray line that merely reads
+like a header ("Slide 1: as discussed above.") cannot extend the chain and
+stays as content. There is no length limit of any kind. The separator rule
+still stands -- "Slide 2 of the deck covers..." has none, so it is never
+even a candidate.
+
+BUG 2 -- a preposition picked a template. match_template() fell back to
+word-overlap against its alias table, so the heading "How we would engage
+with Voya" matched the alias "named list with stats" on the single word
+"with", and the slide became a scored_list. The fuzzy fallback is DELETED.
+A label now either names a category exactly ("case study", "road map") or
+it doesn't -- and if it doesn't, it is the slide's HEADING, not a shape.
+
+THE INTELLIGENCE LAYER (the actual ask). Where the author names a category,
+we honour it and spend nothing. Where they wrote a heading, or an odd
+phrasing, or nothing at all, slide_generator.classify_content_many() reads
+the real CONTENT and maps it onto the categories we actually have -- ONE
+call for the whole document, with the heading passed as a hint, never as
+the answer. The slides are classified together on purpose: a deck's slides
+inform each other. No slide ever reaches the review screen as "auto"; each
+shows the shape we read and a dropdown to correct it.
+Why not reuse classify_content()? It is instructed to answer (A) --
+case_study -- whenever it is unsure. Right for one unlabelled paste, wrong
+for a document: it is why every slide in Athithia's test came back a case
+study. The batch prompt instead says (A) requires all three of a specific
+client's situation, what was delivered, and the outcome; principles, a list
+of questions, an engagement model, reassurances and an appendix are not
+case studies however much they discuss clients.
+A heading is also PREPENDED to its slide's content, so the generator titles
+the slide what the author called it instead of inventing one.
+
+VERIFIED on the real Voya document: 9/9 slides parsed. Classified, three
+runs, identical each time except one slide: principles -> pillar_deepdive,
+three questions -> four_box, the three Case Study slides -> case_study,
+four-step engagement -> roadmap_board, reassurances -> box_grid, appendix
+-> data_table. "What a first step looks like" alternates between box_grid
+and roadmap_board across runs -- both are fair readings, and the review
+screen is where it gets corrected. Parse of 9 slides: 4.4s (one classify
+call + one embedding call). Full build of 9 slides: 17s, all rendered.
+34/34 pytest green, including guards for both bugs.
+
+REVISION 4, same day: the preview is now EDITABLE.
+Athithia: a rendered slide you can't correct is only half a tool. She
+wanted to fix a wrong number or a clumsy line right there, then download.
+  - New services/rendering/slide_schema.py declares, per content_type, which
+    fields each of the EIGHT shapes actually has (the same keys skills.
+    _mapping_* / _draw_* and fill_case_study.build_mapping read at render
+    time). ONE generic editor in builder.js draws all eight from that schema
+    -- no hand-written form per shape. Field types: text, textarea, strings
+    (a list), objects (a list of records, which may themselves hold a list --
+    a roadmap column's items, a pillar block's sub-points).
+  - New GET /builder/slide/<id>/fields returns the schema + current values;
+    POST /builder/slide/<id> saves and RE-RENDERS the PNG (force=True, since
+    the cached one is now stale) so what you see afterwards is the real
+    .pptx, not a form claiming it worked.
+  - Every save goes through the shape's OWN _normalize_* function
+    (slide_schema.apply_edits), so a hand-edit cannot break an invariant the
+    renderer depends on -- empty a case study's capabilities and it comes
+    back with six, blank its title and it gets one. Tested.
+  - The editor may only write keys the schema declares. A browser cannot
+    inject a field, change a slide's content_type, or overwrite bookkeeping
+    (id, work_type, status, promoted_id). Tested with a hostile payload.
+  - The staged record is the single source of truth, so an edit made here
+    follows the slide into the download, into a generated deck, and into the
+    shared library, with nothing threaded through those paths.
+  - staging.update_fields() takes the same lock as add() -- it's the same
+    read-modify-write on the same file, and slides are built concurrently.
+VERIFIED: all 8 shapes round-trip through extract -> edit -> apply_edits with
+only declared keys surviving; nested lists (roadmap column items) survive;
+a live stat_overview edit (title + both stats replaced) persisted, re-rendered,
+and the new PNG shows exactly the edited values; the edit rides into the
+.pptx download. 38/38 pytest green.
+
+REVISION 5, same day: ONE editor, not two -- and /review's 5-shape gap is closed.
+Athithia, correctly: the click-straight-onto-the-text editing already exists
+when you build a deck from scratch, so use THAT in the builder rather than
+inventing a form. She was half right, and the half she was wrong about was
+the important half:
+  - /review's inline editing only ever worked for CASE STUDIES and master
+    library slides. four_box and roadmap_board rendered read-only, with the
+    footer literally saying "not inline-editable yet; re-paste to change the
+    text". The other FIVE shapes fell through to the "no text to edit here"
+    data-slide placeholder. This was the known gap logged on 2026-07-10.
+So the fix is the generalisation, not a second editor:
+  - New templates/_slide_editor.html: ONE Jinja macro that draws any of the
+    eight shapes as an editable SLIDE, laid out like the real slide, using the
+    review page's own `.se` class (a transparent input that only looks like an
+    input on hover). Every field carries a data-path naming its place in the
+    record -- "title", "results.0", "columns.0.items.2" -- so a single
+    serialiser reads any shape back. New .ed-* CSS for the seven non-case
+    layouts, built from the existing design tokens.
+  - The Custom Slide Builder's Edit button now fetches that rendered macro
+    (GET /builder/slide/<id>/editor) instead of a generated form. My
+    schema-driven form editor is GONE. Save still POSTs to /builder/slide/<id>,
+    which normalizes via slide_schema.apply_edits and RE-RENDERS the PNG.
+  - /review now uses the same macro for all seven non-case shapes. Those
+    inputs carry no form `name` (they're data-path), so review.html serialises
+    each slide into one hidden shape__<sid> JSON field on submit, and
+    /finalize applies it to the staged record -- which is what deck_build
+    reads, so the edit needs no further threading. Each goes through its own
+    _normalize_*, so a hand-edit can't hand the renderer a shape it can't fill.
+  - slide_schema.view_model() normalizes before drawing, so the slots on
+    screen ARE the slots on the slide (a case study always shows 6 capability
+    pairs and 3 results, a four-box always 4 boxes), and capabilities are
+    split into the two fields the review page has always shown, re-joined to
+    "Name: body" by the browser on save.
+VERIFIED: the editor renders for all 8 shapes with the right data-paths
+(case_study 19 fields, four_box 10, roadmap 10, ...); a live roadmap edit
+through the real nested payload persisted and the re-rendered PNG shows the
+new title, subhead, intro, three renamed columns with their tags and items,
+and the footer band; /review now emits data-path inputs for a box_grid and no
+longer says "not inline-editable yet"; /finalize applies a shape__ edit to the
+staged record and the normalizer re-pads it. 40/40 pytest green.
+
+FIX, same day: the browser was serving a STALE builder.js.
+Athithia reported the Custom Slide Builder still opened a form when she
+clicked Edit, and that the preview looked unchanged. The server was right --
+curl showed the new JS being served, the old form functions were gone, and
+GET /builder/slide/<id>/editor returned the real slide card (cs-title,
+cs-cap-t, .se inputs). Her browser was holding the previous
+/static/js/builder.js: the URL never changes, so nothing tells a cache to
+re-fetch it, and there is no build step here to fingerprint the file.
+This has been latent since the project started -- every CSS/JS change since
+has depended on the user knowing to hard-refresh, which is not a thing to
+depend on.
+Fixed properly: create_app() registers a Jinja global `asset(path)` that
+stamps every /static URL with the file's modification time
+(/static/js/builder.js?v=1783674521). All 7 script/stylesheet references in
+the templates now go through it. Change a file, the URL changes, the browser
+re-fetches -- no hard-refresh, no deploy ritual. 40/40 pytest green.
+
+FIX: "Draft with AI" never worked -- an HTML-escaping bug, not the feature.
+Athithia clicked it and the console said:
+    Uncaught SyntaxError: Unexpected end of input (at build:329:377)
+The button was
+    onclick="draftAI({{ m.name|tojson }}, {{ m.description|tojson }}, ...)"
+and |tojson emits REAL double quotes. Inside a double-quoted HTML attribute
+the browser ends the attribute at the first one, so the handler it actually
+parsed was `draftAI(` -- an unterminated call. Every click threw and did
+nothing, silently. The original prefillAI(...) had the identical shape, so
+this button has never worked since the day it was added; that is why it was
+reported as "non-functional/not implemented" in the first place.
+Fixed by removing the inline JS entirely: the gap's name/description/domain/
+use-case ride on data-* attributes (which Jinja escapes properly), and
+build.js's bindDraftButtons() attaches the listener at init. Also satisfies
+CLAUDE.md rule 5 -- JavaScript belongs in static/js, not in a template
+attribute. Grepped: it was the only inline onclick carrying a Jinja value.
+Regression test renders the gap card with a description containing double
+quotes, an ampersand, apostrophes and angle brackets, and asserts the
+data-desc attribute is well-formed and unescapes back to the exact original.
+Verified separately that the route behind it is sound: the real Draft-with-AI
+request returns a grounded case study in 5.3s (6 capabilities, 3 results,
+self-review "Strong"), naming micro-cracks and yield loss from the stored
+research brief rather than a generic definition -- so the build_id context
+reload is working as designed. 42/42 pytest green.
+
+FIX (third time asked): the Custom Slide Builder now shows the REVIEW PAGE's
+editable slide cards, full stop.
+Athithia asked twice for "the same preview and editing that is on the Review
+& edit page" and twice I gave her a rendered PNG with an Edit button beside
+it. That was not the ask. On /review a generated slide IS the editable thing:
+you click straight onto its title, its paragraph, its capability. There is no
+image and no Edit step.
+So the builder's results column is now literally that:
+  - /builder/slide returns the slide as an editable card (the shared
+    _slide_editor.html macro, the same `.se` inputs and the same CSS), not a
+    PNG. The `png` key is gone from the response.
+  - builder.js drops each card straight into a .rev-deck of .rev-slide-card
+    elements, numbered, with the review page's textarea auto-grow. No Edit
+    button, no toggle, no image. The card is editable the moment it lands.
+  - Edits are saved when the slides leave the page: "Download these slides"
+    and "Use in a deck" both POST every card's fields first (cbSaveAll), then
+    proceed. A "unsaved edits" hint shows while you type, and beforeunload
+    guards against losing them.
+  - Removed the whole schema-driven form editor, /builder/slide/<id>/editor,
+    and preview.slide_png() with its one-slide-deck renderer -- all dead once
+    the card IS the preview. Building a slide no longer costs a ~3s headless
+    LibreOffice render, so a 9-slide document builds in ~5s instead of ~17s.
+    preview.py now exists for exactly one job: rendering an EXISTING library
+    case study so a near-duplicate can be seen before it's reused.
+VERIFIED: a built case study comes back with 19 `.se` inputs and the review
+page's own classes (cs-accent / cs-title / cs-cap-t / cs-res), no png key;
+editing it through the real serialised payload persists to the staged record;
+and every typed string -- title, challenge, solution, result -- is present in
+the .pptx that /builder/download produces. 42/42 pytest green.
+
+BUG: six of nine slide-saves 404'd on records that existed. A TORN READ.
+Athithia's console showed POST /builder/slide/G120 -> 404 (and G117, G121-
+G124), while G116/G118/G119 returned 200. staging.json contained all of them.
+
+Root cause: staging._save() was
+    json.dump(items, open(STAGE_JSON, "w", ...))
+which TRUNCATES the file and then streams ~124 records into it. Writes were
+serialised by _ADD_LOCK (added earlier today), but READS were not, and
+staging.get() is called outside the lock by the save route. A read landing in
+the truncate-to-complete window gets a JSON syntax error; _load() swallows
+every exception and returns [], so get() returns None and the route aborts
+404 on a record sitting in the file the whole time. The Custom Slide Builder
+POSTs every card at once when you download, so most of them lost the race.
+Measured, before/after, 300 concurrent reads against a churning writer:
+    truncating write -> 207/300 reads saw nothing
+    atomic write     ->   0/300
+Fixed with new services/jsonstore.py: write a complete temp file, fsync, then
+one os.replace() over the top (atomic on POSIX and Windows). A reader sees the
+old complete file or the new complete file, never a torn one -- no read lock
+needed. Applied to every store a request can read while another writes:
+staging.json, library.json, tagged_library.json, the content store, the case
+embeddings, and custom_industries.json. Also put mark_promoted(),
+update_content() and _set_status() -- all read-modify-writes -- under the same
+lock as add(); they were unguarded.
+Second, quieter bug found while fixing it: cbSaveAll() ignored a failed save
+and let the download proceed, so a 404'd edit meant you silently downloaded
+the UN-edited slide. It now aborts the download and says how many failed.
+VERIFIED live end-to-end: 9 slides built concurrently, all 9 saved at once ->
+nine 200s, and all nine typed titles are present in the downloaded .pptx.
+Regression tests: one hammers reads against a writer (0 misses), one drives 9
+concurrent POSTs through the real route; both were confirmed to FAIL against
+the old truncating write, reproducing the exact [200, 404, 200, 404, ...]
+pattern from the screenshot. 44/44 pytest green.
+
+TEN NEW SLIDE TEMPLATES from the owner's style guide (2026-07-10)
+Athithia supplied new-templates/: 10 design screenshots, a Word style guide,
+and a PDF. The PDF is TRUNCATED (exactly 1 MiB, no EOF marker, 0 pages in both
+pypdf and PyMuPDF) -- it was never read; its "checks" are still outstanding and
+she needs to re-copy it.
+
+None of the ten duplicated the existing eight (case_study, four_box,
+roadmap_board, box_grid, pillar_deepdive, scored_list, stat_overview,
+data_table). Added, keys as in CONTENT_TEMPLATES:
+  pain_point_list     rows of accent bar + chip + bold label + divider + body
+  platform_overview   stat row + capability chip row + dark navy footer band
+  before_after_split  two workflow lanes with HUMAN/AI-AGENT stage tags, an
+                      arrow between them, and the questions the change raises
+  comparison_split    capability cards left, a navy-headed metric table right
+  pillar_grid         numbered capability pillars, ghost 01-04, tick lists
+  option_columns      2-4 option columns, coloured heads, same dimensions each
+  agent_architecture  3-over-2 agent cards with metric pills + footer bar
+  governance_list     chips on a vertical spine, each with its own card
+  guardrail_columns   themed columns of "Term: definition" bullets + quick win
+  opportunity_cards   numbered columns, an OPPORTUNITY box and an OUTCOME box
+
+Two conflicts in the sources, both settled by Athithia:
+  - The two-tone top bar. The guide's prose says teal-left/red-right; six of the
+    ten screenshots (and every existing J2W slide, and the master deck's own
+    title slide) say RED-left. Red-left wins -- consistency with the 100+ slides
+    already in the library beats the prose.
+  - Icon chips are drawn EMPTY. The app ships no icon assets (the web UI pulls
+    Tabler from a CDN; skills_templates.pptx deliberately holds no images) and a
+    unicode glyph renders inconsistently through LibreOffice. The pale rounded
+    chip is drawn, carrying the colour rhythm; the glyph inside is not. Filling
+    _chip() later is a one-function change.
+Accents alternate TEAL/RED per card, per the guide ("one accent color per card,
+alternating rather than random"); the amber that appears once in the screenshots
+is not in the palette and was not used.
+
+Structure. New services/rendering/draw_templates.py holds all ten drawers and a
+DRAWERS registry; skills.build_into dispatches into it rather than growing an
+eleventh elif (skills.py was already 1,100 lines). Ten header-only frames added
+to skills_templates.pptx via create_skills_templates.py (now 21 slides). Ten
+JSON specs + normalizers + builders in slide_generator.py, sharing one
+_restructure() helper instead of ten copies of the OpenAI boilerplate. Ten
+SCHEMA entries so they're editable, ten paste_parser alias sets so they can be
+named in a pasted document ("slide 3 - governance layer").
+
+THREE LATENT BUGS the new shapes exposed:
+  1. classify_content()/classify_content_many() indexed a 10-letter alphabet,
+     "ABCDEFGHIJ". The 11th template would have thrown IndexError. Widened.
+  2. staging.add() copied a hand-maintained list of content keys, so every new
+     shape's fields were silently dropped on save. It now copies EVERY content
+     field except the reserved bookkeeping keys -- the same class of bug that
+     hit five shapes earlier today, fixed at the root this time.
+  3. _slide_editor.html would have rendered only title+subhead for the ten. It
+     now falls back to a GENERIC schema-driven editor (recursing into nested
+     records), so a future shape becomes editable with no template change.
+
+VERIFIED: all ten render (LibreOffice) and were compared side by side with the
+screenshots -- five layout defects found and fixed (an intro colliding with the
+subtitle, a stretched badge pill, a missing chip, two over-tall row stacks).
+Every shape checked end to end: template slide present, drawer registered,
+schema present, normalizer survives an empty record, builder callable, paste
+alias resolves. A governance_list built, edited, and downloaded, with its text
+present in the .pptx. Live classification: platform overview, before/after,
+option columns, pain-point list, opportunity cards, pillar deep-dive and pillar
+grid are all read correctly from unlabelled prose.
+KNOWN LIMIT, stated plainly: guardrail_columns and pillar_grid are near-twins
+(parallel columns with sub-items). The classifier prefers pillar_grid on
+unlabelled prose. Naming the slide ("slide 3 - guardrails") or picking it from
+the review dropdown reaches it reliably; both were tested. 46/46 pytest green,
+including two new guards that fail if any shape is only half-wired.
+
+FIX: /templates listed a stale FILE, not the app's slide shapes; and
+Recreate-with-AI was dead.
+Athithia: "the new templates are not showing on the templates page."
+  - The page called slide_generator.list_templates(), which reads the LEGACY
+    data/templates/templates.pptx -- a file holding five tags (case_study,
+    case_study_full, and three skills tags). It never showed four_box, box_grid
+    or any of the eight either; it was describing a file, not the application.
+    It now lists the CONTENT_TEMPLATES registry -- the single source of truth
+    that the paste-a-document flow, the Custom Slide Builder and Recreate-with-
+    AI all classify against -- with each shape's label, what it is for, the
+    repeating fields the salesperson fills, and a warning if it has no template
+    frame in skills_templates.pptx. All 18 now show.
+  - AND a real break I introduced: recreate._classify_slide() indexed a fixed
+    11-letter alphabet, "ABCDEFGHIJK". The registry grew to 18, so building the
+    prompt raised IndexError before the AI was ever called -- /template/recreate
+    was returning a 500 for every upload. Widened to string.ascii_uppercase.
+  - recreate.py also carried its OWN copies of _MAPPING_FNS/_DRAW_FNS, so the
+    ten new shapes would have been classified and then rendered as a bare
+    header. It now folds in draw_templates.DRAWERS from the one source of truth.
+Audited every shape against every entry point: /templates page, builder
+dropdown, AI classifier, pasted-document label, template frame, renderer,
+Recreate-with-AI, inline editor, /review, deck build. 18/18 clean. (four_box is
+marker-filled and has no drawn body -- true in skills.py too, not a gap.)
+Two new tests encode the audit, so a future shape cannot be half-wired, and one
+pins the classifier alphabet against the registry size. 48/48 pytest green.

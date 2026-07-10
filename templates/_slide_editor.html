@@ -1,0 +1,216 @@
+{#
+  _slide_editor.html  --  the click-straight-onto-the-text slide editor, for all 8 shapes.
+
+  This is the /review page's editing idea, generalised. There, the case-study card is a
+  slide you edit by clicking its actual title, paragraph or capability (the `.se` class:
+  a transparent input that only looks like an input on hover). Every other shape rendered
+  read-only, with the footer "not inline-editable yet".
+
+  One macro, used by BOTH the Custom Slide Builder and (for the shapes it never covered)
+  the review page. Every input carries a `data-path` naming its position in the record --
+  "title", "results.0", "boxes.1.heading", "columns.0.items.2" -- so one serialiser in JS
+  reads any shape back. The field names match slide_schema.py exactly; if they drift, the
+  save silently drops fields, so keep them in step.
+
+  Add/remove of list items is deliberately absent: each shape's _normalize_* pads or
+  truncates to what its template can render, so the slots on screen ARE the slots on the
+  slide. Emptying one blanks it.
+#}
+
+{% macro _line(path, value, cls, placeholder='') %}
+<input class="se {{ cls }}" data-path="{{ path }}" value="{{ value or '' }}" placeholder="{{ placeholder }}">
+{% endmacro %}
+
+{% macro _para(path, value, cls, placeholder='', rows=3) %}
+<textarea class="se {{ cls }}" data-path="{{ path }}" rows="{{ rows }}" placeholder="{{ placeholder }}">{{ value or '' }}</textarea>
+{% endmacro %}
+
+
+{# ── the generic, schema-driven editor ────────────────────────────────────────
+   Any shape without a bespoke layout below is drawn from its slide_schema entry:
+   one labelled `.se` input per field, recursing through nested records (a roadmap
+   column's items, an option's dimensions). Adding a slide shape therefore makes it
+   editable for free -- no eleventh Jinja branch. Field keys become data-paths, which
+   is what the browser serialiser reads back. #}
+{% macro _generic(fields, values, prefix='') %}
+  {% for f in fields %}
+    {% set val = values.get(f.key) if values else None %}
+    {% set path = prefix ~ f.key %}
+    <div class="ed-field">
+      <div class="ed-field-label">{{ f.label }}</div>
+      {% if f.type == 'text' %}
+        <input class="se ed-generic" data-path="{{ path }}" value="{{ val or '' }}" placeholder="{{ f.label }}">
+      {% elif f.type == 'textarea' %}
+        <textarea class="se ed-generic" data-path="{{ path }}" rows="2" placeholder="{{ f.label }}">{{ val or '' }}</textarea>
+      {% elif f.type == 'strings' %}
+        {% for item in (val or ['']) %}
+          <input class="se ed-item" data-path="{{ path }}.{{ loop.index0 }}" value="{{ item or '' }}" placeholder="{{ f.label }}">
+        {% endfor %}
+      {% else %}
+        {% for rec in (val or [{}]) %}
+        <div class="ed-box" style="margin-bottom:8px">
+          <div class="ed-field-label" style="color:var(--teal)">{{ f.item_label }} {{ loop.index }}</div>
+          {{ _generic(f.fields, rec, path ~ '.' ~ loop.index0 ~ '.') }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  {% endfor %}
+{% endmacro %}
+
+
+{% macro slide_editor(kind, s, schema=None) %}
+{# ── case study: the layout /review already had ─────────────────────────────── #}
+{% if kind == 'case_study' %}
+<div class="cs-accent"></div>
+<div class="cs-body">
+  <div class="cs-eyebrow">Case study</div>
+  {{ _line('title', s.title, 'cs-title', 'Case study title') }}
+  <div class="cs-sub">
+    <span>CLIENT</span> <span class="cs-sub-auto">anonymised</span>
+    <span class="cs-sub-sep">|</span>
+    {{ _line('subhead', s.subhead, 'cs-sub-in', 'Domain | Function') }}
+  </div>
+  <div class="cs-cols">
+    <div class="cs-col cs-challenge">
+      <div class="cs-h">The Challenge</div>
+      {{ _para('challenge', s.challenge, 'cs-para', 'What was breaking…', 4) }}
+    </div>
+    <div class="cs-col cs-solution">
+      <div class="cs-h">The Solution</div>
+      {{ _para('solution', s.solution, 'cs-para', 'What J2W deployed…', 4) }}
+    </div>
+  </div>
+  <div class="cs-caps-h">Key Capabilities</div>
+  <div class="cs-caps">
+    {% for cap in s.capabilities %}
+    <div class="cs-cap">
+      {{ _line('capabilities.%d.title' % loop.index0, cap[0], 'cs-cap-t', 'Capability name') }}
+      {{ _line('capabilities.%d.body' % loop.index0, cap[1], 'cs-cap-b', 'What it delivers') }}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="cs-results">
+    {% for res in s.results %}
+    {{ _para('results.%d' % loop.index0, res, 'cs-res', 'A result, with a number', 2) }}
+    {% endfor %}
+  </div>
+</div>
+
+{# ── every other shape: the same idea, laid out like the real slide ─────────── #}
+{% else %}
+<div class="lib-slide">
+  <div class="lib-slide-bar"></div>
+
+  {% if kind == 'pillar_deepdive' %}
+    {{ _line('eyebrow', s.eyebrow, 'ed-eyebrow', 'Eyebrow') }}
+  {% endif %}
+
+  {{ _line('title', s.title, 'lib-slide-title', 'Slide title') }}
+
+  {% if kind != 'pillar_deepdive' %}
+    {{ _line('subhead', s.subhead, 'lib-slide-sub', 'Subhead') }}
+  {% endif %}
+
+  {% if kind in ('roadmap_board', 'stat_overview', 'data_table') %}
+    {{ _para('intro', s.intro, 'ed-intro', 'Intro line', 2) }}
+  {% endif %}
+
+  {% if kind in ('four_box', 'box_grid') %}
+  <div class="ed-grid">
+    {% for b in s.boxes %}
+    <div class="ed-box">
+      {{ _line('boxes.%d.heading' % loop.index0, b.heading, 'ed-box-h', 'Heading') }}
+      {{ _para('boxes.%d.body' % loop.index0, b.body, 'ed-box-b', 'Body', 3) }}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif kind == 'roadmap_board' %}
+  <div class="ed-cols">
+    {% for c in s.columns %}
+    <div class="ed-col">
+      {{ _line('columns.%d.name' % loop.index0, c.name, 'ed-box-h', 'Column name') }}
+      {{ _line('columns.%d.tag' % loop.index0, c.tag, 'ed-tag', 'Phase / tag') }}
+      {% set ci = loop.index0 %}
+      {% for it in c['items'] %}
+        {{ _line('columns.%d.items.%d' % (ci, loop.index0), it, 'ed-item', 'Item') }}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if s.legend %}
+  <div class="ed-legend">
+    {% for l in s.legend %}
+    <div class="ed-legend-row">
+      {{ _line('legend.%d.tag' % loop.index0, l.tag, 'ed-tag', 'Tag') }}
+      {{ _line('legend.%d.note' % loop.index0, l.note, 'ed-item', 'Note') }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="ed-footer">
+    {{ _line('footer_title', s.footer_title, 'ed-footer-t', 'Footer title') }}
+    {{ _para('footer_body', s.footer_body, 'ed-footer-b', 'Footer body', 2) }}
+  </div>
+
+  {% elif kind == 'pillar_deepdive' %}
+  {% for b in s.blocks %}
+  <div class="ed-box" style="margin-top:8px">
+    {{ _line('blocks.%d.heading' % loop.index0, b.heading, 'ed-box-h', 'Heading') }}
+    {{ _para('blocks.%d.body' % loop.index0, b.body, 'ed-box-b', 'Body', 2) }}
+    {% set bi = loop.index0 %}
+    {% for sp in b.subpoints %}
+      {{ _line('blocks.%d.subpoints.%d' % (bi, loop.index0), sp, 'ed-item', 'Sub-point') }}
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  {% elif kind == 'scored_list' %}
+  {% for r in s['rows'] %}
+  <div class="ed-row">
+    {{ _line('rows.%d.name' % loop.index0, r.name, 'ed-box-h', 'Name') }}
+    {{ _para('rows.%d.description' % loop.index0, r.description, 'ed-box-b', 'Description', 2) }}
+    {{ _line('rows.%d.stat' % loop.index0, r.stat, 'ed-stat', 'Figure') }}
+  </div>
+  {% endfor %}
+
+  {% elif kind == 'stat_overview' %}
+  <div class="ed-stats">
+    {% for st in s.stats %}
+    <div class="ed-stat-card">
+      {{ _line('stats.%d.value' % loop.index0, st.value, 'ed-stat-v', 'Value') }}
+      {{ _line('stats.%d.label' % loop.index0, st.label, 'ed-stat-l', 'Label') }}
+    </div>
+    {% endfor %}
+  </div>
+  {% for it in s['items'] %}
+    {{ _line('items.%d' % loop.index0, it, 'ed-item', 'Named component') }}
+  {% endfor %}
+
+  {% elif kind == 'data_table' %}
+  <div class="ed-table">
+    <div class="ed-tr ed-th">
+      {% for cl in s.col_labels %}{{ _line('col_labels.%d' % loop.index0, cl, 'ed-item', 'Column') }}{% endfor %}
+    </div>
+    {% for r in s['rows'] %}
+    <div class="ed-tr">
+      {{ _line('rows.%d.label' % loop.index0, r.label, 'ed-item', 'Item') }}
+      {{ _line('rows.%d.tag' % loop.index0, r.tag, 'ed-tag', 'Category') }}
+      {{ _line('rows.%d.value' % loop.index0, r.value, 'ed-stat', 'Value') }}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif schema %}
+  {# every shape without a bespoke layout above -- including the ten style-guide
+     designs -- is drawn straight from its schema. #}
+  <div class="ed-generic-wrap">
+    {{ _generic(schema|rejectattr('key', 'in', ['title', 'subhead'])|list, s) }}
+  </div>
+  {% endif %}
+
+  <div class="lib-slide-foot">Click any text to change it</div>
+</div>
+{% endif %}
+{% endmacro %}

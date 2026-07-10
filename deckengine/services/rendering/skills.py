@@ -1112,6 +1112,19 @@ def build_into(deck_path, order, cands, master_path=config.MASTER_DECK):
             fill_markers(new, _mapping_data_table_head(data))
             _draw_data_table(new, data)
 
+        else:
+            # the ten style-guide shapes (services/rendering/draw_templates.py). Each
+            # supplies its own header-marker mapping and body drawer; adding an eleventh
+            # means one entry in that module's DRAWERS, not a branch here.
+            from deckengine.services.rendering import draw_templates
+            entry = draw_templates.DRAWERS.get(kind)
+            if entry is None:
+                print(f"  WARNING: no drawer for shape '{kind}'")
+                continue
+            mapping_fn, draw_fn = entry
+            fill_markers(new, mapping_fn(data))
+            draw_fn(new, data)
+
         skill_elem[sid] = list(sld_id_lst)[-1]
 
     # Reorder the whole deck to match `order`; use explicit None checks (lxml falsy-when-empty).

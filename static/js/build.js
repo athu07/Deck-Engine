@@ -55,21 +55,17 @@
    list.insertBefore(dragEl,after?li.nextElementSibling:li);});
  function syncOrder(){document.getElementById('order').value=[...list.children].map(li=>li.dataset.id).join(',');}
  function caEsc(s){var e=document.createElement('div');e.textContent=(s==null?'':s);return e.innerHTML;}
- function createAI(btn){
-   var topic=(document.getElementById('ca-topic')||{}).value||'';
-   var problem=(document.getElementById('ca-problem')||{}).value||'';
-   topic=topic.trim(); problem=problem.trim();
-   if(!topic||!problem){alert('Please fill in Topic / use case and Problem — both are required.');return;}
-   var solution=((document.getElementById('ca-solution')||{}).value||'').trim();
-   var results=((document.getElementById('ca-results')||{}).value||'').trim();
-   var ind=((document.getElementById('ca-industry')||{}).value||'').trim()||(SERVER_CTX&&SERVER_CTX.industry)||'';
-   var brief=topic+'. Problem: '+problem;
-   if(solution) brief+=' Solution: '+solution;
-   if(results) brief+=' Results: '+results;
+ // The generation core, shared by Draft with AI (live) and Create with AI (disabled).
+ // /create_ai reloads this build's deep research + stakeholder profile + FULL transcript
+ // by build_id, so the draft is grounded in the real account context, not just the brief.
+ function caGenerate(brief, ind, btn, gapIdx){
+   window._caBrief=brief; window._caInd=ind; window._caGap=(gapIdx==null?null:gapIdx);
    btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='<i class="ti ti-loader"></i> Writing…';
    var loader=document.getElementById('ca-loader');
    var bar=document.getElementById('ca-bar');
+   var idle=document.getElementById('ca-idle'); if(idle) idle.style.display='none';
    if(loader) loader.style.display='block';
+   var card=document.getElementById('ai-create'); if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
    var pct=0; var ticker=setInterval(function(){pct=Math.min(pct+Math.random()*7+3,88);if(bar)bar.style.width=pct+'%';},500);
    var fd=new FormData(); fd.append('brief',brief);
    fd.append('build_id',BUILD_ID||'');   // server reloads full research/profile/transcript by this
@@ -88,7 +84,51 @@
      },350);
    }).catch(function(){clearInterval(ticker);btn.disabled=false;btn.innerHTML=old;if(loader)loader.style.display='none';alert('Could not generate');});
  }
- function caRegen(){createAI(document.getElementById('ca-genbtn'));}
+
+ // "Draft with AI" — on a gap card. The gap already says what's missing, so nothing is
+ // typed in by hand: the need's name/description/domain/use-case ARE the brief.
+ // One preview at a time, so the single-slot preview machinery below stays honest.
+ //
+ // Bound from the gap card's data-* attributes (see bindDraftButtons), NOT an inline
+ // onclick: the gap text is arbitrary prose, and passing it through an HTML attribute as
+ // JS source meant one double quote in a description broke the whole handler.
+ function draftAI(name,desc,domain,useCase,gapIdx,btn){
+   if(window._ca && !confirm('You have a drafted slide that has not been added to the deck yet. Drafting this one will replace it. Continue?')) return;
+   var brief=(name||'')+'. Problem: '+(desc||'');
+   if(domain) brief+=' Domain: '+domain+'.';
+   if(useCase) brief+=' Use case: '+useCase+'.';
+   caGenerate(brief, (SERVER_CTX&&SERVER_CTX.industry)||'', btn, gapIdx);
+ }
+
+ function bindDraftButtons(){
+   document.querySelectorAll('.draft-btn').forEach(function(b){
+     b.addEventListener('click', function(){
+       draftAI(b.dataset.name, b.dataset.desc, b.dataset.domain, b.dataset.usecase,
+               parseInt(b.dataset.idx, 10), b);
+     });
+   });
+ }
+
+ // DISABLED with the manual form it reads (see the {# … #} block in build.html).
+ // Kept intact so re-enabling is a one-line uncomment, not a rewrite.
+ function createAI(btn){
+   var topic=(document.getElementById('ca-topic')||{}).value||'';
+   var problem=(document.getElementById('ca-problem')||{}).value||'';
+   topic=topic.trim(); problem=problem.trim();
+   if(!topic||!problem){alert('Please fill in Topic / use case and Problem — both are required.');return;}
+   var solution=((document.getElementById('ca-solution')||{}).value||'').trim();
+   var results=((document.getElementById('ca-results')||{}).value||'').trim();
+   var ind=((document.getElementById('ca-industry')||{}).value||'').trim()||(SERVER_CTX&&SERVER_CTX.industry)||'';
+   var brief=topic+'. Problem: '+problem;
+   if(solution) brief+=' Solution: '+solution;
+   if(results) brief+=' Results: '+results;
+   caGenerate(brief, ind, btn, null);
+ }
+ // Re-draft the SAME brief (the manual form may not be on the page any more).
+ function caRegen(btn){
+   if(!window._caBrief) return;
+   caGenerate(window._caBrief, window._caInd||'', btn||document.getElementById('ca-genbtn')||{disabled:false,innerHTML:''}, window._caGap);
+ }
  function caRender(d){
    var caps=(d.capabilities||[]).map(c=>'<li>'+caEsc(c)+'</li>').join('');
    var res=(d.results||[]).map(c=>'<li>'+caEsc(c)+'</li>').join('');
@@ -106,17 +146,27 @@
       '<b>Self-review &mdash; '+caEsc(rv.quality||'')+'.</b> Weakest: '+caEsc(rv.weakest||'None')+'. Fix: '+caEsc(rv.fix||'None')+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:10px">'+
       '<button type="button" class="btn btn-primary" onclick="addCreated()"><i class="ti ti-plus"></i> Add to deck</button>'+
-      '<button type="button" class="btn" onclick="caRegen()"><i class="ti ti-refresh"></i> Regenerate</button>'+
+      '<button type="button" class="btn" onclick="caRegen(this)"><i class="ti ti-refresh"></i> Regenerate</button>'+
       '<button type="button" class="btn" onclick="caDiscard()"><i class="ti ti-x"></i> Discard</button></div></div>';
    document.getElementById('ca-preview').style.display='block';
  }
  function addCreated(){
    var d=window._ca; if(!d) return;
    if([...list.children].some(li=>li.dataset.id===d.id)){alert('Already added');return;}
-   list.appendChild(makeRow(d.id, d.title, 'created with AI')); renumber();
+   list.appendChild(makeRow(d.id, d.title, 'drafted with AI')); renumber();
+   // tick the gap this draft answered, so a long gap list stays readable
+   if(window._caGap!=null){
+     var card=document.getElementById('gap-'+window._caGap);
+     if(card){ var done=card.querySelector('.gap-done'); if(done) done.style.display='inline';
+       var b=card.querySelector('button'); if(b){ b.disabled=true; b.innerHTML='<i class="ti ti-check"></i> Drafted'; } }
+   }
    caDiscard(); ['ca-topic','ca-problem','ca-solution','ca-results'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
  }
- function caDiscard(){var p=document.getElementById('ca-preview');if(p)p.style.display='none'; window._ca=null;}
+ function caDiscard(){
+   var p=document.getElementById('ca-preview');if(p)p.style.display='none';
+   var idle=document.getElementById('ca-idle');if(idle)idle.style.display='';
+   window._ca=null; window._caBrief=null; window._caGap=null;
+ }
  (function init(){
    var d=loadDeck();
    if(RESUME){
@@ -129,6 +179,7 @@
      rebuild(d.order);
    } // else: brand-new build — keep the server-rendered picks (persist() below seeds the deck).
    renumber();
+   bindDraftButtons();
    var caInd=document.getElementById('ca-industry');
    if(caInd&&SERVER_CTX&&SERVER_CTX.industry) caInd.value=SERVER_CTX.industry;
  })();

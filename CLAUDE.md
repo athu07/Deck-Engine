@@ -30,15 +30,19 @@ deckengine/          THE application package. All code lives under here.
   constants.py         Form vocabularies, labels, matching knobs (INDUSTRIES, PHASES...).
   web/                 The web layer — ONE blueprint per area:
     decks.py             / , /new, /build, /review, /finalize, /deck  (the core flow)
+    builder.py           /builder — the Custom Slide Builder (paste content -> branded
+                         slide, with a duplicate check and a real rendered preview)
     dashboard.py library.py staging.py templates.py meetings.py
     output.py            file serving (/output, /slide/<id>/download)
-    api.py               /create_ai (the "Draft with AI" JSON endpoint)
+    api.py               /create_ai (the AI case-study JSON endpoint)
     view_helpers.py      shell(), the file-busy page, filename slug, dashboard stats
   services/            Business logic (NO Flask imports here):
-    matching/            matcher, relevance, ai_matcher, personas, synonyms, tagger
-    content/             case_library, content_store, build_library, editor
+    matching/            matcher, relevance, ai_matcher, personas, synonyms, tagger,
+                         dedupe ("do we already have a slide for this?")
+    content/             case_library, content_store, build_library, editor,
+                         paste_parser (one pasted document -> its slides)
     rendering/           assembler, slide_generator, fill_case_study, skills, staging,
-                         deck_build
+                         deck_build, preview (one slide -> PNG, via LibreOffice)
     ingest.py            reads uploaded research/profile files (PDF/text)
     meeting_log.py       one JSON per client+phase on each generate
     build_context.py     saves a build's research+profile+transcript by build_id
@@ -126,10 +130,11 @@ Workforce + RFI gated).
 
 `/build` runs `ai_matcher.extract_brief()` (one call) → a structured brief:
 `{needs (with domain/use_case), avoid (mismatch flags), expressed_interest, account}`.
-It builds a cheap shortlist per need (`relevance.shortlist_cases`, semantics/domain-led)
-then `ai_matcher.rank_shortlist()` picks the best-fit case per need, **excluding
-mismatch-flagged cases**, with a reason. The mismatch flags also demote wrong-domain
-cases in `relevance.rank_cases(..., avoid=)`. `build_context.save()` persists the deep
+It builds a cheap shortlist per need (`relevance.shortlist_cases`, semantics/domain-led);
+**selection is algorithmic** (in `web/decks.py`) — the top shortlist candidate that isn't
+mismatch-flagged and clears `CAPABILITY_COVER`. `ai_matcher.explain_picks()` then only
+*explains* the already-chosen case, so the model cannot mis-pick. The mismatch flags also
+demote wrong-domain cases in `relevance.rank_cases(..., avoid=)`. `build_context.save()` persists the deep
 research + profile + full transcript by `build_id` so `/create_ai` can reload them and
 `slide_generator.draft_case_study` **synthesises** them into a grounded case study.
 
