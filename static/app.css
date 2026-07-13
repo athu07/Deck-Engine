@@ -501,6 +501,18 @@ textarea.se{line-height:1.5;overflow:hidden}
 .lib-edit .lib-slide-title{font-size:17px}
 .lib-edit .lib-slide-sub{font-size:13.5px}
 .lib-slide-foot .sid{margin-right:6px}
+/* a predefined slide shown read-only on /review: eyebrow + a proper 16:9 preview + a note.
+   Uses the shared .slide-preview frame. */
+.lib-view .slide-preview{margin:12px 0 0}
+.lib-note{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin:12px 0 2px}
+.lib-note .ti{font-size:15px;color:var(--hint)}
+
+.lib-ref{margin:16px 0 0;border-top:1px solid var(--line);padding-top:10px}
+.lib-ref summary{font-size:12px;color:var(--muted);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:6px;padding:4px 0}
+.lib-ref summary::-webkit-details-marker{display:none}
+.lib-ref summary:hover{color:var(--ink)}
+.lib-ref .slide-preview{margin:8px 0 0}
 
 /* re-skin preview (F2) — real rendered slide images */
 .reskin-deck{display:flex;flex-direction:column;gap:16px}
@@ -602,6 +614,7 @@ textarea.se{line-height:1.5;overflow:hidden}
    Three uploads used to be three full-width 270px cards, pushing the 18 slide
    templates -- the actual subject of the page -- below the fold. */
 .tool-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:26px}
+.tool-row-2{grid-template-columns:repeat(2,1fr);max-width:820px}
 @media(max-width:1000px){.tool-row{grid-template-columns:1fr}}
 .tool{display:flex;flex-direction:column;gap:2px}
 .tool .upload-ic{width:34px;height:34px;border-radius:9px;background:var(--teal-soft);color:var(--teal);
@@ -632,5 +645,15 @@ textarea.se{line-height:1.5;overflow:hidden}
   letter-spacing:.04em;margin-bottom:3px}
 .ed-generic{font-size:13px;color:var(--ink)}
 textarea.ed-generic{min-height:44px}
+
+/* Recreate-with-AI's per-slide report -- what shape each source slide became */
+.recreate-report{list-style:none;margin:0;padding:0;max-height:420px;overflow-y:auto}
+.recreate-report li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+.recreate-report li:last-child{border-bottom:0}
+.rr-n{font-family:var(--mono);font-size:11px;color:var(--hint);width:20px;text-align:right;flex-shrink:0}
+.rr-badge{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+.rr-badge.is-recreated{background:var(--teal-soft);color:var(--teal-700)}
+.rr-badge.is-restyled{background:#f0efec;color:var(--muted)}
+.rr-text{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 @keyframes j2wspin{to{transform:rotate(360deg)}}

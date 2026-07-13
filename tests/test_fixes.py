@@ -600,18 +600,79 @@ def test_every_shape_is_reachable_from_every_entry_point():
 
 
 def test_recreate_classifier_has_a_letter_per_template():
-    """recreate._classify_slide indexed a fixed 11-letter string; the registry grew to 18
-    and the whole Recreate-with-AI feature died with IndexError before the AI was even
-    called. The alphabet must always outrun the registry."""
+    """The classifier indexed a fixed 11-letter string; the registry grew to 18 and the
+    whole Recreate feature died with IndexError before the AI was even called. The
+    alphabet (26) plus the NONE slot must always outrun the registry."""
     _chdir()
     import string
     from deckengine.services.rendering import slide_generator
     assert len(slide_generator.CONTENT_TEMPLATES) + 1 <= len(string.ascii_uppercase)
 
-    # and building the prompt must not raise, whatever the registry size
+    # offline, classify_slides fails safe to _NONE_KEY for every slide, never raises
     from deckengine.services.rendering import recreate
-    key = recreate._classify_slide("four parallel pillars, each with a checklist")
-    assert key in {t["key"] for t in slide_generator.CONTENT_TEMPLATES} | {recreate._NONE_KEY}
+    keys = recreate.classify_slides(["four pillars", "a data table", ""])
+    valid = {t["key"] for t in slide_generator.CONTENT_TEMPLATES} | {recreate._NONE_KEY}
+    assert len(keys) == 3 and all(k in valid for k in keys)
+
+
+def test_recreate_white_icon_gets_a_dark_chip():
+    """A white icon vanished on the pale chip (owner-reported, 2026-07-13). A light icon
+    now makes the chip the full accent colour; a coloured icon keeps the pale tint."""
+    _chdir()
+    import io
+    from PIL import Image
+    from deckengine.services.rendering import draw_templates as dt
+
+    def blob(rgb):
+        b = io.BytesIO(); Image.new("RGBA", (16, 16), rgb + (255,)).save(b, "PNG")
+        return b.getvalue()
+
+    assert dt._is_light_icon(blob((255, 255, 255))) is True     # white -> dark chip
+    assert dt._is_light_icon(blob((40, 60, 80))) is False       # dark -> pale chip
+    assert dt._is_light_icon(b"not an image") is False          # fail-safe
+
+
+def test_recreate_detects_a_headline_score():
+    """A source 'N/100' shown as a filled circle was flattened to a bullet; it's now
+    detected and redrawn as a ring. Don't catch 'IA/IB' or a '0-100' range."""
+    _chdir()
+    from deckengine.services.rendering import recreate
+    assert recreate._detect_score("Sample Validation 88 /100 Proceed") == (88, 100)
+    assert recreate._detect_score("score 4/5 stars") == (4, 5)
+    assert recreate._detect_score("Type IA/IB classification") is None
+    assert recreate._detect_score("Scored output (0-100)") is None
+    assert recreate._detect_score("148+ checks") is None
+
+
+def test_recreate_reads_tables_charts_and_groups():
+    """The core Recreate bug: _slide_text saw only plain text boxes, so a table slide or
+    a chart slide reached the classifier as a bare heading, was misjudged, and fell to
+    restyle-in-place -- which is why Recreate produced Reskin's output on a data deck
+    (owner-reported, 2026-07-13)."""
+    _chdir()
+    from pptx import Presentation
+    from pptx.util import Inches
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE
+    from deckengine.services.rendering import recreate
+
+    prs = Presentation()
+
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(9), Inches(0.8)).text_frame.text = "COMPARISON"
+    t = s.shapes.add_table(2, 2, Inches(0.5), Inches(1.5), Inches(9), Inches(3)).table
+    t.cell(0, 0).text = "Cost"; t.cell(0, 1).text = "$40"
+    t.cell(1, 0).text = "Speed"; t.cell(1, 1).text = "2 days"
+    table_text = recreate._slide_text(s)
+    assert "Cost | $40" in table_text and "Speed | 2 days" in table_text, table_text
+
+    s2 = prs.slides.add_slide(prs.slide_layouts[6])
+    s2.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(9), Inches(0.8)).text_frame.text = "GROWTH"
+    cd = CategoryChartData(); cd.categories = ["Q1", "Q2"]; cd.add_series("Rev", (10, 20))
+    s2.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(1), Inches(1.5),
+                        Inches(8), Inches(4), cd)
+    chart_text = recreate._slide_text(s2)
+    assert "Q1 10" in chart_text and "Q2 20" in chart_text, chart_text
 
 
 def test_new_shapes_normalize_and_draw_from_an_empty_record(tmp_path):

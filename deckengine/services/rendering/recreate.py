@@ -74,45 +74,242 @@ def _as_stream(data):
     return io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data
 
 
+def _shape_text(sh):
+    """The readable content of ONE shape, recursing into groups and pulling the real
+    data out of tables and charts. A plain-text-only reader (the old version) saw only
+    the heading of a table slide or a chart slide, so those slides reached the classifier
+    as a bare title, were misjudged, and fell to restyle-in-place -- which is exactly why
+    Recreate produced Reskin's output on any data-heavy deck (owner-reported, 2026-07-13)."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    out = []
+    try:
+        if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+            for child in sh.shapes:
+                t = _shape_text(child)
+                if t:
+                    out.append(t)
+            return "\n".join(out)
+    except Exception:
+        pass
+
+    try:
+        if sh.has_table:
+            tbl = sh.table
+            for row in tbl.rows:
+                cells = [c.text.strip() for c in row.cells]
+                if any(cells):
+                    out.append(" | ".join(cells))       # a row the classifier can read
+            return "\n".join(out)
+    except Exception:
+        pass
+
+    try:
+        if sh.has_chart:
+            chart = sh.chart
+            try:
+                cats = [str(c) for c in chart.plots[0].categories]
+            except Exception:
+                cats = []
+            title = ""
+            try:
+                if chart.has_title and chart.chart_title.text_frame.text.strip():
+                    title = chart.chart_title.text_frame.text.strip()
+            except Exception:
+                pass
+            if title:
+                out.append("Chart: " + title)
+            for series in chart.series:
+                vals = [("" if v is None else str(v)) for v in series.values]
+                pairs = ", ".join("%s %s" % (c, v) for c, v in zip(cats, vals) if v != "")
+                name = getattr(series, "name", "") or "series"
+                out.append("%s: %s" % (name, pairs) if pairs else name)
+            return "\n".join(out)
+    except Exception:
+        pass
+
+    try:
+        if sh.has_text_frame and sh.text_frame.text.strip():
+            return sh.text_frame.text.strip()
+    except Exception:
+        pass
+    return ""
+
+
 def _slide_text(slide):
-    """All of a slide's own text, in document order -- the same shape the
-    paste-content classifier already expects."""
+    """All of a slide's readable content, in document order -- text boxes, and now the
+    contents of tables, charts and groups too."""
     lines = []
     for sh in slide.shapes:
-        try:
-            if sh.has_text_frame and sh.text_frame.text.strip():
-                lines.append(sh.text_frame.text.strip())
-        except Exception:
-            pass
+        t = _shape_text(sh)
+        if t:
+            lines.append(t)
     return "\n".join(lines)
 
 
-def _classify_slide(text):
-    """Same registry, same A/B/C... pattern as slide_generator.classify_content,
-    but with one extra escape hatch: NONE of these, when a slide is a title/
-    closing slide or is genuinely data-heavy/visual. Fails safe to _NONE_KEY
-    (restyle in place) rather than forcing a bad fit."""
-    text = (text or "").strip()
-    if not text:
-        return _NONE_KEY
-    # one letter per template, plus one for "none of these". A fixed 11-letter string
-    # here silently became an IndexError the moment the registry grew past 10 shapes.
+def _slide_layout_hint(slide, sw, sh):
+    """A one-line description of how the source slide is ARRANGED, so the classifier can
+    weigh visual structure, not just wording (owner-reported, 2026-07-13: a 2x2 icon grid
+    was rebuilt as a vertical list, and a real table was flattened to bullets).
+
+    Reports: whether a real table is present, and how the content cards are laid out --
+    a grid (R x C), a row of columns, or a vertical stack -- inferred from the positions
+    of the text/picture shapes."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    if not sw or not sh:
+        return ""
+
+    # The precise row x column count is too noisy to trust (title/subtitle and per-bullet
+    # boxes inflate it). The signal that actually decides list-vs-grid is coarse and
+    # robust: how many distinct COLUMNS the content below the header occupies. Ignore the
+    # header band (top ~22%) so the title/subtitle don't count as a row of content.
+    has_table = False
+    header_cut = 0.22 * sh
+    xs = []                                # left-x of each content box below the header
+    for shp in slide.shapes:
+        try:
+            if shp.has_table:
+                has_table = True
+                continue
+            if shp.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                continue                   # icons/photos aren't layout cards
+            if not (shp.has_text_frame and shp.text_frame.text.strip()):
+                continue
+            w, h = (shp.width or 0), (shp.height or 0)
+            if w > 0.7 * sw and h > 0.5 * sh:
+                continue                   # a full-slide background text box
+            if (shp.top or 0) + h / 2 < header_cut:
+                continue                   # the title / subtitle
+            xs.append(shp.left or 0)
+        except Exception:
+            continue
+
+    parts = []
+    if has_table:
+        parts.append("contains a real data TABLE")
+
+    # distinct left-edges, at a coarse tolerance = distinct columns
+    ncols = len(_cluster(sorted(xs), 0.14 * sw))
+    if ncols >= 3:
+        parts.append("content is laid out in %d COLUMNS (a grid or columns, not a single "
+                     "vertical list)" % ncols)
+    elif ncols == 2:
+        parts.append("content is laid out in 2 side-by-side COLUMNS, not a single "
+                     "vertical list")
+    elif ncols == 1 and len(xs) >= 3:
+        parts.append("content is a single vertical LIST")
+    return "; ".join(parts)
+
+
+def _cluster(sorted_vals, tol):
+    """Group near-equal coordinates into bands -- a crude 1-D clustering for counting
+    rows/columns. Returns the list of band representatives."""
+    bands = []
+    for v in sorted_vals:
+        if bands and v - bands[-1] <= tol:
+            continue
+        bands.append(v)
+    return bands
+
+
+def _slide_icons(slide, sw, sh):
+    """The source slide's own ICONS, in reading order, as (PNG/JPEG) bytes -- so Recreate
+    can carry them into the rebuilt slide's chips (owner's spec, 2026-07-13).
+
+    An icon is a SMALL, roughly-square picture: a big banner/photo or a full-bleed
+    background is not one, and dragging it into a chip would be wrong. Recurses into
+    groups. Sorted top-to-bottom, then left-to-right, to match the order the drawers
+    place their chips."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    max_side = 0.20 * (sw or 1)            # <= ~20% of slide width reads as an icon
+    found = []
+
+    def walk(shapes, ox=0, oy=0):
+        for sh in shapes:
+            try:
+                if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    walk(sh.shapes, ox + (sh.left or 0), oy + (sh.top or 0))
+                    continue
+                if sh.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    w, h = (sh.width or 0), (sh.height or 0)
+                    if not w or not h:
+                        continue
+                    if w > max_side or h > max_side:
+                        continue           # too big to be an icon
+                    if max(w, h) / min(w, h) > 2.2:
+                        continue           # a bar/line, not a square-ish icon
+                    found.append((oy + (sh.top or 0), ox + (sh.left or 0), sh.image.blob))
+            except Exception:
+                continue
+
+    walk(slide.shapes)
+    found.sort(key=lambda t: (round(t[0] / 100000), t[1]))   # reading order
+    return [blob for _t, _l, blob in found]
+
+
+def classify_slides(texts, hints=None):
+    """Classify EVERY slide of the uploaded deck in ONE call, seeing them together.
+    `hints[i]` is an optional one-line description of slide i's visual ARRANGEMENT
+    (see _slide_layout_hint) -- a 2x2 grid, side-by-side columns, a real table -- so the
+    layout is chosen from structure too, not wording alone.
+
+    Two changes from the old per-slide classifier, both deliberate:
+
+      * Whole-deck context. A slide is judged alongside its neighbours (three
+        consecutive stories read as case studies; the list of questions between them
+        does not), the same batch approach the Slide Builder already uses. It's also one
+        AI call for the deck instead of one per slide.
+
+      * NONE is a LAST resort, not a tie-break. The old prompt said "if unsure, answer
+        NONE", which -- with content-poor extraction -- pushed most slides to restyle-in-
+        place, so Recreate produced Reskin's output. Now NONE is reserved for a genuine
+        cover / closing / pure-visual slide; a real content slide is rebuilt.
+
+    Returns a list of CONTENT_TEMPLATES keys (or _NONE_KEY), aligned with `texts`.
+    Fail-safe: on any error every slide is _NONE_KEY (restyle in place), the old default.
+    """
+    texts = list(texts or [])
+    if not texts:
+        return []
+    fallback = [_NONE_KEY] * len(texts)
+
     letters = string.ascii_uppercase
     choices = "\n".join(f"({letters[i]}) {t['classify_desc']}"
                         for i, t in enumerate(CONTENT_TEMPLATES))
     none_letter = letters[len(CONTENT_TEMPLATES)]
     key_by_letter = {letters[i]: t["key"] for i, t in enumerate(CONTENT_TEMPLATES)}
     key_by_letter[none_letter] = _NONE_KEY
+
+    hints = list(hints or [])
+    blocks = []
+    for i, t in enumerate(texts):
+        hint = hints[i] if i < len(hints) else ""
+        head = "SLIDE %d" % (i + 1)
+        if hint:
+            head += " [layout: %s]" % hint
+        blocks.append('%s:\n"""\n%s\n"""' % (head, (t or "").strip()[:2500] or "(no readable text)"))
+    blocks = "\n\n".join(blocks)
     prompt = (
-        "Does the content below (one slide's own text) read as one of these "
-        "template shapes?\n" + choices +
-        f"\n({none_letter}) NONE OF THESE -- a title/cover slide, a closing/"
-        "contact/CTA slide, or content that's genuinely data-heavy/visual (a "
-        "real chart, dense table, or diagram the text alone can't represent) "
-        "and would lose meaning forced into a text-only template.\n\n"
-        "If genuinely unsure, or the content doesn't clearly fit one shape "
-        f"well, answer ({none_letter}).\n\nCONTENT:\n\"\"\"\n" + text[:4000] + "\n\"\"\"\n\n"
-        'Reply with ONLY this JSON: {"choice":"A"} -- the single letter of your pick.'
+        "Below are the slides of one uploaded presentation, each with the text, table "
+        "rows and chart data read off it, and a [layout: ...] note describing how the "
+        "slide is visually ARRANGED. For EACH slide, pick the template shape that best "
+        "fits how its content is structured, using BOTH the content and the layout.\n\n"
+        + choices +
+        f"\n({none_letter}) NONE OF THESE -- ONLY for a title/cover slide, a closing/"
+        "contact/thank-you slide, or a slide that is purely a diagram or image with no "
+        "real textual content to rebuild.\n\n"
+        "Rules that matter:\n"
+        "- If the layout note says a real TABLE is present, choose (H) data_table -- keep "
+        "it a table, do not flatten it to a list.\n"
+        "- If the note says a GRID (e.g. 2x2), prefer a grid shape (box_grid, four_box, "
+        "or numbered pillars) over a vertical list, even when the words read as problems "
+        "or points.\n"
+        "- If the note says side-by-side COLUMNS, prefer a columns shape (option_columns, "
+        "guardrail_columns, comparison, or a before/after) over a single stack.\n"
+        "- Most content slides DO fit a shape; only answer NONE when there is genuinely "
+        "nothing rebuildable. Do not answer NONE merely because a slide is unusual.\n\n"
+        + blocks +
+        '\n\nReply with ONLY this JSON: {"choices":["A","H",...]} -- one letter per '
+        "slide, in order, exactly %d of them." % len(texts)
     )
     try:
         from deckengine.services.infra import load_env
@@ -122,17 +319,18 @@ def _classify_slide(text):
             model=slide_generator.MODEL, temperature=0,
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": "You classify one slide's text "
-                 "into one of several template shapes, or 'none' if it "
-                 "doesn't fit. Reply with one JSON object only."},
+                {"role": "system", "content": "You classify each slide of an uploaded "
+                 "deck into one of several template shapes, or 'none' if it is a "
+                 "cover/closing/pure-visual slide. Reply with one JSON object only."},
                 {"role": "user", "content": prompt},
             ],
         )
-        data = json.loads(resp.choices[0].message.content)
-        letter = str(data.get("choice", "")).strip().upper()[:1]
-        return key_by_letter.get(letter, _NONE_KEY)
+        picks = json.loads(resp.choices[0].message.content).get("choices") or []
     except Exception:
-        return _NONE_KEY
+        return fallback
+    if len(picks) != len(texts):
+        return fallback                 # lost track of the count -> don't guess
+    return [key_by_letter.get(str(p).strip().upper()[:1], _NONE_KEY) for p in picks]
 
 
 def _restyle_original_slide(dest, src_slide, sw, sh, dest_sw, dest_sh):
@@ -182,6 +380,19 @@ def _render_case_study(dest, record):
     _fcs.apply_markers(new, _fcs.build_mapping(record))
 
 
+def _detect_score(text):
+    """A headline score shown as 'N/100' (or /10, /5) in the source -- returned as
+    (value, outof) so Recreate can redraw it as a filled ring instead of flattening it to
+    a bullet (owner's spec, 2026-07-13). Only a round denominator, value <= denominator,
+    to avoid catching 'IA/IB' or a stray fraction."""
+    import re
+    for m in re.finditer(r"\b(\d{1,3})\s*/\s*(100|10|5)\b", text or ""):
+        val, out = int(m.group(1)), int(m.group(2))
+        if val <= out:
+            return val, out
+    return None
+
+
 def _render_shape(dest, tfile, key, record):
     template_slide = skills.find_template(tfile, record.get("template", key))
     if template_slide is None:
@@ -193,6 +404,14 @@ def _render_shape(dest, tfile, key, record):
     draw_fn = _DRAW_FNS.get(key)
     if draw_fn:
         draw_fn(new, record)
+    # a headline score in the source was a filled circle INSIDE a panel; redraw it inside
+    # the layout (top-right of the body, over the last card's ghost-number corner), not
+    # floating in the header (owner-reported, 2026-07-13).
+    score = record.get("_score")
+    if score:
+        draw_templates.draw_score_ring(new, draw_templates.SW - draw_templates.MARGIN - 0.58,
+                                       draw_templates.TOP + 0.52, 0.46,
+                                       score[0], score[1], draw_templates.TEAL)
     return True
 
 
@@ -225,33 +444,59 @@ def recreate_deck(data, out_path, industry=""):
     dest.slide_width, dest.slide_height = dest_sw, dest_sh
     tfile = Presentation(config.SKILLS_TEMPLATES_PPTX)
 
-    stats = {"recreated": 0, "restyled": 0, "skipped": 0}
+    stats = {"recreated": 0, "restyled": 0, "skipped": 0, "report": []}
     middle = src_slides[1:-1] if len(src_slides) > 2 else src_slides
     stats["skipped"] = len(src_slides) - len(middle)
 
-    for slide in middle:
-        text = _slide_text(slide)
-        key = _classify_slide(text)
+    # classify the WHOLE deck in one call, seeing every slide together (see
+    # classify_slides). One AI call for the deck, not one per slide, and with
+    # cross-slide context.
+    texts = [_slide_text(s) for s in middle]
+    hints = [_slide_layout_hint(s, sw, sh) for s in middle]
+    keys = classify_slides(texts, hints)
+
+    # Deterministic guardrail on top of the model: a source laid out in MULTIPLE COLUMNS
+    # must not be rebuilt as a single vertical LIST. The model still picks pain_point_list
+    # for a 2x2 grid of problems because the WORDS read as problems; the owner wants the
+    # grid preserved (2026-07-13). Remap the three single-column list shapes to box_grid,
+    # which lays the same {heading, body} cards out in a grid.
+    _LIST_SHAPES = {"pain_point_list", "governance_list", "scored_list"}
+    for i, (key, hint) in enumerate(zip(keys, hints)):
+        if key in _LIST_SHAPES and "COLUMN" in (hint or ""):
+            keys[i] = "box_grid"
+
+    def _label(key):
         if key == _NONE_KEY:
-            _restyle_original_slide(dest, slide, sw, sh, dest_sw, dest_sh)
-            stats["restyled"] += 1
-            continue
+            return "as-authored"
+        return next((t["label"] for t in CONTENT_TEMPLATES if t["key"] == key), key)
+
+    for pos, (slide, text, key) in enumerate(zip(middle, texts, keys)):
+        n = pos + 2                       # source slide number (1 = skipped cover)
         tdef = next((t for t in CONTENT_TEMPLATES if t["key"] == key), None)
-        if tdef is None:
+        if key == _NONE_KEY or tdef is None:
             _restyle_original_slide(dest, slide, sw, sh, dest_sw, dest_sh)
             stats["restyled"] += 1
+            stats["report"].append({"slide": n, "outcome": "restyled", "shape": "as-authored",
+                                    "preview": (text[:60] or "(no text)")})
             continue
         record = tdef["builder"](text, {"industry": industry})
+        # carry the source slide's own icons into the rebuilt slide's chips
+        record["_icons"] = _slide_icons(slide, sw, sh)
+        record["_score"] = _detect_score(text)         # a headline N/100 -> a ring
+        outcome = "recreated"
         if key == "case_study":
             from deckengine.services.rendering.deck_build import ai_to_store_record
             _render_case_study(dest, ai_to_store_record(record, industry))
             stats["recreated"] += 1
-            continue
-        if _render_shape(dest, tfile, key, record):
+        elif _render_shape(dest, tfile, key, record):
             stats["recreated"] += 1
         else:
             _restyle_original_slide(dest, slide, sw, sh, dest_sw, dest_sh)
             stats["restyled"] += 1
+            outcome = "restyled"
+        stats["report"].append({"slide": n, "outcome": outcome,
+                                "shape": _label(key) if outcome == "recreated" else "as-authored",
+                                "preview": (text[:60] or "(no text)")})
 
     _append_bookends(dest, dest_sw, dest_sh)
     out_dir = os.path.dirname(out_path)

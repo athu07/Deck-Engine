@@ -708,7 +708,12 @@ def _draw_box_grid(slide, data):
     """N boxes (2-8), auto-arranged in a grid -- the same box_grid, evaluated
     on the header markers, does not need EXACTLY 4 (that's four_box; this is
     the generalisation used by 'Recreate with AI' for a source slide whose own
-    grid has 3, 5, or 6 items)."""
+    grid has 3, 5, or 6 items).
+
+    Carries a source ICON per box and sizes cards to content (owner's spec,
+    2026-07-13), using draw_templates' chip + accent so it matches the ten
+    style-guide shapes rather than being a plainer parallel design."""
+    from deckengine.services.rendering import draw_templates as _dt
     boxes = data.get("boxes") or []
     n = len(boxes)
     if n == 0:
@@ -723,17 +728,34 @@ def _draw_box_grid(slide, data):
     top = 1.35
     bottom = SH - 0.24
     box_w = (SW - 2 * MARGIN - (cols - 1) * gap) / cols
-    box_h = (bottom - top - (rows - 1) * gap) / rows
+
+    natural = (bottom - top - (rows - 1) * gap) / rows
+    has_icons = bool(data.get("_icons"))
+    icon_h = 0.44 if has_icons else 0.0
+    # header + a 3-line body is about this tall; cap and centre so short cards don't
+    # stretch to full slide height with a hole underneath
+    content_h = 0.16 + icon_h + (0.10 if has_icons else 0) + 0.34 + 0.90 + 0.16
+    box_h = natural
+    grid_top = top
+    if natural > content_h:
+        box_h = content_h
+        used = rows * box_h + (rows - 1) * gap
+        grid_top = top + max(0.0, (bottom - top - used)) / 3
 
     for i, b in enumerate(boxes):
         r, c = divmod(i, cols)
         bl = MARGIN + c * (box_w + gap)
-        bt = top + r * (box_h + gap)
+        bt = grid_top + r * (box_h + gap)
+        accent = _dt.TEAL if i % 2 == 0 else _dt.RED
         _draw_card(slide, bl, bt, box_w, box_h, _CARD_BG, _LINE)
-        _draw_bar(slide, bl + 0.16, bt + 0.16, 0.06, 0.34, _RED)
-        _draw_text(slide, bl + 0.16 + 0.16, bt + 0.16, box_w - 0.32 - 0.16, 0.34,
+        _draw_bar(slide, bl, bt, box_w, 0.05, accent)          # coloured top rule
+        y = bt + 0.18
+        if has_icons:
+            _dt._chip(slide, bl + 0.18, y, icon_h, accent, _dt._pop_icon(data))
+            y += icon_h + 0.12
+        _draw_text(slide, bl + 0.20, y, box_w - 0.40, 0.34,
                    b.get("heading", ""), _SZ_HEAD, _INK, bold=True)
-        _draw_text(slide, bl + 0.16, bt + 0.16 + 0.44, box_w - 0.32, box_h - 0.32 - 0.44,
+        _draw_text(slide, bl + 0.20, y + 0.40, box_w - 0.40, box_h - (y - bt) - 0.50,
                    b.get("body", ""), _SZ_BODY, _BODY)
 
 

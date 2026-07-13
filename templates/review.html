@@ -51,34 +51,21 @@
       </div>
 
       {% elif s.kind == 'library' %}
-      {# The real slide, rendered. Before this the card showed only the title and the
-         subtitle -- the two fields the engine can edit -- so the bullets, tables, charts
-         and diagrams on a library slide were invisible until the .pptx was downloaded. #}
-      <div class="lib-slide">
-        <div class="lib-slide-bar"></div>
+      {# A predefined slide is shown as a read-only PREVIEW -- the real rendered slide, as
+         it will appear in the download. It is not edited here; it goes into the deck as-is
+         (owner's spec, 2026-07-13). #}
+      <div class="cs-accent"></div>
+      <div class="cs-body lib-view">
+        <div class="cs-eyebrow">From the library &middot; {{ s.id }}</div>
         <div class="slide-preview">
           <img src="/slide/{{ s.id }}/preview.png" alt="Slide {{ s.id }}" loading="lazy"
                onerror="this.closest('.slide-preview').classList.add('unavailable')">
           <div class="slide-preview-fallback">
             <i class="ti ti-photo-off"></i>
-            <span>This server can&#39;t render slide previews. The slide is still in your deck &mdash; download it to see it.</span>
+            <span>This server can&#39;t render a live preview &mdash; the slide is in your deck; download it to see it.</span>
           </div>
         </div>
-        {% if s.fields %}
-        <div class="lib-edit">
-          <div class="lib-edit-label">Editable on this slide</div>
-          {% for idx, label, text in s.fields %}
-          {% if loop.first %}
-          <input class="se lib-slide-title" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
-          {% else %}
-          <input class="se lib-slide-sub" name="edit__{{ s.id }}__{{ idx }}" value="{{ text }}" placeholder="{{ label }}">
-          {% endif %}
-          {% endfor %}
-        </div>
-        {% endif %}
-        <div class="lib-slide-foot">
-          <span class="sid">{{ s.id }}</span> from the library{% if s.fields %} &middot; the preview shows the slide as it stands today; your edits above are applied when you build{% endif %}
-        </div>
+        <div class="lib-note"><i class="ti ti-lock"></i> A ready-made slide from your library &mdash; shown as it will appear, and included as-is.</div>
       </div>
 
       {% elif s.kind in shape_kinds %}
@@ -115,7 +102,7 @@
       <h2 class="sec-title" style="margin-bottom:14px">Your deck</h2>
       <div class="summary">
         <div class="sum-row"><span>Slides</span><b>{{ slides|length }}</b></div>
-        <div class="sum-row"><span>Editable</span><b>{{ slides|selectattr('kind','ne','skills')|list|length }}</b></div>
+        <div class="sum-row"><span>Editable</span><b>{{ slides|rejectattr('kind','in',['skills','library'])|list|length }}</b></div>
       </div>
       <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:18px"><i class="ti ti-download"></i> Build &amp; download</button>
       <a href="javascript:history.back()" class="btn btn-block" style="margin-top:10px"><i class="ti ti-arrow-left"></i> Back to slides</a>
@@ -133,11 +120,18 @@
 </div>
 <script>
  window.addEventListener('pageshow',function(){var l=document.getElementById('loader');if(l)l.style.display='none';});
- // auto-grow the editable paragraphs to fit their text
- document.querySelectorAll('textarea.se').forEach(function(t){
-   function grow(){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
-   t.addEventListener('input',grow); grow();
- });
+ // auto-grow the editable paragraphs to fit their text. The initial sizing waits until
+ // layout has settled (two frames) -- inside a CSS grid a textarea has no real width at
+ // parse time, so measuring scrollHeight then would wrap the text super-narrow and leave
+ // the box far too tall.
+ (function(){
+   var tas=document.querySelectorAll('textarea.se');
+   function grow(t){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
+   tas.forEach(function(t){t.addEventListener('input',function(){grow(t);});});
+   function sizeAll(){tas.forEach(grow);}
+   requestAnimationFrame(function(){requestAnimationFrame(sizeAll);});
+   window.addEventListener('load',sizeAll);
+ })();
  // The seven pasted shapes are edited through data-path inputs (the shared
  // _slide_editor.html macro), which carry no form `name`. Serialise each slide into one
  // hidden JSON field just before submit, so /finalize receives the edits. The case-study

@@ -4104,3 +4104,213 @@ NOTE for the owner: this fixes a Render WEB SERVICE. If Render is instead
 running the Dockerfile (a Render "Docker" service), it already had LibreOffice
 and the committed previews just make the first load instant. Either way it now
 works; the committed images are the belt, the Dockerfile step is the braces.
+
+RECREATE WITH AI reworked; RE-SKIN disabled; LEARN-TEMPLATE confirmed (2026-07-13)
+Athithia: Recreate isn't analysing every slide and feels the same as Reskin;
+disable Reskin; and confirm (no code changes) that a saved learned template is
+actually used.
+
+RECREATE -- THE ROOT CAUSE, found by testing recreate._slide_text against real
+shapes: it read ONLY plain text boxes. A table slide reached the classifier as
+just its heading; a chart slide as just its heading; grouped content was
+dropped. So data-heavy slides were misjudged and fell to the restyle-in-place
+fallback -- which IS reskin. That is why "Recreate looks like Reskin": on any
+real deck a large fraction of slides silently took the reskin path.
+Four fixes:
+  1. _slide_text now recurses into GROUPS and pulls the real content out of
+     TABLES (row by row, "cell | cell | cell") and CHARTS (title + each series
+     as "cat val, cat val"). Verified: a 3x3 table and a 3-point chart now reach
+     the classifier in full; the chart's numbers (42/66/30) land in the rebuilt
+     slide -- content that was invisible before.
+  2. NONE is no longer a tie-break. The old prompt said "if unsure, answer
+     NONE"; combined with content-poor extraction that pushed most slides to
+     restyle. New prompt reserves NONE for a genuine cover/closing/pure-visual
+     slide and tells the model most content slides DO fit a shape.
+  3. Whole-deck classification: classify_slides() judges every slide in ONE call,
+     seeing them together (like the Slide Builder's classify_content_many), not
+     one blind call per slide.
+  4. Per-slide report: recreate_deck returns stats["report"] (slide number,
+     outcome, shape, preview); the preview page lists every source slide and what
+     it became. No longer a black box.
+Live test, mixed deck (problems / table / chart, plus cover+closing): 3/3
+middle slides RECREATED as pain_point_list / data_table / stat_overview, 0
+restyled, in 6.7s. Before this change all three would have restyled = reskin.
+
+RE-SKIN disabled (owner's spec). The /template/reskin route and its card are
+COMMENTED OUT (Jinja {# #} + a Python block), not deleted -- reskin.py STAYS
+because Recreate's restyle-in-place fallback uses 17 of its helpers and the PNG
+renderer. POST /template/reskin now 404s; the card is gone; the tool row is two
+cards, Recreate leading. Restore = uncomment both.
+
+LEARN-TEMPLATE -- CONFIRMED WORKING (no code changed). Traced + tested end to
+end: save_learned_template writes a one-slide .pptx + a role_map into
+learned_templates/_index.json (verified both land); set_active flips it on;
+fill_into pours a real case-study record in BY ROLE (verified: title/challenge/
+solution landed in the right boxes). The active template IS consumed in three
+render paths -- skills.build_into (main deck), web/output.py (single/bulk
+download), and recreate. SCOPE, stated for the owner: it replaces the CASE
+STUDY slide only, globally (one active at a time), NOT the other 17 shapes or
+standard slides, and it does not become a pickable builder shape. Working as
+designed; just narrower than "any slide".
+51/51 pytest green (added: table/chart/group extraction test; updated the
+classifier test for the new batch function).
+
+RECREATE WITH AI -- three fixes from the RegIQ deck comparison (2026-07-13)
+Athithia sent the input (RegIQ_Capability_Deck.pptx) and Recreate's output and
+flagged: (1) white space on some slides, (2) source icons not captured, (3) the
+layout chosen wasn't always the best-fitting one.
+
+1. WHITE SPACE. The drawers sized cards to FILL the slide height regardless of
+   content, so a 2-card or 2-block slide got half-slide-tall cards with content
+   at the top and a hole beneath. Fixes:
+   - draw_templates._grid gained max_row_h: cap the row height at what the content
+     needs and sit the grid a third of the way down the leftover space (small top
+     margin, slightly larger bottom -- reads as padding, not a hole).
+   - pillar_grid estimates its card height from the point count and spreads the
+     ticks down the card so a tall card fills evenly.
+   - platform_overview distributes its stat row + capability row to fill the body
+     instead of clustering at the top with a gap above the footer.
+   - box_grid (skills.py) got the same content-cap + centre treatment.
+   Verified on RegIQ slide 3 (gap gone) and slide 5 (content-sized pillars).
+
+2. ICONS. The source icons are embedded PNG PICTURES; Recreate ignored all
+   pictures and drew empty chips. Now recreate._slide_icons extracts the small,
+   square-ish pictures in reading order; draw_templates._chip takes optional icon
+   bytes and drops them in; _pop_icon feeds the Nth chip the Nth source icon.
+   platform_overview's stat cards gained icon chips too -- both to match the
+   source AND so the stat icons are consumed in order and the capability chips get
+   the CAPABILITY icons, not the stat ones. box_grid carries icons as well.
+   Verified: RegIQ slide 2 shows warning/clock/target/magnifier, slide 3 shows
+   globe/brain/lightning/feed on the stats and the right icons on the caps.
+
+3. LAYOUT CHOICE. Classification was content-only, blind to the source's visual
+   arrangement -- a 2x2 icon grid became a vertical pain_point_list. Now
+   recreate._slide_layout_hint reports a coarse, robust signal (how many COLUMNS
+   the content below the header occupies, and whether a real TABLE is present),
+   fed into classify_slides so the model weighs structure too. Plus a deterministic
+   guardrail: a single-column LIST shape (pain_point_list/governance_list/
+   scored_list) on a multi-column source is remapped to box_grid. Verified: RegIQ
+   slide 2 now rebuilds as a 2x2 box grid with icons, matching the source.
+   The precise RxC proved too noisy (title/subtitle + per-bullet boxes inflate it),
+   so the hint is deliberately coarse -- columns, not exact grid dimensions.
+
+KNOWN REMAINING GAP (flagged, not fixed): a visually-tabular block built from
+separate TEXT BOXES (not a real pptx table object) -- e.g. RegIQ slide 7's
+"Market Heatmap" -- isn't detected as a table, so it's rebuilt as bullets and a
+pillar's 4-point cap truncates 6 rows to 4. Real table objects ARE preserved as
+data_table. Detecting pseudo-tables from aligned text boxes is a larger job.
+
+End-to-end: the real RegIQ deck through /template/recreate -> 10 redesigned, 0
+restyled (before, most fell to restyle = reskin). 51/51 pytest green (the
+table/chart extraction and classifier tests updated for the new signatures).
+
+RECREATE -- two more from the RegIQ comparison: white icons, score ring (2026-07-13)
+Athithia, second pass on the RegIQ deck:
+
+1. WHITE ICONS INVISIBLE. Many source icons are pure white (drawn for dark cards);
+   on our pale chip they vanished. Measured: slide-2 icons ~130 luminance (show
+   fine), slide-3 stat icons 250 (invisible). draw_templates._is_light_icon()
+   samples the icon's opaque pixels; when it's light (>200), _chip fills with the
+   FULL accent colour (teal/red) instead of the pale tint, so the white icon reads
+   with good contrast. Coloured icons keep the pale chip. Verified on slide 3:
+   globe/brain/lightning/feed and the capability icons now all show crisply.
+
+2. SCORE SHOWN AS A CIRCLE. The source's "Sample Validation 88/100" was a filled
+   green disc; Recreate flattened it to a bullet. Now recreate._detect_score finds
+   a headline N/100 (or /10, /5; value <= denominator, so 'IA/IB' and a '0-100'
+   range don't match) and draw_templates.draw_score_ring redraws it as a teal disc
+   with the value and '/100', placed in the header's empty right side (no collision
+   with the body cards). Verified on slide 6: the 88/100 ring matches the source.
+
+Both fail-safe (a bad icon blob or no score -> the old behaviour). 53/53 pytest
+green (added guards: light-icon detection incl. the fail-safe, and score detection
+incl. the IA/IB and 0-100 negatives).
+
+RECREATE + REVIEW -- content never dropped, score inside the layout, library
+slides editable (2026-07-13)
+Three asks off the RegIQ comparison:
+
+1. NO CONTENT MISSED (the priority: "not a single word"). The Market Heatmap's
+   6 rows were capped to 4 (pillar points [:4]); more generally the builders and
+   drawers dropped items past a cap. Raised the item caps across the content
+   builders (pillar points 4->10, subpoints ->10, data_table rows 6->16, guardrail/
+   option points ->8, blocks ->6) and made the pillar drawer render EVERY point,
+   shrinking the row step (and the font when tight) to fit rather than breaking off.
+   Verified: RegIQ slide 7 now shows all 6 heatmap rows (EU/US/UK/Brazil/India/APAC).
+   Design call the owner made: keep all content even if a card gets dense, over
+   falling back to restyle.
+
+2. SCORE RING INSIDE THE LAYOUT. It was floating in the header; the source had the
+   88/100 inside the right panel. Moved it to the top-right of the body, over the
+   last card's ghost-number corner, so it reads as a badge ON that card. Verified
+   on slide 6.
+
+3. LIBRARY SLIDES EDITABLE ON /review. A master-deck (CSxx) slide showed as a
+   read-only image with only title/subtitle editable. Now editor.all_editable_fields
+   returns EVERY text shape (title, subtitle, each bullet block, with a multiline
+   flag), and the review card renders them as click-to-edit fields -- inputs for
+   single lines, textareas for bullet blocks -- matching the generated slides. The
+   rendered image is kept as a collapsible "Reference" so the real slide is still
+   visible. editor.apply_edits gained a multiline-aware writer (set_text_multiline)
+   that keeps each line as its own paragraph, so editing a bullet block preserves
+   the bullets. Verified: CS04 exposes all 14 fields (4 multiline), and a 3-line
+   edit round-trips to 3 paragraphs in the .pptx.
+
+End-to-end: RegIQ through /template/recreate -> 10 redesigned, 0 restyled; the
+review page renders library slides as editable cards. 53/53 pytest green.
+
+2026-07-13 — Review & edit: library ("defined") slides now render AS a slide, like the
+case-study card — accent bar, eyebrow, big editable title, teal subtitle, then the body
+text laid out in place, all click-to-edit inline. Removed the labelled TITLE/SUBTITLE/
+TEXT-N form fields (owner: "completely wrong … show same as the case study slide"). The
+real rendered slide is kept behind a collapsible reference. Files: templates/review.html,
+static/app.css. Tests green (53 passed).
+
+2026-07-13 (revised) — Review & edit: library slides now match the CASE-STUDY card's
+design language exactly — accent bar, eyebrow, big title, teal subtitle, a "Slide
+content" heading, then the slide's content as a uniform GRID of bordered cards (mirrors
+"Key Capabilities"), all click-to-edit inline. Replaces the earlier flat vertical list of
+lines. Long single lines clip with an ellipsis like the capability cards (full text kept
+in the field + hover tooltip, editable on click); multi-paragraph shapes use a wrapping
+textarea. Real rendered slide kept behind a collapsible reference. Files: templates/
+review.html, static/app.css. Tests green (53 passed).
+
+2026-07-13 (v3) — Review & edit: library slides now show the REAL rendered slide image
+prominently (its icons, logos, colored chips, layout, dark bands -- exactly as it
+downloads), served from the committed WebP previews so it works locally AND on Render.
+Below it, a compact "Edit slide text" grid keeps every field click-to-edit inline (bold
+title, teal subtitle, then content cards; no TITLE/TEXT field labels). Earlier the design
+was thrown away and only text cards were shown -- owner: "the images/logos/layout/design
+are missing... show this properly." Files: templates/review.html, static/app.css. Tests
+green (53).
+
+2026-07-13 (v4) — Review & edit: library slides are now edited exactly like the case
+studies -- CLICK THE TEXT ON THE SLIDE. The real rendered slide is shown, and an editable
+field is laid over each text box at its true position (geometry from python-pptx: x/y/w/h
+as % + font size in cqw units so it scales with the image). The fields are transparent
+until you hover (teal tint) or click (white box, masks the baked text, grows to fit);
+edited fields stay visible so the change reads over the picture. Removed the separate
+"Edit slide text" grid the owner didn't want. New: editor.editable_boxes(slide, size).
+Files: editor.py, web/decks.py, templates/review.html, static/app.css. Tests green (53).
+
+2026-07-13 (v5) — Review & edit: predefined slides are now rendered as CLEAN EDITABLE
+HTML SLIDES, the same look and click-the-text editing as the generated slides -- no more
+rendered image + editable overlay (the owner found the two experiences inconsistent and
+the overlay low-quality). editor.library_layout() groups each master slide's shapes into
+a title + subhead + a grid of heading/body cards (pairing a heading with the body directly
+beneath it in the same column, from geometry), and review.html renders them with the SAME
+lib-slide / ed-grid / ed-box classes the generated slides use. Every field keeps its real
+shape index, so edits apply to the ORIGINAL master slide at build and the DOWNLOAD IS
+UNCHANGED (full original design). Fixed: the global textarea{min-height:130px} was making
+body cards huge -- overridden for .lib-slide; auto-grow now sizes after layout settles.
+Removed the overlay approach (lib-stage/lib-hot/lib-loose). Files: editor.py, web/decks.py,
+templates/review.html, static/app.css. Tests green (53).
+
+2026-07-13 (v6, final) — Review & edit: predefined (library) slides are now shown as a
+READ-ONLY PREVIEW -- the real rendered slide (full design: icons, chips, bands, layout),
+exactly as it appears in the download -- and are NOT editable here; they go into the deck
+as-is (owner's spec). Reverted the editable-HTML-template and the image+overlay approaches
+for library slides. Case-study and pasted/generated shapes remain fully inline-editable.
+The sidebar "Editable" count now excludes library slides. Removed the now-unused
+editor.library_layout/editable_boxes/_para_align. Files: web/decks.py, templates/
+review.html, static/app.css, services/content/editor.py. Tests green (53).

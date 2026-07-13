@@ -24,11 +24,12 @@ Two decisions the owner made where the sources disagreed:
     J2W slide, the master deck's own title slide, and six of the ten screenshots run
     red-left. Consistency with the 100+ slides already in the library wins.
 
-  * Icon chips are drawn EMPTY -- the pale rounded square is there, the line icon
-    inside it is not. The app ships no icon assets (the web UI pulls Tabler from a
-    CDN; skills_templates.pptx deliberately contains no images), and a unicode glyph
-    renders inconsistently through LibreOffice. The chip still carries the colour
-    rhythm the layouts depend on. Drop icons in later by filling `_chip`.
+  * Icon chips are drawn EMPTY for BUILDER-made slides -- the app ships no icon assets
+    of its own (the web UI pulls Tabler from a CDN; skills_templates.pptx contains no
+    images), and a unicode glyph renders inconsistently through LibreOffice, so the chip
+    just carries the colour rhythm. But Recreate-with-AI now carries the SOURCE slide's
+    own icons across into the chips (owner's spec, 2026-07-13); see `_chip`/`_pop_icon`
+    and recreate._slide_icons.
 
 Accents alternate TEAL, RED per card -- the guide is explicit ("one accent color per
 card/number, alternating rather than random"), and amber, which appears once in the
@@ -106,11 +107,68 @@ def _card(slide, l, t, w, h, fill=CARD, line=BORDER, rounded=False):
     return s
 
 
-def _chip(slide, l, t, size, colour):
-    """The icon chip: a pale rounded square. Drawn EMPTY -- see the module docstring.
-    To add icons later, drop a picture into the same box."""
-    s = _card(slide, l, t, size, size, fill=_pale(colour), line=None, rounded=True)
+def _is_light_icon(icon):
+    """True if the icon's own pixels are mostly light/white -- such an icon is designed
+    for a DARK background and vanishes on a pale chip (owner-reported, 2026-07-13: the
+    white stat icons were invisible). Fails safe to False."""
+    try:
+        from PIL import Image
+        import io as _io
+        im = Image.open(_io.BytesIO(icon)).convert("RGBA")
+        im.thumbnail((32, 32))
+        px = [p for p in im.getdata() if p[3] > 40]      # opaque-ish pixels only
+        if not px:
+            return False
+        lum = sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b, _a in px) / len(px)
+        return lum > 200
+    except Exception:
+        return False
+
+
+def _chip(slide, l, t, size, colour, icon=None):
+    """The icon chip: a rounded square. `icon` is optional PNG/JPEG bytes -- when Recreate
+    carries the source slide's own icon across (owner's spec, 2026-07-13) it's dropped in,
+    centred and inset. A WHITE/light icon gets a DARK chip (the accent colour at full
+    saturation) so it's visible; a coloured icon keeps the pale tint. An empty chip stays
+    pale, as the builder-drawn slides leave it (the app ships no icon set of its own)."""
+    fill = _pale(colour)
+    if icon and _is_light_icon(icon):
+        fill = colour                    # white icon on the full accent -- good contrast
+    s = _card(slide, l, t, size, size, fill=fill, line=None, rounded=True)
+    if icon:
+        try:
+            import io as _io
+            pad = size * 0.20
+            slide.shapes.add_picture(_io.BytesIO(icon), Inches(l + pad), Inches(t + pad),
+                                     Inches(size - 2 * pad), Inches(size - 2 * pad))
+        except Exception:
+            pass                    # a bad blob just leaves the chip empty
     return s
+
+
+def draw_score_ring(slide, cx, cy, r, value, outof, colour=TEAL):
+    """A filled circular score gauge -- a big value on a coloured disc with '/outof'
+    under it. Recreate draws this where the source showed a score as a filled circle and
+    Recreate would otherwise have flattened it to a bullet (owner's spec, 2026-07-13)."""
+    d = 2 * r
+    disc = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(cx - r), Inches(cy - r),
+                                  Inches(d), Inches(d))
+    disc.fill.solid(); disc.fill.fore_color.rgb = colour
+    disc.line.fill.background(); disc.shadow.inherit = False
+    _text(slide, cx - r, cy - r * 0.58, d, r * 0.82, str(value), int(23 * r / 0.62),
+          WHITE, bold=True, align=PP_ALIGN.CENTER, font=FONT_HEAD, anchor="ctr")
+    _text(slide, cx - r, cy + r * 0.30, d, r * 0.5, "/ %s" % outof, int(11 * r / 0.62),
+          WHITE, align=PP_ALIGN.CENTER, anchor="ctr")
+
+
+def _pop_icon(data):
+    """Next source icon for a chip, or None. Recreate seeds data['_icons'] with the
+    source slide's icons in reading order; drawers pull them as they draw chips, so the
+    Nth chip gets the Nth source icon. Anything not from Recreate has no icons -> None."""
+    icons = (data or {}).get("_icons")
+    if icons:
+        return icons.pop(0)
+    return None
 
 
 def _text(slide, l, t, w, h, text, size, colour, bold=False, align=PP_ALIGN.LEFT,
@@ -157,14 +215,30 @@ def _label(slide, l, t, w, text, colour=MUTED, size=SZ_SMALL):
     return _text(slide, l, t, w, 0.20, (text or "").upper(), size, colour, bold=True)
 
 
-def _grid(n, cols, top=TOP, bottom=BOTTOM, gap=GAP, left=MARGIN, right=MARGIN):
-    """Positions for n cards in `cols` columns, filling the body box."""
+def _grid(n, cols, top=TOP, bottom=BOTTOM, gap=GAP, left=MARGIN, right=MARGIN,
+          max_row_h=None):
+    """Positions for n cards in `cols` columns.
+
+    By default the rows FILL the body box. Pass `max_row_h` to cap each row's height at
+    the tallest its content needs and CENTRE the grid vertically -- otherwise a slide with
+    one or two short cards stretches them to full slide height, which is the white-space
+    the owner reported (2026-07-13). A grid whose natural height already exceeds the cap
+    fills as before."""
     rows = -(-n // cols)
     w = (SW - left - right - (cols - 1) * gap) / cols
-    h = (bottom - top - (rows - 1) * gap) / rows
+    natural = (bottom - top - (rows - 1) * gap) / rows
+    h = natural
+    grid_top = top
+    if max_row_h is not None and natural > max_row_h:
+        h = max_row_h
+        used = rows * h + (rows - 1) * gap
+        # sit the grid a THIRD of the way down the leftover space, not centred: a small
+        # top margin plus a slightly larger bottom one reads as deliberate padding, where
+        # an equal split leaves an obvious hole under the header.
+        grid_top = top + max(0.0, (bottom - top - used)) / 3
     for i in range(n):
         r, c = divmod(i, cols)
-        yield i, left + c * (w + gap), top + r * (h + gap), w, h
+        yield i, left + c * (w + gap), grid_top + r * (h + gap), w, h
 
 
 def _footer_bar(slide, text, fill=NAVY, height=0.62):
@@ -207,7 +281,7 @@ def draw_pain_point_list(slide, data):
         colour = _accent(i)
         _card(slide, MARGIN, t, w, h, CARD, BORDER)
         _bar(slide, MARGIN, t, 0.055, h, colour)                 # coloured left edge
-        _chip(slide, MARGIN + 0.24, t + (h - 0.34) / 2, 0.34, colour)
+        _chip(slide, MARGIN + 0.24, t + (h - 0.34) / 2, 0.34, colour, _pop_icon(data))
         _text(slide, MARGIN + 0.70, t, 2.55, h, row.get("label", ""),
               SZ_CARD_TITLE, LABEL, bold=True, font=FONT_HEAD, anchor="ctr")
         _bar(slide, MARGIN + 3.35, t + 0.18, 0.008, h - 0.36, BORDER)   # hairline divider
@@ -224,33 +298,55 @@ def draw_platform_overview(slide, data):
     footer_title = data.get("footer_title") or ""
     footer_items = data.get("footer_items") or []
 
+    # Distribute the body vertically so it fills the slide rather than clustering at the
+    # top with a gap above the footer (the white space the owner reported, 2026-07-13).
+    footer_h = 0.72 if (footer_title or footer_items) else 0.0
+    body_bottom = BOTTOM - (footer_h + (0.24 if footer_h else 0))
+    # the stat row and the capability row share the space above the footer, gap between
+    stat_h = 1.70 if stats else 0.0
+    cap_label_h = 0.34 if caps else 0.0
+    if stats and caps:
+        gap_mid = 0.34
+        cap_h = body_bottom - TOP - stat_h - gap_mid - cap_label_h
+        cap_h = max(0.9, min(cap_h, 1.9))              # a chip + a label, not a banner
+    else:
+        cap_h = body_bottom - TOP - cap_label_h
+
     if stats:
-        h = 1.30
         w = (SW - 2 * MARGIN - (len(stats) - 1) * GAP) / len(stats)
+        # a source stat card leads with an icon, then the number, then the label; mirror
+        # that. Drawing a chip here also consumes the source's stat icons in order, so the
+        # capability chips below get the CAPABILITY icons and not the stat ones.
+        has_icons = bool((data or {}).get("_icons"))
+        icon_h = 0.42 if has_icons else 0.0
+        block_h = icon_h + 0.90
+        vy = TOP + (stat_h - block_h) / 2
         for i, s in enumerate(stats):
             l = MARGIN + i * (w + GAP)
             colour = _accent(i)
-            _card(slide, l, TOP, w, h, WHITE, BORDER)
-            _bar(slide, l, TOP, w, 0.045, colour)                # coloured top rule
-            _text(slide, l, TOP + 0.24, w, 0.62, s.get("value", ""), SZ_STAT, colour,
+            _card(slide, l, TOP, w, stat_h, WHITE, BORDER)
+            _bar(slide, l, TOP, w, 0.05, colour)                 # coloured top rule
+            if has_icons:
+                _chip(slide, l + (w - icon_h) / 2, vy, icon_h, colour, _pop_icon(data))
+            _text(slide, l, vy + icon_h, w, 0.62, s.get("value", ""), SZ_STAT, colour,
                   bold=True, align=PP_ALIGN.CENTER, font=FONT_HEAD)
-            _text(slide, l, TOP + 0.90, w, 0.28, (s.get("label", "") or "").upper(),
+            _text(slide, l, vy + icon_h + 0.64, w, 0.28, (s.get("label", "") or "").upper(),
                   SZ_SMALL, LABEL, bold=True, align=PP_ALIGN.CENTER)
 
-    cap_top = TOP + 1.60
+    cap_top = TOP + stat_h + (0.34 if stats else 0)
     if caps:
         _label(slide, MARGIN, cap_top, 4.0, "Core capabilities", LABEL, 11)
         cw = (SW - 2 * MARGIN - (len(caps) - 1) * GAP) / len(caps)
-        ct = cap_top + 0.36
+        ct = cap_top + cap_label_h
         for i, c in enumerate(caps):
             l = MARGIN + i * (cw + GAP)
-            _card(slide, l, ct, cw, 0.86, CARD, BORDER)
-            _chip(slide, l + (cw - 0.30) / 2, ct + 0.12, 0.30, _accent(i))
-            _text(slide, l + 0.06, ct + 0.50, cw - 0.12, 0.30, c,
+            _card(slide, l, ct, cw, cap_h, CARD, BORDER)
+            _chip(slide, l + (cw - 0.36) / 2, ct + (cap_h - 0.60) / 2 - 0.02, 0.36, _accent(i), _pop_icon(data))
+            _text(slide, l + 0.06, ct + (cap_h - 0.60) / 2 + 0.40, cw - 0.12, 0.30, c,
                   SZ_SMALL, LABEL, bold=True, align=PP_ALIGN.CENTER)
 
     if footer_title or footer_items:
-        h = 0.72
+        h = footer_h
         t = BOTTOM - h
         _bar(slide, MARGIN, t, SW - 2 * MARGIN, h, NAVY)
         _bar(slide, MARGIN, t, 0.06, h, RED)
@@ -266,7 +362,7 @@ def draw_platform_overview(slide, data):
 # ═════════════════════════════════════════════════════════════════════════════
 def _stage_lane(slide, l, t, w, h, title, stages, colour):
     _card(slide, l, t, w, h, WHITE, BORDER)
-    _chip(slide, l + PAD, t + PAD, 0.28, colour)
+    _chip(slide, l + PAD, t + PAD, 0.28, colour)   # a lane header, not a per-card icon
     _text(slide, l + PAD + 0.40, t + PAD - 0.02, w - 0.80, 0.32, (title or "").upper(),
           11, LABEL, bold=True, font=FONT_HEAD)
     stages = (stages or [])[:4]
@@ -358,7 +454,7 @@ def draw_comparison_split(slide, data):
             colour = _accent(i)
             _card(slide, MARGIN, t, left_w, fh, WHITE, BORDER)
             _bar(slide, MARGIN, t, 0.055, fh, colour)
-            _chip(slide, MARGIN + 0.22, t + 0.14, 0.24, colour)
+            _chip(slide, MARGIN + 0.22, t + 0.14, 0.24, colour, _pop_icon(data))
             _text(slide, MARGIN + 0.56, t + 0.10, left_w - 0.75, 0.28,
                   f.get("heading", ""), 12, LABEL, bold=True, font=FONT_HEAD)
             _text(slide, MARGIN + 0.22, t + 0.42, left_w - 0.44, fh - 0.52,
@@ -402,25 +498,33 @@ def draw_pillar_grid(slide, data):
         return
     n = len(pillars)
     cols = 2 if n in (2, 4) else min(3, n)
-    for i, l, t, w, h in _grid(n, cols):
+    # the height the fullest card actually needs. Body wraps to ~2 lines; every point is
+    # kept (owner: never drop content), so budget for the true max, not a cap.
+    max_pts = max((len(p.get("points") or []) for p in pillars), default=0)
+    card_h = 1.90 + max_pts * 0.34 + 0.24
+    for i, l, t, w, h in _grid(n, cols, max_row_h=card_h):
         p = pillars[i]
         colour = _accent(i)
         _card(slide, l, t, w, h, WHITE, BORDER)
         _bar(slide, l, t, w, 0.045, colour)
-        _chip(slide, l + PAD, t + 0.22, 0.40, colour)
+        _chip(slide, l + PAD, t + 0.22, 0.40, colour, _pop_icon(data))
         _text(slide, l + w - 0.95, t + 0.16, 0.80, 0.52, "%02d" % (i + 1),
               26, GHOST, bold=True, align=PP_ALIGN.RIGHT, font=FONT_HEAD)
         _text(slide, l + PAD, t + 0.74, w - 2 * PAD, 0.34, p.get("heading", ""),
               SZ_CARD_TITLE, LABEL, bold=True, font=FONT_HEAD)
         _text(slide, l + PAD, t + 1.10, w - 2 * PAD, 0.62, p.get("body", ""), SZ_BODY, BODY)
-        pts = (p.get("points") or [])[:4]
-        py = t + 1.78
-        for pt in pts:
-            if py + 0.24 > t + h - 0.06:
-                break
-            _tick(slide, l + PAD, py, colour)
-            _text(slide, l + PAD + 0.20, py, w - 2 * PAD - 0.20, 0.24, pt, SZ_SMALL, BODY)
-            py += 0.26
+        pts = p.get("points") or []       # keep every point; no cap
+        if pts:
+            # fit ALL points in the remaining card height, shrinking the step (and, when
+            # it's tight, the text) rather than dropping any
+            py0 = t + 1.80
+            avail = (t + h - 0.12) - py0
+            step = max(0.19, min(0.52, avail / len(pts)))
+            pt_sz = SZ_SMALL if step >= 0.24 else 8
+            for j, pt in enumerate(pts):
+                py = py0 + j * step
+                _tick(slide, l + PAD, py, colour)
+                _text(slide, l + PAD + 0.20, py - 0.03, w - 2 * PAD - 0.20, step, pt, pt_sz, BODY)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -496,7 +600,7 @@ def draw_agent_architecture(slide, data):
             colour = _accent(idx); idx += 1
             _card(slide, l, t, w, row_h, WHITE, BORDER)
             _bar(slide, l, t, w, 0.045, colour)
-            _chip(slide, l + PAD, t + 0.20, 0.28, colour)
+            _chip(slide, l + PAD, t + 0.20, 0.28, colour, _pop_icon(data))
             _text(slide, l + PAD + 0.40, t + 0.18, w - 0.90, 0.32, a.get("name", ""),
                   12, LABEL, bold=True, font=FONT_HEAD)
             _bar(slide, l + PAD, t + 0.58, w - 2 * PAD, 0.008, BORDER)
@@ -527,7 +631,7 @@ def draw_governance_list(slide, data):
     for i, it in enumerate(items):
         t = TOP + i * (h + GAP)
         colour = _accent(i)
-        _chip(slide, spine_x - 0.19, t + h / 2 - 0.19, 0.38, colour)
+        _chip(slide, spine_x - 0.19, t + h / 2 - 0.19, 0.38, colour, _pop_icon(data))
         l = 1.15
         w = SW - MARGIN - l
         _card(slide, l, t, w, h, WHITE, BORDER)
@@ -555,7 +659,7 @@ def draw_guardrail_columns(slide, data):
         colour = _accent(i)
         _card(slide, l, TOP, w, bottom - TOP, CARD, BORDER)
         _bar(slide, l, TOP, w, 0.045, colour)
-        _chip(slide, l + PAD, TOP + 0.24, 0.40, colour)
+        _chip(slide, l + PAD, TOP + 0.24, 0.40, colour, _pop_icon(data))
         _text(slide, l + PAD, TOP + 0.80, w - 2 * PAD, 0.36, c.get("heading", ""),
               SZ_CARD_TITLE, LABEL, bold=True, font=FONT_HEAD)
         py = TOP + 1.26
@@ -598,7 +702,7 @@ def draw_opportunity_cards(slide, data):
         colour = _accent(i)
         _card(slide, l, TOP, w, h, WHITE, BORDER)
         _bar(slide, l, TOP, w, 0.045, colour)
-        _chip(slide, l + PAD, TOP + 0.20, 0.40, colour)
+        _chip(slide, l + PAD, TOP + 0.20, 0.40, colour, _pop_icon(data))
         _text(slide, l + w - 1.10, TOP + 0.14, 0.95, 0.66, "%02d" % (i + 1),
               30, GHOST, bold=True, align=PP_ALIGN.RIGHT, font=FONT_HEAD)
         _text(slide, l + PAD, TOP + 0.72, w - 2 * PAD, 0.60, (c.get("heading", "") or "").upper(),

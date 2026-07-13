@@ -561,10 +561,10 @@ def pillar_deepdive_from_content(content, context=None):
 
 
 def _normalize_pillar(data):
-    blocks_in = [b for b in (data.get("blocks") or []) if isinstance(b, dict)][:4]
+    blocks_in = [b for b in (data.get("blocks") or []) if isinstance(b, dict)][:6]
     blocks = []
     for b in blocks_in:
-        subs = [_clean(s) for s in (b.get("subpoints") or []) if _clean(s)][:4]
+        subs = [_clean(s) for s in (b.get("subpoints") or []) if _clean(s)][:10]
         heading = _clean(b.get("heading"))
         if not (heading or subs):
             continue
@@ -608,7 +608,7 @@ def scored_list_from_content(content, context=None):
 
 
 def _normalize_scored_list(data):
-    rows_in = [r for r in (data.get("rows") or []) if isinstance(r, dict)][:8]
+    rows_in = [r for r in (data.get("rows") or []) if isinstance(r, dict)][:14]
     rows = []
     for r in rows_in:
         name = _clean(r.get("name"))
@@ -1064,7 +1064,7 @@ def _head_fields(data, content_type):
 def _normalize_pain_point_list(data):
     rows = [{"label": _clean(r.get("label")) or "Untitled",
              "body": _clean(r.get("body")) or "Content to be defined."}
-            for r in _dicts(data, "rows", 6)]
+            for r in _dicts(data, "rows", 16)]
     if not rows:
         rows = [{"label": "Untitled", "body": "Content to be defined."}]
     return dict(_head_fields(data, "pain_point_list"), rows=rows)
@@ -1111,7 +1111,7 @@ def _stages(data, key):
 
 def _normalize_before_after_split(data):
     qs = [{"title": _clean(q.get("title")) or "Question",
-           "body": _clean(q.get("body"))} for q in _dicts(data, "questions", 5)]
+           "body": _clean(q.get("body"))} for q in _dicts(data, "questions", 6)]
     return dict(_head_fields(data, "before_after_split"),
                 intro=_clean(data.get("intro")),
                 before_title=_clean(data.get("before_title")) or "Before",
@@ -1166,7 +1166,7 @@ def comparison_split_from_content(content, context=None):
 def _normalize_pillar_grid(data):
     pillars = [{"heading": _clean(p.get("heading")) or "Untitled",
                 "body": _clean(p.get("body")),
-                "points": _strs(p, "points", 4)} for p in _dicts(data, "pillars", 6)]
+                "points": _strs(p, "points", 10)} for p in _dicts(data, "pillars", 8)]
     if not pillars:
         pillars = [{"heading": "Untitled", "body": "", "points": []}]
     return dict(_head_fields(data, "pillar_grid"), pillars=pillars)
@@ -1250,7 +1250,7 @@ def _normalize_guardrail_columns(data):
     cols = []
     for c in _dicts(data, "columns", 4):
         pts = [{"lead": _clean(p.get("lead")) or "Point",
-                "body": _clean(p.get("body"))} for p in _dicts(c, "points", 4)]
+                "body": _clean(p.get("body"))} for p in _dicts(c, "points", 8)]
         cols.append({"heading": _clean(c.get("heading")) or "Untitled", "points": pts})
     if not cols:
         cols = [{"heading": "Untitled", "points": []}]

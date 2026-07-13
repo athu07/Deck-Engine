@@ -40,5 +40,21 @@
       <div class="side-tip"><i class="ti ti-info-circle"></i> Content is preserved exactly — only fonts, heading colours and the J2W accent bar are applied. The original layout is kept, rebranded.</div>
       {% endif %}
     </div>
+
+    {% if mode == 'recreate' and report %}
+    <div class="card" style="margin-top:14px">
+      <h2 class="sec-title" style="margin-bottom:4px">What we did, slide by slide</h2>
+      <p class="hint" style="font-size:12px;margin:0 0 10px">Every source slide, and how it was rebuilt. Not a black box.</p>
+      <ul class="recreate-report">
+        {% for r in report %}
+        <li>
+          <span class="rr-n">{{ r.slide }}</span>
+          <span class="rr-badge {{ 'is-recreated' if r.outcome == 'recreated' else 'is-restyled' }}">{{ r.shape }}</span>
+          <span class="rr-text">{{ r.preview }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
   </aside>
 </div>

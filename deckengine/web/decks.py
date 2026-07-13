@@ -516,9 +516,10 @@ def _build_review_slides(ids, client):
             # the raw [BRACKET] placeholders as "editable fields" would be confusing.
             slides.append({"kind": "skills", "id": sid})
         elif sid in by_id:                                       # master library slide (CSxx)
-            fields = [(idx, label, text.replace("[CLIENT]", client))
-                      for idx, label, text in editor.editable_fields(by_id[sid])]
-            slides.append({"kind": "library", "id": sid, "fields": fields})
+            # A predefined slide is shown as a read-only PREVIEW -- the real rendered slide,
+            # exactly as it appears in the download. It is not edited on /review; it goes
+            # into the deck as-is (owner's spec, 2026-07-13).
+            slides.append({"kind": "library", "id": sid})
         elif sid in store:                                     # content-store case
             slides.append(_case_slide(sid, store[sid]))
         elif sid.startswith("NEW:"):                           # pasted or AI-created slide

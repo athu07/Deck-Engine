@@ -71,38 +71,46 @@ def _slug(s):
     return re.sub(r"[^A-Za-z0-9_-]+", "_", s or "").strip("_") or "Deck"
 
 
-@bp.route("/template/reskin", methods=["POST"])
-def template_reskin():
-    f = request.files.get("deck_file")
-    if not f or not getattr(f, "filename", ""):
-        return redirect("/templates")
-    data = f.read()
-    try:                                          # reject non-pptx up front
-        Presentation(io.BytesIO(data))
-    except Exception:
-        body = render_template("templates_page.html", items=[],
-                               reskin_error="Couldn't read that file — please upload a valid .pptx.")
-        return shell(body, active="templates", crumb="<b>Templates</b>")
-    # rebrand the original deck in place (nothing dropped), then render true previews
-    os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-    fname = "Reskinned_" + _slug(os.path.splitext(f.filename)[0]) + ".pptx"
-    out = os.path.join(config.OUTPUT_DIR, fname)
-    try:
-        reskin.restyle_deck(data, out)
-    except (PermissionError, OSError) as e:
-        from .view_helpers import file_busy_page
-        return file_busy_page(str(e))
-    rdir = os.path.join(config.RENDERS_DIR, "reskin")
-    shutil.rmtree(rdir, ignore_errors=True)
-    try:
-        pngs = reskin.render_pngs(out, rdir)
-    except Exception:
-        pngs = []
-    images = ["/static/renders/reskin/" + os.path.basename(p) for p in pngs]
-    nslides = len(Presentation(out).slides._sldIdLst)
-    body = render_template("reskin_preview.html", images=images, nslides=nslides,
-                           filename=fname, src_name=f.filename, mode="reskin")
-    return shell(body, active="templates", crumb="<b>Templates</b> / Re-skin preview")
+# ── F2: "Re-skin a deck" -- DISABLED (owner's spec, 2026-07-13).
+#    Re-skin restyles the uploaded deck's shapes in place. Recreate-with-AI now does
+#    strictly more (it rebuilds each slide's LAYOUT to fit its content, and falls back to
+#    exactly this restyle for a slide that doesn't fit) -- so the two overlapped, and
+#    Re-skin was retired as a user feature. reskin.py STAYS: Recreate leans on its
+#    restyle helpers (17 call sites) and its PNG renderer. To restore the feature,
+#    uncomment this route and its card in templates_page.html.
+#
+# @bp.route("/template/reskin", methods=["POST"])
+# def template_reskin():
+#     f = request.files.get("deck_file")
+#     if not f or not getattr(f, "filename", ""):
+#         return redirect("/templates")
+#     data = f.read()
+#     try:                                          # reject non-pptx up front
+#         Presentation(io.BytesIO(data))
+#     except Exception:
+#         body = render_template("templates_page.html", items=[],
+#                                reskin_error="Couldn't read that file — please upload a valid .pptx.")
+#         return shell(body, active="templates", crumb="<b>Templates</b>")
+#     # rebrand the original deck in place (nothing dropped), then render true previews
+#     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+#     fname = "Reskinned_" + _slug(os.path.splitext(f.filename)[0]) + ".pptx"
+#     out = os.path.join(config.OUTPUT_DIR, fname)
+#     try:
+#         reskin.restyle_deck(data, out)
+#     except (PermissionError, OSError) as e:
+#         from .view_helpers import file_busy_page
+#         return file_busy_page(str(e))
+#     rdir = os.path.join(config.RENDERS_DIR, "reskin")
+#     shutil.rmtree(rdir, ignore_errors=True)
+#     try:
+#         pngs = reskin.render_pngs(out, rdir)
+#     except Exception:
+#         pngs = []
+#     images = ["/static/renders/reskin/" + os.path.basename(p) for p in pngs]
+#     nslides = len(Presentation(out).slides._sldIdLst)
+#     body = render_template("reskin_preview.html", images=images, nslides=nslides,
+#                            filename=fname, src_name=f.filename, mode="reskin")
+#     return shell(body, active="templates", crumb="<b>Templates</b> / Re-skin preview")
 
 
 # ── F5: "Recreate with AI" -- rebuild an uploaded deck in J2W's own layouts ────
@@ -141,7 +149,7 @@ def template_recreate():
                  "title/closing.")
     body = render_template("reskin_preview.html", images=images, nslides=nslides,
                            filename=fname, src_name=f.filename, stats_line=stats_line,
-                           mode="recreate")
+                           report=stats.get("report", []), mode="recreate")
     return shell(body, active="templates", crumb="<b>Templates</b> / Recreate preview")
 
 
