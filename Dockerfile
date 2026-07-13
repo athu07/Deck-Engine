@@ -15,6 +15,12 @@ COPY . .
 
 RUN mkdir -p output meetings staging build_context static/renders
 
+# The review page's slide previews are committed (static/previews/, built by
+# scripts/prerender_master.py). This is a safety net: if the master deck changed and
+# nobody re-ran the script, regenerate here, where LibreOffice IS present. A no-op --
+# and instant -- when the committed previews already match the deck's content hash.
+RUN python scripts/prerender_master.py || true
+
 EXPOSE 5000
 
 CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120"]

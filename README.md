@@ -63,6 +63,14 @@ are volume-mounted so generated decks and history persist across restarts.
 Optional env overrides (default to the repo root): `DECK_OUTPUT_DIR`,
 `DECK_MEETINGS_DIR`, `DECK_STAGING_DIR`.
 
+**Slide previews on the review page.** The review page shows a rendered picture of
+each master-deck slide. Those images are pre-rendered and **committed** under
+`static/previews/`, so a host without LibreOffice — a plain Render *web service*, not a
+Docker service — still serves them. **When you change the master deck, re-run
+`python scripts/prerender_master.py` and commit `static/previews/`.** The Docker build
+also runs it as a safety net. (Needs `libreoffice-impress` + `poppler-utils`, which the
+Dockerfile installs; the render itself is only ever done at build time, never per request.)
+
 ## Tests
 
 ```bash

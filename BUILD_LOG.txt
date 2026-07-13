@@ -4064,3 +4064,43 @@ no preview (2026-07-10)
    slide; CS04 is "WHAT WE OFFER / Three Interlocking Revenue Engines", matching
    the review card); first call 12.8s, every call after 0.000s; unknown id ->
    None -> 404. 48/48 pytest green.
+
+FIX: review-page slide previews were blank on the deployed (Render) app (2026-07-13)
+Athithia: locally the previews show (after a slow first load); on Render every
+one falls back to "this server can't render slide previews".
+ROOT CAUSE, three compounding:
+  1. The previews were RENDERED AT RUNTIME with LibreOffice + pdftoppm. A plain
+     Render web service (native Python env, not Docker) has NEITHER on the PATH,
+     so render_pngs() returned [], master_slide_png() returned None, and every
+     /slide/<id>/preview.png 404'd -> the fallback on all 13 slides.
+  2. The runtime cache lived under static/renders/, which is git-ignored and on
+     Render's EPHEMERAL disk -- empty on every deploy and cold start. (This is
+     also the "slow first load" locally: the 40-slide LibreOffice pass ran on
+     the first request, ~13-20s.)
+  3. The cache key was the master deck's MTIME, which git checkout rewrites, so
+     even a Docker deploy's build-time render could never be found at runtime.
+FIX: pre-render at BUILD time, ship the images, look them up by CONTENT HASH.
+  - New scripts/prerender_master.py renders all 40 master slides to
+    static/previews/master/<sha1[:10]>/CSxx.webp and COMMITS them. WebP, ~1170px
+    wide (the review card's size), 2.0 MB for all 40 -- 58% lighter than PNG at a
+    size no one can tell apart. On-screen size unchanged: the card frames them
+    16:9 regardless.
+  - preview.master_slide_png() now checks the SHIPPED dir first (a stat, always),
+    then a runtime cache, then a live render only if this host happens to have
+    the tools. Keyed by sha1 of the deck bytes, not mtime.
+  - New config.SLIDE_PREVIEWS_DIR (static/previews/, tracked); static/renders/
+    stays the ignored runtime cache.
+  - The route serves image/webp; browsers decode it fine despite the .png URL.
+  - Dockerfile runs the script as a safety net (no-op when the committed
+    previews already match the deck hash). README documents: re-run + commit
+    whenever the master deck changes.
+VERIFIED: with reskin._on_path stubbed to False (no LibreOffice at all -- the
+exact Render case), CS01/CS04 still resolve from the shipped .webp; the route
+returns 200 image/webp from the committed file with no render; an unknown id
+still 404s cleanly. Two new tests: every CSxx has a shipped preview, and they
+serve with the render tools absent; plus the key is content-not-mtime. 50/50
+pytest green.
+NOTE for the owner: this fixes a Render WEB SERVICE. If Render is instead
+running the Dockerfile (a Render "Docker" service), it already had LibreOffice
+and the committed previews just make the first load instant. Either way it now
+works; the committed images are the belt, the Dockerfile step is the braces.

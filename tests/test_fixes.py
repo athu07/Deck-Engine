@@ -756,6 +756,45 @@ def test_review_page_can_now_edit_every_pasted_shape(tmp_path, monkeypatch):
     assert len(back["boxes"]) >= 2            # normalizer re-padded: box_grid needs 2+
 
 
+def test_master_previews_ship_and_serve_without_libreoffice(monkeypatch):
+    """The review page shows a picture of each master-deck slide. Those previews are
+    COMMITTED (static/previews/), so a server with no LibreOffice -- a plain Render web
+    service -- still serves them. Rendering at runtime meant every preview 404'd there
+    (owner-reported, 2026-07-10), and paid a 40-slide conversion on every cold start
+    where the tools DID exist."""
+    _chdir()
+    from deckengine.services.rendering import preview, reskin
+
+    # every CSxx slide in the master must have a shipped preview keyed by content hash
+    from pptx import Presentation
+    from deckengine import config
+    from deckengine.services.content.build_library import read_id
+    ids = [i for i in (read_id(s) for s in Presentation(config.MASTER_DECK).slides) if i]
+    shipped = preview._shipped_dir()
+    import os
+    missing = [i for i in ids if not os.path.exists(os.path.join(shipped, i + ".webp"))]
+    assert not missing, ("no shipped preview for %s -- run scripts/prerender_master.py "
+                         "and commit static/previews/" % missing)
+
+    # and they resolve with the render tools entirely absent
+    monkeypatch.setattr(reskin, "_on_path", lambda name: False)
+    assert preview.master_slide_png("CS01")
+    assert preview.master_slide_png("NOPE99") is None    # unknown id, still no crash
+
+
+def test_master_preview_key_is_content_not_mtime(tmp_path, monkeypatch):
+    """The key must be the deck's CONTENT, not its mtime: git checkout rewrites mtimes,
+    so an mtime key could never match a build-time render."""
+    _chdir()
+    from deckengine.services.rendering import preview
+    k1 = preview.master_key()
+    # touching the file (new mtime, same bytes) must NOT change the key
+    import os, time
+    os.utime(__import__("deckengine").config.MASTER_DECK, None)
+    preview._master_key_cache.clear()
+    assert preview.master_key() == k1
+
+
 def test_draft_with_ai_button_survives_quotes_in_the_gap_text():
     """The button used to be onclick="draftAI({{ m.name|tojson }}, ...)". |tojson emits
     real double quotes, so the HTML attribute ended at the first one and the browser only

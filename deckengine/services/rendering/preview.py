@@ -58,21 +58,47 @@ def _render_first_slide(pptx_path, dest_png):
 # The review page shows a library slide as a title and a subtitle, because those are the
 # only two fields the engine can edit. Everything else on the slide -- the bullets, the
 # tables, the charts, the diagrams -- was invisible until you downloaded the .pptx. This
-# renders the real thing.
+# serves the real thing.
 #
-# The whole master deck converts in ONE LibreOffice pass (40 slides, ~8.5s measured), so
-# render it once and key each page to its slide id, rather than paying a separate 3-second
-# render per slide per review page. The cache is keyed on the master deck's mtime, so
-# editing the master invalidates every preview automatically.
+# These are PRE-RENDERED and COMMITTED (scripts/prerender_master.py -> static/previews/).
+# Rendering them at runtime was wrong twice over:
+#   * a plain Render web service has no LibreOffice and no pdftoppm, so it could render
+#     nothing at all and every preview 404'd (owner-reported, 2026-07-10);
+#   * a server that DOES have them paid a 40-slide conversion on the first request after
+#     every cold start, and Render's disk is ephemeral so that was every deploy.
+# Runtime rendering survives only as a fallback for a master deck that changed without
+# anyone re-running the script.
+#
+# The key is the master deck's CONTENT HASH, not its mtime: `git checkout` rewrites
+# mtimes, so an mtime key could never match a build-time render.
 _MASTER_LOCK = threading.Lock()
+_master_key_cache = {}
+
+
+def master_key():
+    """Short content hash of the master deck. Change the deck, change the key, and every
+    preview invalidates itself."""
+    import hashlib
+    try:
+        stat = os.stat(config.MASTER_DECK)
+    except OSError:
+        return "none"
+    stamp = (stat.st_mtime, stat.st_size)
+    if _master_key_cache.get("stamp") != stamp:
+        with open(config.MASTER_DECK, "rb") as f:
+            _master_key_cache["key"] = hashlib.sha1(f.read()).hexdigest()[:10]
+        _master_key_cache["stamp"] = stamp
+    return _master_key_cache["key"]
+
+
+def _shipped_dir():
+    """Where scripts/prerender_master.py writes, and what the image/repo carries."""
+    return os.path.join(config.SLIDE_PREVIEWS_DIR, "master", master_key())
 
 
 def _master_cache_dir():
-    try:
-        stamp = int(os.path.getmtime(config.MASTER_DECK))
-    except OSError:
-        stamp = 0
-    return os.path.join(config.RENDERS_DIR, "master", str(stamp))
+    """Where a runtime render lands, if one is ever needed."""
+    return os.path.join(config.RENDERS_DIR, "master", master_key())
 
 
 def _build_master_cache(cache_dir):
@@ -92,30 +118,42 @@ def _build_master_cache(cache_dir):
         tmp_dir = cache_dir + ".partial"
         shutil.rmtree(tmp_dir, ignore_errors=True)
         os.makedirs(tmp_dir, exist_ok=True)
+        from PIL import Image
         for sid, png in zip(ids, pngs):
             if sid:                       # template slides carry no J2W_ID
-                shutil.move(png, os.path.join(tmp_dir, sid + ".png"))
+                Image.open(png).convert("RGB").save(
+                    os.path.join(tmp_dir, sid + ".webp"), "WEBP", quality=85, method=6)
         os.replace(tmp_dir, cache_dir)    # atomic: a reader sees all of it or none
     return cache_dir
 
 
 def master_slide_png(sid):
-    """The rendered PNG path for one master-deck slide (CSxx), or None.
+    """The PNG path for one master-deck slide (CSxx), or None.
 
-    First call for a given master deck renders all 40 slides (~8.5s) and caches them;
-    every call after that is a stat(). Serialised, so ten browsers asking at once render
-    it once. Fail-safe: no LibreOffice, no preview -- the caller shows the text card."""
+    Three places, in order:
+      1. the SHIPPED previews (static/previews/master/<hash>/) -- a stat(), always;
+      2. a runtime cache from an earlier render this process did;
+      3. a fresh render, if this server happens to have LibreOffice.
+    Fail-safe: none of the three -> None, and the review card says so plainly rather
+    than showing a broken image."""
+    name = sid + ".webp"
+
+    shipped = os.path.join(_shipped_dir(), name)
+    if os.path.exists(shipped):
+        return shipped
+
     cache_dir = _master_cache_dir()
-    path = os.path.join(cache_dir, sid + ".png")
+    path = os.path.join(cache_dir, name)
     if os.path.exists(path):
         return path
+
     with _MASTER_LOCK:
         if os.path.exists(path):         # another thread built it while we waited
             return path
         try:
             _build_master_cache(cache_dir)
         except Exception:
-            return None
+            return None                  # no LibreOffice, or the deck changed underneath
         # drop caches for older versions of the master deck
         for stale in glob.glob(os.path.join(config.RENDERS_DIR, "master", "*")):
             if stale != cache_dir:

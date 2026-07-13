@@ -64,8 +64,9 @@ def slide_preview(sid):
     from deckengine.services.rendering import preview
     path = preview.master_slide_png(sid.upper())
     if not path:
-        abort(404)                       # no LibreOffice -> the page falls back to text
-    return send_file(path, mimetype="image/png", max_age=86400)
+        abort(404)                       # no preview available -> the page falls back to text
+    mime = "image/webp" if path.endswith(".webp") else "image/png"
+    return send_file(path, mimetype=mime, max_age=86400)
 
 
 @bp.route("/slide/<sid>/download")
