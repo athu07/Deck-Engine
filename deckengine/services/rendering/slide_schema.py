@@ -191,6 +191,40 @@ SCHEMA = {
                  [_t("heading", "Heading"), _t("opportunity", "The opportunity", "textarea"),
                   _t("outcome", "The outcome", "textarea")]),
     ],
+    # ── added 2026-07-14 ──────────────────────────────────────────────────────
+    "cover_brief": [
+        _t("title", "Title"),
+        _t("subhead", "Subhead"),
+        _t("intro", "Intro line", "textarea"),
+        _t("chips", "Highlight chips", "strings"),
+    ],
+    "pain_advantage_split": [
+        _t("title", "Title"),
+        _t("subhead", "Subhead"),
+        _t("intro", "Intro line", "textarea"),
+        _t("left_title", "Left lane title"),
+        _objects("left_rows", "Left lane points", "Point",
+                 [_t("lead", "Bold lead-in"), _t("body", "Rest of the point", "textarea")]),
+        _t("right_title", "Right lane title"),
+        _objects("right_rows", "Right lane points", "Point",
+                 [_t("lead", "Bold lead-in"), _t("body", "Rest of the point", "textarea")]),
+        _t("strip_label", "Closing strip label"),
+        _objects("strip_stats", "Closing strip stats", "Stat",
+                 [_t("value", "Value"), _t("label", "Label")]),
+    ],
+    "stat_table_callout": [
+        _t("title", "Title"),
+        _t("subhead", "Subhead"),
+        _t("intro", "Intro", "textarea"),
+        _objects("stats", "Headline stats", "Stat",
+                 [_t("value", "Value"), _t("label", "Label")]),
+        _t("col_labels", "Column headings", "strings"),
+        _objects("rows", "Table rows", "Row",
+                 [_t("col1", "Column 1"), _t("col2", "Column 2"), _t("col3", "Column 3")]),
+        _t("callout_label", "Callout label"),
+        _t("callout_body", "Callout text", "textarea"),
+        _t("closing", "Closing tagline"),
+    ],
 }
 
 
@@ -228,6 +262,9 @@ def normalize(content_type, data, industry=""):
         "governance_list": slide_generator._normalize_governance_list,
         "guardrail_columns": slide_generator._normalize_guardrail_columns,
         "opportunity_cards": slide_generator._normalize_opportunity_cards,
+        "cover_brief": slide_generator._normalize_cover_brief,
+        "pain_advantage_split": slide_generator._normalize_pain_advantage_split,
+        "stat_table_callout": slide_generator._normalize_stat_table_callout,
     }.get(content_type)
     return fn(data) if fn else dict(data)
 

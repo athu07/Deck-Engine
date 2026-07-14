@@ -19,6 +19,7 @@ J2W-designed template slide when ready; keep the same marker tokens + tag.
 
 import copy
 import json
+import re
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
@@ -239,13 +240,120 @@ CASE_FIELDS_SPEC = (
 )
 
 
+_SECTION_MARKERS = {
+    "challenge": {"the challenge", "challenge"},
+    "solution": {"the solution", "solution"},
+    "capabilities": {"key capabilities", "capabilities"},
+    "results": {"results", "key results", "metrics", "outcomes"},
+}
+
+
+def _norm_marker(line):
+    return re.sub(r"[^a-z]+", " ", (line or "").lower()).strip()
+
+
+def _find_marker(blocks, names, start=0):
+    for i in range(start, len(blocks)):
+        if _norm_marker(blocks[i]) in names:
+            return i
+    return None
+
+
+_ALL_MARKERS = set().union(*_SECTION_MARKERS.values())
+
+
+def _split_glued_markers(blocks):
+    """A section marker ("Key Capabilities", "The Challenge", ...) is sometimes
+    typed with no blank line before what follows it -- glued onto the very next
+    line instead of sitting alone as its own paragraph (real example: "Key
+    Capabilities\\nEnd-to-End Procure-to-Pay" as ONE block). Split any block
+    whose first line IS a marker into the marker on its own, plus whatever
+    follows -- so every marker is reliably its own block no matter how the
+    salesperson's editor happened to wrap it."""
+    out = []
+    for b in blocks:
+        lines = b.splitlines()
+        if len(lines) > 1 and _norm_marker(lines[0]) in _ALL_MARKERS:
+            out.append(lines[0].strip())
+            rest = "\n".join(lines[1:]).strip()
+            if rest:
+                out.append(rest)
+        else:
+            out.append(b)
+    return out
+
+
+def _parse_formatted_case_study(content):
+    """If the paste is ALREADY in the house's own case-study format -- Title, [a
+    subheading line], The Challenge, The Solution, Key Capabilities (exactly 6
+    heading+body pairs), then 3 result value+caption pairs -- extract it directly,
+    with NO AI call at all. This is what keeps a title or a capability's own
+    heading from ever being reworded by a paraphrase: if it's already right, we
+    never touch it (owner's spec, 2026-07-14 -- a pasted "PO Processing &
+    Tracking" kept coming back as "Purchase Order Lifecycle Tracking" even
+    though nothing was wrong with the original).
+
+    Returns None the moment the shape isn't clearly there -- a missing section,
+    or fewer than 6 capability pairs / 3 result pairs -- so the caller falls back
+    to the AI-restructuring path for anything less than fully-formed input.
+    Never guesses; a partial match is not a match.
+    """
+    blocks = [b.strip() for b in re.split(r"\n\s*\n", (content or "").strip()) if b.strip()]
+    blocks = _split_glued_markers(blocks)
+    if len(blocks) < 4:
+        return None
+    title = blocks[0].splitlines()[0].strip()
+    if not title:
+        return None
+
+    i_challenge = _find_marker(blocks, _SECTION_MARKERS["challenge"])
+    i_solution = _find_marker(blocks, _SECTION_MARKERS["solution"],
+                              start=(i_challenge or -1) + 1)
+    i_caps = _find_marker(blocks, _SECTION_MARKERS["capabilities"],
+                          start=(i_solution or -1) + 1)
+    if i_challenge is None or i_solution is None or i_caps is None:
+        return None
+
+    challenge = "\n".join(blocks[i_challenge + 1:i_solution]).strip()
+    solution = "\n".join(blocks[i_solution + 1:i_caps]).strip()
+    if not challenge or not solution:
+        return None
+
+    rest = blocks[i_caps + 1:]
+    if len(rest) < 12:                      # need 6 full heading+body pairs
+        return None
+    cap_blocks, rest = rest[:12], rest[12:]
+    capabilities = [f"{cap_blocks[i]}: {cap_blocks[i + 1]}" for i in range(0, 12, 2)]
+
+    if rest and _norm_marker(rest[0]) in _SECTION_MARKERS["results"]:
+        rest = rest[1:]                     # a literal "Results" label, not a value
+    if len(rest) < 6:                       # need 3 full value+caption pairs
+        return None
+    res_blocks = rest[:6]
+    results = [f"{res_blocks[i]} {res_blocks[i + 1]}".strip() for i in range(0, 6, 2)]
+
+    return {"title": title, "challenge": challenge, "solution": solution,
+            "capabilities": capabilities, "results": results,
+            "review": {"quality": "Strong",
+                       "weakest": "", "fix": ""}}
+
+
 def case_from_content(content, context=None):
     """Turn a user's COMPLETE case-study content (pasted text or an uploaded document)
     into ONE J2W case-study record — preserving THEIR facts, client situation and
     numbers, only reformatting into our structure. Returns the structured fields
-    (+ 'review'); fails safe to a placeholder record."""
+    (+ 'review'); fails safe to a placeholder record.
+
+    If the paste is ALREADY in the house's proper case-study shape, it's parsed
+    directly (see _parse_formatted_case_study) — no AI call, so the title and
+    every capability's own heading come back byte-for-byte as written. Only
+    content that ISN'T cleanly structured that way goes through the AI
+    restructuring below."""
     context = context or {}
     industry = context.get("industry", "")
+    parsed = _parse_formatted_case_study(content)
+    if parsed is not None:
+        return _normalize_case_study(parsed, industry)
     prompt = (
         "Below is the COMPLETE content for ONE case study, provided by the user. Restructure "
         "it into J2W's case-study format. PRESERVE their facts: the client's situation, what "
@@ -1346,6 +1454,121 @@ def opportunity_cards_from_content(content, context=None):
         _normalize_opportunity_cards, "several opportunities, each paired with its outcome")
 
 
+# ── 11. cover_brief ───────────────────────────────────────────────────────────
+# Added 2026-07-14 (owner-reported): a title-page-style paste -- a title, an intro
+# line, and a row of short highlight facts (a confidentiality tag, a scope note, a
+# date...) -- had no matching shape, so it got forced into guardrail_columns, which
+# invented column headings that were never in the source and buried the facts as
+# sub-bullets under them.
+def _normalize_cover_brief(data):
+    chips = _strs(data, "chips", 6)
+    if not chips:
+        chips = ["Confidential"]
+    return dict(_head_fields(data, "cover_brief"),
+                intro=_clean(data.get("intro")), chips=chips)
+
+
+def cover_brief_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...","intro":"...",'
+        '"chips":["...",...]}\n'
+        "- title: PRESERVE the content's own title EXACTLY as written, do not reword it.\n"
+        "- subhead: PRESERVE the content's own subheading/tagline EXACTLY as written "
+        "(e.g. a partner pairing like 'Company X x Company Y'), empty if there is none.\n"
+        "- intro: the lead paragraph under the title, 1-3 sentences.\n"
+        "- chips: 2-6 short highlight facts called out separately from the main text "
+        "(e.g. a confidentiality tag, a scope note, a date, a headline figure), each a "
+        "few words, in the content's own order and wording -- do not invent a heading "
+        "or category for them, and do not fold them into the intro.\n",
+        _normalize_cover_brief, "a COVER OR OPENING slide -- a title, one intro "
+        "paragraph, and a row of short standalone highlight facts. NOT a case study, "
+        "NOT several parallel sections of prose")
+
+
+# ── 12. pain_advantage_split ──────────────────────────────────────────────────
+# Added 2026-07-14 (owner-reported): a two-column "current pain points" vs. "our
+# advantage" paste, plus a closing turnaround-stats strip, got forced into
+# pain_point_list, which has room for only ONE list -- the entire advantage column
+# and the stats strip were silently dropped.
+def _normalize_pain_advantage_split(data):
+    def _rows(key):
+        rows = [{"lead": _clean(r.get("lead")) or "Point", "body": _clean(r.get("body"))}
+                for r in _dicts(data, key, 6)]
+        return rows or [{"lead": "Point", "body": ""}]
+    stats = [{"value": _clean(s.get("value")) or "-", "label": _clean(s.get("label")) or "Untitled"}
+             for s in _dicts(data, "strip_stats", 4)]
+    return dict(_head_fields(data, "pain_advantage_split"),
+                intro=_clean(data.get("intro")),
+                left_title=_clean(data.get("left_title")) or "Current state",
+                left_rows=_rows("left_rows"),
+                right_title=_clean(data.get("right_title")) or "J2W advantage",
+                right_rows=_rows("right_rows"),
+                strip_label=_clean(data.get("strip_label")),
+                strip_stats=stats)
+
+
+def pain_advantage_split_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...","intro":"...",'
+        '"left_title":"...","left_rows":[{"lead":"...","body":"..."},...],'
+        '"right_title":"...","right_rows":[{"lead":"...","body":"..."},...],'
+        '"strip_label":"...","strip_stats":[{"value":"...","label":"..."},...]}\n'
+        "- left_title/right_title: PRESERVE the content's own two column headings "
+        "EXACTLY as written (e.g. 'CURRENT PAIN POINTS' / 'J2W ADVANTAGE').\n"
+        "- left_rows/right_rows: up to 5 each, in the content's own order -- keep BOTH "
+        "sides, never drop one. lead is the bold 2-4 word opener; body is the rest of "
+        "the point, one sentence.\n"
+        "- strip_label + strip_stats: the closing comparison strip (e.g. 'THE "
+        "TURNAROUND'), up to 4 value/label pairs; empty only if the content truly has "
+        "none -- never drop a closing stats strip that exists.\n",
+        _normalize_pain_advantage_split, "TWO PARALLEL COLUMNS of full-sentence points "
+        "(e.g. pain points vs. advantages, or current state vs. future state) -- NOT a "
+        "single list of problems")
+
+
+# ── 13. stat_table_callout ────────────────────────────────────────────────────
+# Added 2026-07-14 (owner-reported): headline stats ALONGSIDE a real multi-row data
+# table (e.g. "Area / Scale / Outcome") got forced into stat_overview, which has no
+# table concept at all -- the whole table was silently dropped, leaving only a few
+# stray words pulled from elsewhere on the slide.
+def _normalize_stat_table_callout(data):
+    stats = [{"value": _clean(s.get("value")) or "-", "label": _clean(s.get("label")) or "Untitled"}
+             for s in _dicts(data, "stats", 4)]
+    cols = _strs(data, "col_labels", 3)
+    while len(cols) < 3:
+        cols.append("")
+    rows = [{"col1": _clean(r.get("col1")) or "-", "col2": _clean(r.get("col2")),
+             "col3": _clean(r.get("col3"))} for r in _dicts(data, "rows", 8)]
+    return dict(_head_fields(data, "stat_table_callout"),
+                intro=_clean(data.get("intro")),
+                stats=stats or [{"value": "-", "label": "Untitled"}],
+                col_labels=cols, rows=rows,
+                callout_label=_clean(data.get("callout_label")),
+                callout_body=_clean(data.get("callout_body")),
+                closing=_clean(data.get("closing")))
+
+
+def stat_table_callout_from_content(content, context=None):
+    return _restructure(content, context,
+        'Return ONLY this JSON: {"title":"...","subhead":"...","intro":"...",'
+        '"stats":[{"value":"300+","label":"..."},...],'
+        '"col_labels":["...","...","..."],'
+        '"rows":[{"col1":"...","col2":"...","col3":"..."},...],'
+        '"callout_label":"...","callout_body":"...","closing":"..."}\n'
+        "- stats: up to 4 headline numbers. value is the figure ONLY.\n"
+        "- col_labels: EXACTLY 3 column headers for the table below, matching what the "
+        "content's own table actually tracks (e.g. ['Area','Scale','Outcome']).\n"
+        "- rows: up to 8 data rows, in the content's own order -- col1 the row's own "
+        "name, col2 its scale/figure, col3 its outcome/description. PRESERVE the real "
+        "table data; never drop rows or flatten them into a word list.\n"
+        "- callout_label + callout_body: one closing highlighted takeaway (e.g. a named "
+        "pillar/governance note), empty if the content has none.\n"
+        "- closing: one short closing tagline sentence, or empty.\n",
+        _normalize_stat_table_callout, "headline stats ALONGSIDE A REAL DATA TABLE of "
+        "several rows (not just a flat list of words) plus a closing highlighted "
+        "takeaway")
+
+
 # ── CONTENT_TEMPLATES registry ────────────────────────────────────────────────
 # The single source of truth for every built-in "quick content" slide shape --
 # classify_content() builds its prompt FROM this list, and callers (decks.py's
@@ -1385,26 +1608,48 @@ CONTENT_TEMPLATES = [
                       "often a figure/score attached to it",
      "builder": scored_list_from_content},
     {"key": "stat_overview", "label": "Headline stats overview",
-     "classify_desc": "a HEADLINE STATS OVERVIEW -- a handful of key numbers/"
-                      "metrics presented together, maybe alongside a short "
-                      "list of named components",
+     "classify_desc": "a HEADLINE STATS OVERVIEW, WITH NO TABLE ANYWHERE IN IT -- a "
+                      "handful of key numbers/metrics, maybe alongside a short list "
+                      "of named components (bare words, not data). The content has NO "
+                      "table with its own column headings (like 'Area / Scale / "
+                      "Outcome') and NO rows pairing a name with multiple pieces of "
+                      "data -- if it does, this is the WRONG choice, use "
+                      "stat_table_callout",
      "builder": stat_overview_from_content},
     {"key": "data_table", "label": "Data table",
-     "classify_desc": "a DATA TABLE -- structured rows of real data (each "
-                      "with a category/type and a figure), not prose to "
-                      "summarise",
+     "classify_desc": "a DATA TABLE ON ITS OWN, WITH NO SEPARATE HEADLINE STAT TILES "
+                      "AND NO CLOSING CALLOUT BANNER -- structured rows of real data, "
+                      "each with a repeated category/type (the SAME tag reused across "
+                      "several rows) plus one figure, not prose to summarise. If the "
+                      "slide ALSO has a few big headline stat numbers ABOVE the table "
+                      "and/or one highlighted callout box BELOW it, or the table's "
+                      "middle column is a different free-text value per row rather "
+                      "than a repeated category, pick stat_table_callout instead -- "
+                      "it has slots for the stat tiles and the callout that this "
+                      "shape does not",
      "builder": data_table_from_content},
 
     # ── the ten style-guide shapes (owner's designs, 2026-07-10) ──────────────
     {"key": "pain_point_list", "label": "Problem / pain-point list",
-     "classify_desc": "a PROBLEM LIST -- several things that are broken or painful "
-                      "today, each a short label and one line on its consequence; "
-                      "the 'why this is hard' slide, with no solution in it",
+     "classify_desc": "a PROBLEM LIST -- ONE single list of things that are broken "
+                      "or painful today, each a short label and one line on its "
+                      "consequence; the 'why this is hard' slide, with NO answering "
+                      "column beside it. If the content ALSO shows a SECOND parallel "
+                      "column set directly against the problems (e.g. 'pain points' "
+                      "beside 'our advantage', or 'current state' beside 'future "
+                      "state') -- pick pain_advantage_split instead; never drop that "
+                      "second column",
      "builder": pain_point_list_from_content},
     {"key": "platform_overview", "label": "Platform overview (stats + capabilities)",
      "classify_desc": "a PLATFORM OVERVIEW -- a handful of headline numbers ABOUT a "
-                      "named product/platform, plus the list of capabilities it is "
-                      "built from, and often one cross-cutting layer beneath them",
+                      "named product/platform, plus a short WORD-LIST of capabilities "
+                      "it is built from (not rows of data), and often one cross-"
+                      "cutting layer beneath them. If the content ALSO has a real "
+                      "multi-row TABLE -- several named rows, each with its own "
+                      "figure AND description across multiple columns (e.g. "
+                      "'Area / Scale / Outcome', 'Team / Headcount / Timeline') -- "
+                      "pick stat_table_callout instead; that table must never be "
+                      "flattened into a word list",
      "builder": platform_overview_from_content},
     {"key": "before_after_split", "label": "Before / after workflow",
      "classify_desc": "a BEFORE AND AFTER -- the same workflow shown twice, as it "
@@ -1452,6 +1697,29 @@ CONTENT_TEMPLATES = [
                       "opportunities, each stating the problem and its scale, then "
                       "separately what would be delivered and the result",
      "builder": opportunity_cards_from_content},
+    {"key": "cover_brief", "label": "Cover / opening brief",
+     "classify_desc": "a COVER OR OPENING SLIDE -- a title, one intro paragraph, and a "
+                      "row of short standalone highlight facts (e.g. a confidentiality "
+                      "tag, a scope note, a date) that are NOT parallel sections of "
+                      "prose and NOT a case study",
+     "builder": cover_brief_from_content},
+    {"key": "pain_advantage_split", "label": "Pain points vs. advantage",
+     "classify_desc": "TWO PARALLEL COLUMNS of full-sentence points set against each "
+                      "other (e.g. current pain points vs. our advantage, or current "
+                      "state vs. future state), possibly with a closing turnaround/"
+                      "stats strip -- NOT a single list of problems",
+     "builder": pain_advantage_split_from_content},
+    {"key": "stat_table_callout", "label": "Stats + data table + callout",
+     "classify_desc": "STATS PLUS A TABLE THAT HAS ITS OWN COLUMN HEADINGS -- look "
+                      "for 3 column headings (e.g. 'Area', 'Scale', 'Outcome', or "
+                      "similar) followed by several named rows, EACH row giving both "
+                      "a figure/scale AND a separate outcome/description for that "
+                      "row. This is the CORRECT choice whenever such a table exists, "
+                      "even if the slide also opens with a few headline stat numbers "
+                      "or closes with one highlighted takeaway -- pick this over "
+                      "stat_overview or platform_overview whenever that table is "
+                      "present, so its rows are never flattened into a word list",
+     "builder": stat_table_callout_from_content},
 ]
 
 

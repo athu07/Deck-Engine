@@ -38,18 +38,18 @@
       <div class="soft-divider"></div>
 
       <h2 class="sec-title" style="margin-bottom:4px">The content</h2>
-      <p class="hint" style="font-size:13px;margin:0 0 6px">Start each slide with its own line — <code>slide 1 - case study</code> — then the content underneath. Don't know what kind of slide it is? Write its title instead (<code>slide 2: How we think before we build</code>), or nothing at all, and we'll read the content and work it out.</p>
+      <p class="hint" style="font-size:13px;margin:0 0 6px">Start each slide with its own line — <code>slide 1 - case study</code> or <code>Slide - 1 - case study</code>, either way of writing the dash works — then the content underneath. Don't know what kind of slide it is? Write its title instead (<code>slide 2: How we think before we build</code>), or nothing at all, and we'll read the content and work it out.</p>
       <details style="margin-bottom:10px">
         <summary class="hint" style="font-size:12.5px;cursor:pointer">See the format</summary>
         <pre style="background:#fbfbfa;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:8px 0 0">slide 1 - case study
 A bank couldn't close its procurement cycles…
 
-slide 2 - four box section
+Slide - 2 - four box section
 Four pillars: intake, triage, delivery, assurance…
 
 slide 3 - road map
 Phase 1 discovery. Phase 2 pilot. Phase 3 scale-out…</pre>
-        <p class="hint" style="font-size:12px;margin:8px 0 0">Recognised shapes: {% for t in content_templates %}{{ t.label }}{% if not loop.last %} · {% endif %}{% endfor %}. Anything else falls back to auto-detect.</p>
+        <p class="hint" style="font-size:12px;margin:8px 0 0">"Slide 2", "Slide - 2" and "Slide 2 -" all work the same. Recognised shapes: {% for t in content_templates %}{{ t.label }}{% if not loop.last %} · {% endif %}{% endfor %}. Anything else falls back to auto-detect.</p>
       </details>
 
       <textarea id="cb-content" name="content" style="min-height:280px;font-family:var(--mono, ui-monospace, monospace);font-size:13px"

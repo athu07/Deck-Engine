@@ -725,6 +725,175 @@ def draw_opportunity_cards(slide, data):
               c.get("outcome", ""), SZ_SMALL, BODY)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# 11. Cover brief -- an intro line, then a row of highlight chips
+# ═════════════════════════════════════════════════════════════════════════════
+def draw_cover_brief(slide, data):
+    intro = (data.get("intro") or "").strip()
+    chips = (data.get("chips") or [])[:6]
+    y = TOP
+    if intro:
+        _text(slide, MARGIN, y, SW - 2 * MARGIN, 0.85, intro, 13, BODY)
+        y += 1.05
+    if not chips:
+        return
+    n = len(chips)
+    w = (SW - 2 * MARGIN - (n - 1) * GAP) / n
+    h = min(1.15, BOTTOM - y)
+    y += max(0.0, (BOTTOM - y - h) / 3)   # a little breathing room, not dead-centred
+    for i, c in enumerate(chips):
+        l = MARGIN + i * (w + GAP)
+        colour = _accent(i)
+        _card(slide, l, y, w, h, WHITE, BORDER)
+        _bar(slide, l, y, 0.06, h, colour)
+        _text(slide, l + 0.22, y, w - 0.36, h, c, SZ_CARD_TITLE, LABEL, bold=True, anchor="ctr")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 12. Pain vs. advantage split -- two full-sentence lanes + a closing stat strip
+# ═════════════════════════════════════════════════════════════════════════════
+def _lane_rows(slide, l, t, w, h, title, rows, colour):
+    _card(slide, l, t, w, h, WHITE, BORDER)
+    _bar(slide, l, t, w, 0.05, colour)
+    _text(slide, l + PAD, t + 0.16, w - 2 * PAD, 0.30, (title or "").upper(),
+          12, LABEL, bold=True, font=FONT_HEAD)
+    rows = (rows or [])[:5]
+    if not rows:
+        return
+    ry = t + 0.56
+    rh = (h - 0.56 - PAD) / len(rows)
+    for i, r in enumerate(rows):
+        rt = ry + i * rh
+        _tick(slide, l + PAD, rt + 0.06, colour)
+        lead = (r.get("lead") or "").strip()
+        body = (r.get("body") or "").strip()
+        parts = []
+        if lead:
+            parts.append((lead + (": " if body else ""), True, LABEL))
+        if body:
+            parts.append((body, False, BODY))
+        _rich(slide, l + PAD + 0.20, rt, w - 2 * PAD - 0.20, rh - 0.06,
+              parts or [("", False, BODY)], SZ_SMALL)
+
+
+def draw_pain_advantage_split(slide, data):
+    intro = (data.get("intro") or "").strip()
+    lane_top = TOP
+    if intro:
+        _text(slide, MARGIN, TOP - 0.04, SW - 2 * MARGIN, 0.32, intro, 11, BODY)
+        lane_top = TOP + 0.38
+
+    strip_stats = (data.get("strip_stats") or [])[:4]
+    strip_h = 1.05 if strip_stats else 0.0
+    lane_bottom = BOTTOM - (strip_h + 0.30 if strip_stats else 0)
+    lane_w = (SW - 2 * MARGIN - 0.55) / 2
+
+    _lane_rows(slide, MARGIN, lane_top, lane_w, lane_bottom - lane_top,
+               data.get("left_title") or "Current state", data.get("left_rows"), RED)
+    _lane_rows(slide, MARGIN + lane_w + 0.55, lane_top, lane_w, lane_bottom - lane_top,
+               data.get("right_title") or "J2W advantage", data.get("right_rows"), TEAL)
+
+    # the VS badge between the two lanes
+    cx = MARGIN + lane_w + 0.275
+    cy = lane_top + (lane_bottom - lane_top) / 2
+    r = 0.26
+    badge = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(cx - r), Inches(cy - r),
+                                   Inches(2 * r), Inches(2 * r))
+    badge.fill.solid(); badge.fill.fore_color.rgb = NAVY
+    badge.line.fill.background(); badge.shadow.inherit = False
+    _text(slide, cx - r, cy - r * 0.62, 2 * r, r * 1.2, "VS", 13, WHITE, bold=True,
+          align=PP_ALIGN.CENTER, font=FONT_HEAD, anchor="ctr")
+
+    if not strip_stats:
+        return
+    st = BOTTOM - strip_h
+    _card(slide, MARGIN, st, SW - 2 * MARGIN, strip_h, CARD, BORDER)
+    label = data.get("strip_label") or ""
+    seg_l = MARGIN + PAD
+    if label:
+        _label(slide, MARGIN + PAD, st + 0.10, 2.2, label, LABEL, 10)
+        seg_l = MARGIN + 2.35
+    n = len(strip_stats)
+    seg_w = (SW - MARGIN - PAD - seg_l - (n - 1) * 0.02) / n
+    for i, s in enumerate(strip_stats):
+        l = seg_l + i * seg_w
+        if i:
+            _bar(slide, l - 0.02, st + 0.14, 0.01, strip_h - 0.28, BORDER)
+        _text(slide, l, st + 0.10, seg_w, 0.44, s.get("value", ""), 20, _accent(i),
+              bold=True, align=PP_ALIGN.CENTER, font=FONT_HEAD)
+        _text(slide, l, st + 0.58, seg_w, 0.30, (s.get("label", "") or "").upper(),
+              8.5, MUTED, align=PP_ALIGN.CENTER)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 13. Stat + table + callout -- headline stats, a 3-column data table, a callout
+# ═════════════════════════════════════════════════════════════════════════════
+def draw_stat_table_callout(slide, data):
+    stats = (data.get("stats") or [])[:4]
+    cols = (data.get("col_labels") or ["", "", ""])[:3]
+    while len(cols) < 3:
+        cols.append("")
+    rows = (data.get("rows") or [])[:8]
+    callout_label = data.get("callout_label") or ""
+    callout_body = data.get("callout_body") or ""
+    closing = (data.get("closing") or "").strip()
+
+    y = TOP
+    if stats:
+        n = len(stats)
+        w = (SW - 2 * MARGIN - (n - 1) * GAP) / n
+        sh = 1.05
+        for i, s in enumerate(stats):
+            l = MARGIN + i * (w + GAP)
+            colour = _accent(i)
+            _card(slide, l, y, w, sh, WHITE, BORDER)
+            _bar(slide, l, y, w, 0.05, colour)
+            _text(slide, l, y + 0.14, w, 0.50, s.get("value", ""), SZ_STAT - 4, colour,
+                  bold=True, align=PP_ALIGN.CENTER, font=FONT_HEAD)
+            _text(slide, l, y + 0.66, w, 0.30, (s.get("label", "") or "").upper(),
+                  SZ_SMALL, LABEL, bold=True, align=PP_ALIGN.CENTER)
+        y += sh + 0.24
+
+    callout_h = 0.66 if (callout_label or callout_body) else 0.0
+    closing_h = 0.30 if closing else 0.0
+    table_bottom = (BOTTOM - callout_h - closing_h
+                    - (0.14 if callout_h else 0) - (0.10 if closing_h else 0))
+
+    if rows:
+        body_w = SW - 2 * MARGIN
+        col_w = [body_w * 0.30, body_w * 0.24, body_w * 0.46]
+        col_l = [MARGIN, MARGIN + col_w[0], MARGIN + col_w[0] + col_w[1]]
+        head_h = 0.30
+        for cl, cw, label in zip(col_l, col_w, cols):
+            _text(slide, cl, y, cw, head_h, label, SZ_BODY, MUTED, bold=True)
+        _bar(slide, MARGIN, y + head_h, body_w, 0.015, BORDER)
+        ry = y + head_h + 0.10
+        rh = (table_bottom - ry) / len(rows)
+        for i, r in enumerate(rows):
+            rt = ry + i * rh
+            if i % 2 == 1:
+                _bar(slide, MARGIN, rt, body_w, rh, CARD)
+            _text(slide, col_l[0] + 0.06, rt, col_w[0] - 0.12, rh, r.get("col1", ""),
+                  SZ_BODY, LABEL, bold=True, anchor="ctr")
+            _text(slide, col_l[1] + 0.06, rt, col_w[1] - 0.12, rh, r.get("col2", ""),
+                  SZ_BODY, TEAL, bold=True, anchor="ctr")
+            _text(slide, col_l[2] + 0.06, rt, col_w[2] - 0.12, rh, r.get("col3", ""),
+                  SZ_SMALL, BODY, anchor="ctr")
+            if i < len(rows) - 1:
+                _bar(slide, MARGIN, rt + rh - 0.01, body_w, 0.008, BORDER)
+
+    if callout_label or callout_body:
+        t = BOTTOM - callout_h - closing_h - (0.10 if closing_h else 0)
+        _card(slide, MARGIN, t, SW - 2 * MARGIN, callout_h, PALE_TEAL, line=None)
+        _bar(slide, MARGIN, t, 0.06, callout_h, TEAL)
+        _rich(slide, MARGIN + 0.30, t + (callout_h - 0.30) / 2, SW - 2 * MARGIN - 0.55, 0.30,
+              [((callout_label or "").upper() + ":  ", True, TEAL),
+               (callout_body, False, BODY)], SZ_SMALL)
+    if closing:
+        _text(slide, MARGIN, BOTTOM - closing_h, SW - 2 * MARGIN, closing_h, closing,
+              SZ_SMALL, BODY, italic=True, align=PP_ALIGN.CENTER)
+
+
 # ── the registry skills.build_into dispatches through ────────────────────────
 # kind -> (header-marker mapping, body drawer)
 DRAWERS = {
@@ -738,4 +907,7 @@ DRAWERS = {
     "governance_list":     (_head, draw_governance_list),
     "guardrail_columns":   (_head, draw_guardrail_columns),
     "opportunity_cards":   (_head, draw_opportunity_cards),
+    "cover_brief":            (_head, draw_cover_brief),
+    "pain_advantage_split":   (_head, draw_pain_advantage_split),   # draws its own intro (see draw_before_after_split)
+    "stat_table_callout":     (_head_intro, draw_stat_table_callout),
 }

@@ -148,12 +148,22 @@ def _append_embedding(record):
 def promote_ai_case(content, work_type_code, industry_code):
     """Auto-save an accepted 'Create with AI' case study into the shared content
     store (JSON + Excel + embeddings), so it's searchable/reusable across future
-    projects. `content` is the staged draft (title/challenge/solution/
-    capabilities/results, from slide_generator.draft_case_study). `work_type_code`
-    (WORKFORCE/AI_POD/MS) decides the new id's prefix -- if the deck has more than
-    one work type selected, the caller passes the FIRST one (best-effort; the
-    content itself doesn't commit to a single work type). Returns the new id, or
-    None if work_type_code is blank/unrecognised (never guesses a prefix)."""
+    projects -- but ONLY if it's actually new. Before saving, this checks the
+    SAME embedding-similarity signal dedupe.py already uses to warn the
+    salesperson on the Slide Builder review screen -- except here it's a hard
+    gate, not a warning: a near-duplicate is skipped, not saved, no matter which
+    feature produced it (owner-reported, 2026-07-14: repeated test/paste runs of
+    similar content had let 11 near-identical or junk records accumulate in the
+    real library, because the review-screen warning was easy to click past and
+    the "Create with AI" -> finalize path had no check at all).
+
+    `content` is the staged draft (title/challenge/solution/capabilities/
+    results, from slide_generator.draft_case_study). `work_type_code`
+    (WORKFORCE/AI_POD/MS) decides the new id's prefix -- if the deck has more
+    than one work type selected, the caller passes the FIRST one (best-effort;
+    the content itself doesn't commit to a single work type). Returns the new
+    id, or None if work_type_code is blank/unrecognised (never guesses a
+    prefix) OR the content duplicates a case we already have."""
     prefix = _WT_PREFIX.get((work_type_code or "").upper())
     if not prefix:
         return None
@@ -196,6 +206,16 @@ def promote_ai_case(content, work_type_code, industry_code):
         "ai_generated": True,
         "source_row": None,
     }
+
+    # HARD DUPLICATE GATE -- same signal as dedupe.py's Slide Builder warning
+    # (embedding cosine >= dedupe.THRESHOLD, same work type only), but enforced
+    # here so it applies no matter how the case got drafted. Fails safe like
+    # every AI path: if the check itself can't run (no key, embeddings not
+    # built yet, API error), it finds nothing and the case is saved as usual --
+    # a duplicate check must never be the reason real content gets lost.
+    from deckengine.services.matching import dedupe
+    if dedupe.similar_cases(_search_text(record), allowed_work_types=[record["work_type"]]):
+        return None
 
     store = _load()
     store.append(record)

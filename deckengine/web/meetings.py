@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """meetings.py  --  the /meetings deck-repository page (search past decks)."""
 
+import os
+
 from flask import Blueprint, request, render_template
 
+from deckengine import config
 from deckengine import constants
 from deckengine.services import meeting_log
 from deckengine.constants import WORK_TYPES, PHASES, WT_LABELS
@@ -28,6 +31,9 @@ def meetings():
     latest_version_by_key = {(r["client"], r["phase"]): r["version"] for r in meeting_log.all_latest()}
     for r in rows:
         r["is_latest"] = r.get("version") == latest_version_by_key.get((r.get("client"), r.get("phase")))
+        # a logged version whose .pptx is no longer on disk (owner-reported,
+        # 2026-07-14) -- flag it instead of a link that 404s when clicked
+        r["file_missing"] = not os.path.isfile(os.path.join(config.OUTPUT_DIR, r.get("deck_file", "")))
     body = render_template("meetings.html", rows=rows, total=len(rows),
                                   industries=constants.all_industries(), work_types=WORK_TYPES,
                                   phases=PHASES, wt_labels=WT_LABELS,

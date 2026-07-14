@@ -36,11 +36,15 @@ Two rules that matter:
 
 import re
 
-# A header line: optional "slide"/"sl"/"#", a number, then EITHER end-of-line or a
-# separator followed by whatever the salesperson wrote. No length limit -- a slide
-# title can be as long as it likes.
+# A header line: "slide"/"sl", a number, then EITHER end-of-line or a separator
+# followed by whatever the salesperson wrote. The separator before the number is
+# ALSO optional ("Slide - 2" reads the same as "Slide 2") -- someone writing four
+# slides by hand naturally punctuates the dash the way they'd say it out loud, and
+# "Slide - 2" silently failing to split (owner-reported, 2026-07-13: it swallowed
+# 3 of 4 slides into one) was a punctuation gap, not a shape problem. No length
+# limit on the label -- a slide title can be as long as it likes.
 _HEADER = re.compile(
-    r"^\s*(?:slide|sl)\s*#?\s*(\d+)\s*(?:[-–—:.)\]]+\s*(?P<label>.*?))?\s*$",
+    r"^\s*(?:slide|sl)\s*[-–—:.]?\s*#?\s*(\d+)\s*(?:[-–—:.)\]]+\s*(?P<label>.*?))?\s*$",
     re.IGNORECASE)
 
 AUTO = "auto"          # "the label didn't name a category" -- the caller reads the content
@@ -87,6 +91,15 @@ _ALIASES = {
                           "themed columns", "framework"],
     "opportunity_cards": ["opportunity cards", "opportunities", "use cases",
                           "opportunity outcome", "opportunities and outcomes"],
+
+    # ── added 2026-07-14 ──────────────────────────────────────────────────────
+    "cover_brief": ["cover brief", "cover", "opening slide", "title slide",
+                    "intro chips", "highlight chips"],
+    "pain_advantage_split": ["pain advantage split", "pain vs advantage",
+                             "pain points vs advantage", "current vs advantage",
+                             "problem vs solution columns", "turnaround"],
+    "stat_table_callout": ["stat table callout", "stats and table",
+                           "stats table", "metrics and table"],
 }
 
 

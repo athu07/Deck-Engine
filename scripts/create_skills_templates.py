@@ -465,6 +465,11 @@ _STYLE_GUIDE_TEMPLATES = [
     ("governance_list",    False, "chips on a vertical spine, each with a card"),
     ("guardrail_columns",  False, "bold-lead bullet columns + a quick-win callout"),
     ("opportunity_cards",  False, "numbered columns, each an opportunity and outcome"),
+    # ── added 2026-07-14 (owner-reported: 3 real slides had no matching shape and
+    #    lost real content when forced into the closest existing one) ───────────
+    ("cover_brief",          False, "intro line + a row of highlight chips"),
+    ("pain_advantage_split", False, "pain points vs advantage lanes + a turnaround strip"),
+    ("stat_table_callout",   True,  "headline stats + a real data table + a callout"),
 ]
 
 

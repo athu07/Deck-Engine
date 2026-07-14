@@ -20,6 +20,7 @@ from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC
                                   INDUSTRIES, FUNCTIONS, PHASES)
 from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher
+from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
                                            slide_generator, slide_schema, client_context)
 from deckengine.services.content import case_library, editor
@@ -305,6 +306,33 @@ def build():
                 missing = missing[:10]
     except Exception:
         priority_ids, missing, avoid, priority_reasons = [], [], [], {}
+
+    # Industry-level gap (owner's spec, 2026-07-14): a salesperson-typed "Other"
+    # industry (constants.all_industries()'s custom entries) with genuinely NO
+    # related case study anywhere in the selected work types gets its own honest
+    # flag, folded into the same "not in our library" card -- a capability gap
+    # says "we don't have a slide for X"; this says "we have no proof at all for
+    # this INDUSTRY". Built-in industries (BFSI, HEALTHCARE...) are never
+    # flagged this way -- they always have at least some tagged coverage.
+    acct_industry = ctx.get("industry", "")
+    if acct_industry and acct_industry.upper() not in _BUILTIN_INDUSTRIES:
+        try:
+            # matcher-SHAPED rows (keywords middot-joined, primary_industry set) --
+            # the same shape relevance.py's other industry logic already expects,
+            # not the raw store records (whose "keywords" is a list, not a string).
+            wt_rows = [row for rows in case_library.candidate_rows(ctx["work_types"]).values()
+                      for row in rows]
+            if not relevance.industry_has_coverage(acct_industry, wt_rows):
+                missing.append({
+                    "name": "%s case studies" % acct_industry,
+                    "description": "We don't yet have a proven case study specifically "
+                                   "for %s -- this deck leans on function/capability "
+                                   "matches instead of an industry-specific proof point."
+                                   % acct_industry,
+                    "domain": acct_industry, "use_case": "", "sim": 0.0,
+                })
+        except Exception:
+            pass                          # never let this flag block a build
 
     # --- strategic inference: capability bets that are NEVER stated outright, but
     #     that a sharp account researcher would infer by connecting the STAKEHOLDER's
@@ -616,8 +644,10 @@ def finalize():
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
     # every version gets its own file, never overwritten (owner: keep every
     # version forever) -- e.g. "Joulestowatts_Acme Bank FV1.pptx", then FV2...
-    version = meeting_log.next_version_number(client, phase)
-    filename = meeting_log.deck_filename(client, phase, version)
+    # reserve_version() claims the number+filename ATOMICALLY, before the build
+    # runs, so two near-simultaneous finalizes for the same client+phase can't
+    # be handed the same version and silently overwrite each other's file.
+    version, filename = meeting_log.reserve_version(client, phase)
     path = os.path.join(config.OUTPUT_DIR, filename)
 
     # ---- AI slides: apply edits, then ACCEPT (promote -> library) or REJECT ----
@@ -712,17 +742,18 @@ def finalize():
                             edits=edits, case_edits=case_edits,
                             phase=request.form.get("phase", ""))
     except (PermissionError, BadZipFile) as e:
+        # the build never produced a real deck -- free the claimed version
+        # number/filename so the next attempt doesn't skip one for nothing.
+        meeting_log.cancel_reservation(client, phase, version)
         return file_busy_page(e)
-    meeting_log.save_version(                  # auto-log this version (no extra step)
-        client=client,
+    meeting_log.finalize_version(               # auto-log this version (no extra step)
+        client=client, phase=phase, version=version,
         industry=request.form.get("industry", ""),
         functions=request.form.getlist("functions"),
         work_types=request.form.getlist("work_types"),
-        phase=phase,
         recipient=request.form.get("recipient", ""),
         salesperson=current_salesperson(),
         slide_ids=final_ids,
-        deck_file=filename,
         edits=edits,
         case_edits=case_edits,
     )

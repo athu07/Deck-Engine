@@ -50,9 +50,9 @@ FONT_BODY    = "Raleway"           # all other content
 # ---------------------------------------------------------------------------
 SZ_TITLE      = 24   # main heading
 SZ_SUBHEAD    = 15   # CLIENT | DOMAIN line
-SZ_BOX_HEAD   = 14   # "The Challenge" / "The Solution" / capability card titles
+SZ_BOX_HEAD   = 13   # "The Challenge" / "The Solution" / capability card titles (owner 2026-07-14, was 14)
 SZ_CAPS_LABEL = 14   # "Key Capabilities Developed"
-SZ_BODY       = 13   # all body paragraph text (owner 2026-07-07: content = 13-14)
+SZ_BODY       = 11   # all body paragraph text (owner 2026-07-14, was 13 -- nothing else changes)
 SZ_RESULT_PCT = 25   # big stat numbers in the results bar (owner: 25, was 34)
 SZ_RESULT_TXT = 13   # caption under each stat (owner 2026-07-07: content = 13-14)
 

@@ -184,11 +184,24 @@ function cbBuildParsed(){
   if(!jobs.length){ cbEl('cb-review').style.display='none'; cbEl('cb-build-btn').disabled=false; return; }
 
   cbPrepareResults(jobs);
+  // Results land in THIS array by their original paste position, not by finish order --
+  // pushed to the queue only once every job is done (owner-reported, 2026-07-14: building
+  // 4-at-a-time concurrently used to push each slide into the queue the moment IT finished,
+  // so a fast slide could land ahead of a slower one -- a 3-slide paste came out 3rd-1st-2nd
+  // instead of 1st-2nd-3rd). The visible cards still fill in as each one lands (cbFillResult
+  // below), so progress still feels live -- only the final queue order is now deferred.
+  var results = new Array(jobs.length);
   var done=0, next=0;
   var finish=function(){
     done++;
     cbEl('cb-progress').textContent = done + ' of ' + jobs.length + ' built';
     if(done===jobs.length){
+      var q2 = cbLoadQueue();
+      results.forEach(function(d){
+        if(d && d.ok) q2.push({id:d.id, title:d.title, content_type:d.content_type,
+                               template_label:d.template_label});
+      });
+      cbSaveQueue(q2); cbRenderQueue();
       cbEl('cb-build-btn').disabled=false;
       cbEl('cb-review').style.display='none';
     }
@@ -204,8 +217,8 @@ function cbBuildParsed(){
     fd.append('client_name', s.client_name);
     fetch('/builder/slide', {method:'POST', body:fd})
       .then(function(r){ return r.json(); })
-      .then(function(d){ cbFillResult(i, d); })
-      .catch(function(){ cbFillResult(i, {ok:false, error:'Could not reach the server.'}); })
+      .then(function(d){ results[i]=d; cbFillResult(i, d); })
+      .catch(function(){ var d={ok:false, error:'Could not reach the server.'}; results[i]=d; cbFillResult(i, d); })
       .then(function(){ finish(); pump(); });
   };
   for(var k=0; k<Math.min(CB_CONCURRENCY, jobs.length); k++) pump();
@@ -241,10 +254,6 @@ function cbFillResult(i, d){
       '<div class="hint" style="font-size:13px">'+cbEsc(d.error||'')+'</div></div>';
     return;
   }
-  var q=cbLoadQueue();
-  q.push({id:d.id, title:d.title, content_type:d.content_type, template_label:d.template_label});
-  cbSaveQueue(q); cbRenderQueue();
-
   card.className='rev-slide-card '+d.content_type;
   card.dataset.slideId=d.id;
   card.dataset.contentType=d.content_type;

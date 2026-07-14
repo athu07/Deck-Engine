@@ -207,7 +207,11 @@ def build_mapping(row):
     results = _pad(row.get("results", []), 3)
 
     mapping = {
-        "TITLE": row.get("title", ""),
+        # forced upper() (owner 2026-07-14) -- the title in the store is already
+        # typed in caps by convention, but that's never GUARANTEED for an AI
+        # draft or a fresh paste, so it's enforced here at render time instead
+        # of relying on how the source text happened to be typed.
+        "TITLE": (row.get("title", "") or "").upper(),
         "CLIENT": anon_client(row),
         "DOMAIN": row.get("domain", "") or "-",
         "CHALLENGE": row.get("challenge", ""),

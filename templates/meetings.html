@@ -49,7 +49,14 @@
         <td style="padding:9px 10px;white-space:nowrap">{{ r.generated_at }}</td>
         <td style="padding:9px 10px"><span class="chip flat">{{ r.phase or '—' }}</span></td>
         <td style="padding:9px 10px">v{{ r.version }}{% if r.is_latest %} <span class="hint" style="font-size:11px">(latest)</span>{% endif %}</td>
-        <td style="padding:9px 10px"><a href="/output/{{ r.deck_file }}">{{ r.deck_file }}</a></td>
+        <td style="padding:9px 10px">
+          {% if r.file_missing %}
+          <span title="This deck's file is no longer on disk -- the record is kept for history, but there's nothing to download.">{{ r.deck_file }}</span>
+          <div class="hint" style="font-size:11px;color:#b23b3b"><i class="ti ti-alert-triangle"></i> File no longer available</div>
+          {% else %}
+          <a href="/output/{{ r.deck_file }}">{{ r.deck_file }}</a>
+          {% endif %}
+        </td>
         <td style="padding:9px 10px;white-space:nowrap">
           {% if r.is_latest %}
           <a class="btn" style="padding:4px 10px;font-size:12px" href="/deck/reopen?client={{ r.client|urlencode }}&phase={{ r.phase|urlencode }}"><i class="ti ti-edit"></i> Reopen to edit</a>

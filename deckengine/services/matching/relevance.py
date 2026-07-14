@@ -24,6 +24,7 @@ import re
 from deckengine import config
 from deckengine.services.matching import personas
 from deckengine.services.matching import synonyms
+from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 
 EMB_FILE = config.CASE_EMBEDDINGS_JSON
 EMB_MODEL = "text-embedding-3-small"
@@ -264,6 +265,15 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
     functions = {f.upper() for f in (functions or set())}
     wanted = {w.upper() for w in (wanted or set())}
     industry = (industry or "").upper()
+    # A salesperson-typed "Other" industry (services/content/industries.py) is
+    # NOT one of the 8 built-in taxonomy codes, so it can never equal a case's
+    # own primary_industry code -- it used to get ZERO industry weight, silently
+    # (owner-reported, 2026-07-14: "Other" industries should score like a real
+    # one, not just sit in the dropdown). For a custom industry, match by real
+    # CONTENT overlap instead of an exact code: does the industry's own name
+    # actually appear in the case's title/domain/keywords?
+    custom_industry_terms = (_tokens(industry)
+                             if industry and industry not in _BUILTIN_INDUSTRIES else set())
     avoid_termsets = []
     for a in (avoid or []):
         cap = a.get("capability") if isinstance(a, dict) else str(a)
@@ -312,7 +322,14 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
                 sem = max(sem_res, sem_theme, MAIL_WEIGHT * sem_mail) \
                     if (res_vecs or theme_vecs) else sem_mail
 
-        ind_hit = bool(industry and (row.get("primary_industry") or "").upper() == industry)
+        if custom_industry_terms:
+            domain_toks = row.get("_domain_tokens")
+            if domain_toks is None:
+                domain_toks = _tokens(row.get("domain", "") + " " + row.get("keywords", ""))
+                row["_domain_tokens"] = domain_toks
+            ind_hit = bool(custom_industry_terms & (title_toks | domain_toks))
+        else:
+            ind_hit = bool(industry and (row.get("primary_industry") or "").upper() == industry)
         fn_hit = bool(functions and (row.get("primary_function") or "").upper() in functions)
         # same-industry cases are always eligible; a cross-industry case only if its
         # CONTENT match is strong (meaning or a solid title/keyword overlap)
@@ -382,6 +399,37 @@ def lexically_covered(text, min_overlap=0.6, allowed_ids=None):
         if len(toks & ht) >= need:
             return True
     return False
+
+
+def industry_has_coverage(industry, rows):
+    """Does ANY case in `rows` (already work-type-filtered) genuinely relate to
+    this account's industry? For a built-in taxonomy code, checks primary_industry
+    exactly; for a salesperson-typed custom industry (services/content/
+    industries.py's "Other" field), checks lexical overlap against the industry's
+    own name -- but STRICTER than rank_cases()'s soft boost above: a false
+    "covered" here would silently hide a real gap from the salesperson, so a
+    SINGLE generic word ("renewable", "production") accidentally shared with an
+    unrelated case must never count. Requires either a whole PHRASE (bigram) from
+    the industry name, or at least two distinct single words -- one word alone,
+    however specific-looking, is not enough evidence of a real match (verified,
+    2026-07-14: 'RENEWABLE DIESEL PRODUCTION' false-matched 19 unrelated MS cases
+    on the bare word 'renewable' or 'production' alone before this was added)."""
+    industry = (industry or "").upper()
+    if not industry:
+        return True                      # no industry stated -- nothing to flag
+    if industry not in _BUILTIN_INDUSTRIES:
+        terms = _tokens(industry)
+        bigrams = {t for t in terms if " " in t}
+        unigrams = {t for t in terms if " " not in t}
+        if not terms:
+            return True                  # nothing specific enough in the name to check
+        for row in rows:
+            toks = _tokens(row.get("title", "")) | _tokens(
+                row.get("domain", "") + " " + row.get("keywords", ""))
+            if (bigrams & toks) or len(unigrams & toks) >= 2:
+                return True
+        return False
+    return any((row.get("primary_industry") or "").upper() == industry for row in rows)
 
 
 def coverage(texts):
