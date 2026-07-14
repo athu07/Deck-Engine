@@ -4314,3 +4314,52 @@ for library slides. Case-study and pasted/generated shapes remain fully inline-e
 The sidebar "Editable" count now excludes library slides. Removed the now-unused
 editor.library_layout/editable_boxes/_para_align. Files: web/decks.py, templates/
 review.html, static/app.css, services/content/editor.py. Tests green (53).
+
+2026-07-13 (v7) — FIX: "Recreate with AI" (and any slide-copy path) crashed with "cannot
+identify image file <BytesIO>" / "Couldn't save the deck" when an uploaded deck contained
+SVG icons or WDP (HD-Photo/JPEG-XR) images -- e.g. ServiceNow HTDD.pptx (13 SVG + 5 WDP).
+Cause: python-pptx 1.0.2 reads every embedded image's format via Pillow, which can't open
+SVG/WDP, and slide_generator._copy_slide registered image parts with no error handling.
+Fix (slide_generator._copy_slide): each image is registered defensively -- try as-is, then
+try to normalise via Pillow to PNG, else it's "dropped". In PPTX these formats are ALWAYS
+secondary references (an <asvg:svgBlip> vector twin, or an <a14:imgLayer> WDP effect),
+both wrapped in an <a:ext>; a dropped ref's <a:ext> is removed so the picture falls back
+to its readable PNG/JPEG main blip -- exactly what PowerPoint does. A picture whose SOLE
+image is unreadable is skipped instead of aborting the build. Verified on the real file:
+Recreate now produces a valid 17-slide branded deck, icons preserved via their PNG
+fallbacks. Tests green (53). No behavioural change for decks without such images.
+
+2026-07-13 (v8) — "Recreate with AI": handle EVERY image format, miss nothing (owner-
+reported on ServiceNow HTDD.pptx). Two root causes fixed:
+  1) MISSING images. Primary SVG icons (the <a:blip> has no r:embed, only an <asvg:svgBlip>
+     -> no PNG fallback) and WDP/HD-Photo/EMF/WMF images can't be read by Pillow (nor
+     python-pptx 1.x, which reads sizes via Pillow), so they were dropped -> blank icons.
+     New services/rendering/image_normalize.py: normalize_deck(prs) rasterises every non-
+     raster picture to PNG up front (SVG via cairosvg/ImageMagick/LibreOffice; WDP via
+     JxrDecApp; EMF/WMF via LibreOffice), promotes it to the picture's main blip and strips
+     the defunct svg/imgLayer ext. Called at the top of recreate_deck. Fully fail-safe: no
+     converter available -> picture left as-authored, never crashes. Now icon extraction
+     and slide copy see ordinary rasters and nothing is lost, whatever the source format.
+  2) BLACK BOXES. reskin._recolor_picture recoloured EVERY picture's pixels to ink via its
+     alpha mask; on an OPAQUE image (a photo, or any non-cut-out) that painted the whole
+     rectangle solid black. Added a guard: only recolour a monochrome glyph on a
+     transparent background (skip if >70% opaque, or clearly multi-colour). Photos are now
+     preserved as-authored instead of turning into black boxes.
+Verified end-to-end on the real file: 17-slide deck, primary-SVG icons shown, photos on
+the closing/CoE slides preserved (were black). Tests green (53).
+
+2026-07-13 (v9) — "Recreate with AI": carry EVERY image, place large ones as a figure.
+Two more gaps found on ServiceNow HTDD.pptx and fixed:
+  1) Icons stored as autoshape image-FILLS (blipFill in spPr), not <p:pic> pictures, were
+     missed by both image_normalize and _slide_icons (which only looked at PICTURE shapes).
+     Both now walk ANY <a:blip> (picture OR picture-fill), so fill-icon decks work.
+  2) Large source illustrations/photos (gears, clipboard, circuit, office photos) were
+     dropped because Recreate redraws each slide into a clean template with no room for
+     them. Owner chose: keep the J2W redraw AND carry the image in. recreate._prominent_image
+     picks the source's main illustration (largest picture/fill, 12-85% area, not an icon,
+     not a full-bleed bg); _render_shape reserves a right column (skills._RIGHT_RESERVE +
+     a temporary draw_templates.SW narrowing, covering BOTH drawer families) so the template
+     lays content on the left, then _place_figure drops the image, fitted, into the freed
+     column. reserve=0 for slides with no figure, so full-width layout is unchanged.
+Verified end-to-end: slides 7/8 (gears, clipboard), 9 (circuit), 13/16 (photos) now show
+their source images beside the J2W content; no overlaps; non-figure slides unchanged. 53 tests green.

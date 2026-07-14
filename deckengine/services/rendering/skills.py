@@ -631,6 +631,13 @@ def _draw_footer_banner(slide, footer_title, footer_body, y, sw=13.33, margin=0.
     return h
 
 
+# Inches reserved on the RIGHT of the content area for a carried source figure. 0 for
+# every normal build; Recreate raises it (skills._RIGHT_RESERVE = ...) around a draw so the
+# template lays its content into the left region and the source's illustration/photo sits in
+# the freed right column (owner's spec, 2026-07-13). Every drawer subtracts it from SW.
+_RIGHT_RESERVE = 0.0
+
+
 def _draw_roadmap_columns(slide, data):
     """Add the column board + legend + footer banner to a copied roadmap_board
     template slide (which already carries the filled TITLE/SUBHEAD/INTRO
@@ -638,7 +645,7 @@ def _draw_roadmap_columns(slide, data):
     since the column count is whatever the content has, not a fixed slot set."""
     from pptx.enum.text import PP_ALIGN
 
-    SW = 13.33
+    SW = 13.33 - _RIGHT_RESERVE
     MARGIN = 0.30
     columns = data.get("columns") or []
     n = len(columns)
@@ -722,7 +729,7 @@ def _draw_box_grid(slide, data):
     cols = min(cols, n)
     rows = -(-n // cols)   # ceil
 
-    SW, SH = 13.33, 7.50
+    SW, SH = 13.33 - _RIGHT_RESERVE, 7.50
     MARGIN = 0.30
     gap = 0.24
     top = 1.35
@@ -775,7 +782,7 @@ def _draw_pillar_blocks(slide, data):
     n = len(blocks)
     if n == 0:
         return
-    SW, SH = 13.33, 7.50
+    SW, SH = 13.33 - _RIGHT_RESERVE, 7.50
     MARGIN = 0.30
     top = 1.35
     bottom = SH - 0.24
@@ -812,7 +819,7 @@ def _draw_scored_rows(slide, data):
     n = len(rows)
     if n == 0:
         return
-    SW, SH = 13.33, 7.50
+    SW, SH = 13.33 - _RIGHT_RESERVE, 7.50
     MARGIN = 0.30
     top = 1.35
     bottom = SH - 0.24
@@ -847,7 +854,7 @@ def _draw_stat_overview(slide, data):
     from pptx.enum.text import PP_ALIGN
     stats = data.get("stats") or []
     items = data.get("items") or []
-    SW = 13.33
+    SW = 13.33 - _RIGHT_RESERVE
     MARGIN = 0.30
     top = 1.55 if (data.get("intro") or "").strip() else 1.15
 
@@ -897,7 +904,7 @@ def _draw_data_table(slide, data):
     rows = data.get("rows") or []
     if not rows:
         return
-    SW, SH = 13.33, 7.50
+    SW, SH = 13.33 - _RIGHT_RESERVE, 7.50
     MARGIN = 0.30
     top = 1.35
     bottom = SH - 0.24

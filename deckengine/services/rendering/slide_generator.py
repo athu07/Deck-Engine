@@ -911,16 +911,43 @@ def _copy_slide(dest_prs, src_slide):
     src_part  = src_slide._part
     dest_part = new._part
     rId_map   = {}
+    dropped   = set()          # source rIds whose image we could not register
     _R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+    def _register(blob):
+        """(part, rId) for an image blob, or None if it can't be registered. python-pptx
+        1.x reads an image's format/size through Pillow, which cannot open SVG, WDP
+        (JPEG-XR/HD Photo), EMF/WMF or a corrupt blob -- an uploaded deck full of those
+        (e.g. modern SVG icon sets) would otherwise abort the whole build with 'cannot
+        identify image file'. First try as-is; then try to normalise via Pillow to PNG
+        (rescues formats Pillow reads but python-pptx won't map); else give up on it."""
+        try:
+            return dest_part.get_or_add_image_part(_io.BytesIO(blob))
+        except Exception:
+            pass
+        try:
+            from PIL import Image as _PILImage
+            im = _PILImage.open(_io.BytesIO(blob)).convert("RGBA")
+            buf = _io.BytesIO(); im.save(buf, "PNG"); buf.seek(0)
+            return dest_part.get_or_add_image_part(buf)
+        except Exception:
+            return None
+
     for rId, rel in list(src_part.rels.items()):
         if rel.is_external:
             continue
         if '/image' in (rel.reltype or ''):
-            image_part, new_rId = dest_part.get_or_add_image_part(_io.BytesIO(rel._target.blob))
-            if new_rId != rId:
-                rId_map[rId] = new_rId
+            res = _register(rel._target.blob)
+            if res is None:
+                dropped.add(rId)              # unreadable format -> handled below
+            else:
+                _image_part, new_rId = res
+                if new_rId != rId:
+                    rId_map[rId] = new_rId
 
     _REMAP = {f'{{{_R}}}embed', f'{{{_R}}}link'}
+    _A_EXT = '{http://schemas.openxmlformats.org/drawingml/2006/main}ext'
+    _P_PIC = '{http://schemas.openxmlformats.org/presentationml/2006/main}pic'
 
     def _remap(elem):
         for attr, val in list(elem.attrib.items()):
@@ -929,10 +956,40 @@ def _copy_slide(dest_prs, src_slide):
         for child in elem:
             _remap(child)
 
+    def _prune_dropped(shape_elem):
+        """A shape references an image we couldn't register. Where that reference is a
+        SECONDARY one -- an <asvg:svgBlip> (the vector twin of a PNG) or an
+        <a14:imgLayer> (an HD-Photo/WDP effect layer), both wrapped in an <a:ext> -- drop
+        just that <a:ext> so the picture falls back to its readable PNG/JPEG main blip,
+        exactly as PowerPoint does when it can't use them. Where it's a nested picture's
+        MAIN blip, drop that one <p:pic>. Returns False only if the shape ITSELF is a
+        picture whose sole image is unreadable, so the caller skips the whole shape."""
+        refs = [e for e in shape_elem.iter()
+                if any(e.attrib.get(a) in dropped for a in _REMAP)]
+        keep = True
+        for e in refs:
+            node, target = e, None
+            while node is not None:
+                if node.tag in (_A_EXT, _P_PIC):
+                    target = node
+                    break
+                if node is shape_elem:
+                    break
+                node = node.getparent()
+            if target is None or target is shape_elem:
+                keep = False                 # the shape's own main image is gone
+                continue
+            parent = target.getparent()
+            if parent is not None:
+                parent.remove(target)
+        return keep
+
     for shp in src_slide.shapes:
         elem = copy.deepcopy(shp._element)
         if rId_map:
             _remap(elem)
+        if dropped and not _prune_dropped(elem):
+            continue                         # picture with no usable image -> skip it
         new.shapes._spTree.append(elem)
 
     return new

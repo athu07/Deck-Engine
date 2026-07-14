@@ -503,6 +503,22 @@ def _recolor_picture(sh, target_rgb):
         from PIL import Image
         import io as _io
         im = Image.open(_io.BytesIO(sh.image.blob)).convert("RGBA")
+        # Recolour ONLY a monochrome glyph on a transparent background. A photo or any
+        # OPAQUE image (or a colourful logo) has no transparent backdrop, so painting every
+        # pixel one colour turns the whole rectangle into a solid block -- the 'black box'
+        # bug on real uploaded decks (owner-reported, 2026-07-13). Leave those as-authored.
+        small = im.copy()
+        small.thumbnail((48, 48))
+        px = list(small.getdata())
+        if not px:
+            return
+        opaque = [p for p in px if p[3] > 200]
+        if len(opaque) / len(px) > 0.70:
+            return                       # mostly opaque -> a picture, not a cut-out glyph
+        if opaque:
+            chroma = sum(max(p[:3]) - min(p[:3]) for p in opaque) / len(opaque)
+            if chroma > 60:
+                return                   # multi-colour art -> recolouring would destroy it
         alpha = im.split()[3]
         solid = Image.new("RGBA", im.size, tuple(target_rgb) + (255,))
         solid.putalpha(alpha)

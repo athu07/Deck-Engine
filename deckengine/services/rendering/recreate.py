@@ -220,6 +220,8 @@ def _slide_icons(slide, sw, sh):
     groups. Sorted top-to-bottom, then left-to-right, to match the order the drawers
     place their chips."""
     from pptx.enum.shapes import MSO_SHAPE_TYPE
+    _BLIP = "{http://schemas.openxmlformats.org/drawingml/2006/main}blip"
+    _EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
     max_side = 0.20 * (sw or 1)            # <= ~20% of slide width reads as an icon
     found = []
 
@@ -229,15 +231,25 @@ def _slide_icons(slide, sw, sh):
                 if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
                     walk(sh.shapes, ox + (sh.left or 0), oy + (sh.top or 0))
                     continue
-                if sh.shape_type == MSO_SHAPE_TYPE.PICTURE:
-                    w, h = (sh.width or 0), (sh.height or 0)
-                    if not w or not h:
-                        continue
-                    if w > max_side or h > max_side:
-                        continue           # too big to be an icon
-                    if max(w, h) / min(w, h) > 2.2:
-                        continue           # a bar/line, not a square-ish icon
-                    found.append((oy + (sh.top or 0), ox + (sh.left or 0), sh.image.blob))
+                w, h = (sh.width or 0), (sh.height or 0)
+                if not w or not h:
+                    continue
+                if w > max_side or h > max_side:
+                    continue               # too big to be an icon
+                if max(w, h) / min(w, h) > 2.2:
+                    continue               # a bar/line, not a square-ish icon
+                # An icon may be a PICTURE shape OR an autoshape whose FILL is a picture
+                # (blipFill in spPr) -- both carry an <a:blip>. Reading only PICTUREs missed
+                # every fill-icon deck (owner-reported, 2026-07-13). image_normalize has
+                # already made each blip a raster, so the blob is readable.
+                blip = next(iter(sh._element.iter(_BLIP)), None)
+                if blip is None:
+                    continue
+                rid = blip.get(_EMBED)
+                if not rid:
+                    continue
+                blob = sh.part.related_part(rid).blob
+                found.append((oy + (sh.top or 0), ox + (sh.left or 0), blob))
             except Exception:
                 continue
 
@@ -393,6 +405,72 @@ def _detect_score(text):
     return None
 
 
+_FIGURE_RESERVE = 3.7          # inches of right-column reserved for a carried source figure
+
+
+def _prominent_image(slide, sw, sh):
+    """The source slide's own main illustration/photo -- NOT a small icon (already carried
+    into chips), NOT a full-bleed background -- as image bytes, so Recreate can carry it into
+    the redrawn slide as a figure (owner's spec, 2026-07-13). Else None. Picks the largest
+    picture OR picture-fill whose area is 12%-85% of the slide. image_normalize has already
+    made every such image a readable raster."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    BLIP = "{http://schemas.openxmlformats.org/drawingml/2006/main}blip"
+    EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+    best = [None, 0.0]                        # [blob, area]
+
+    def walk(shapes):
+        for s in shapes:
+            try:
+                if s.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    walk(s.shapes)
+                    continue
+                blip = next(iter(s._element.iter(BLIP)), None)
+                if blip is None:
+                    continue
+                w, h = (s.width or 0), (s.height or 0)
+                if not w or not h:
+                    continue
+                area = (w / sw) * (h / sh)
+                if area < 0.12 or area > 0.85 or area <= best[1]:
+                    continue
+                rid = blip.get(EMBED)
+                if not rid:
+                    continue
+                best[0], best[1] = s.part.related_part(rid).blob, area
+            except Exception:
+                continue
+
+    walk(slide.shapes)
+    return best[0]
+
+
+def _place_figure(slide, blob, reserve):
+    """Drop the carried source image into the right column the drawers left free, fitted to
+    that column and centred, aspect preserved."""
+    from PIL import Image
+    from pptx.util import Inches
+    try:
+        iw, ih = Image.open(io.BytesIO(blob)).size
+    except Exception:
+        return
+    SW, SH = draw_templates.SW, draw_templates.SH
+    bx, bw = SW - reserve + 0.10, reserve - 0.40
+    by = draw_templates.TOP
+    bh = SH - 0.45 - by
+    ar = (iw / ih) if ih else 1.0
+    w = bw
+    h = w / ar
+    if h > bh:
+        h, w = bh, bh * ar
+    x = bx + (bw - w) / 2.0
+    y = by + (bh - h) / 2.0
+    try:
+        slide.shapes.add_picture(io.BytesIO(blob), Inches(x), Inches(y), Inches(w), Inches(h))
+    except Exception:
+        pass
+
+
 def _render_shape(dest, tfile, key, record):
     template_slide = skills.find_template(tfile, record.get("template", key))
     if template_slide is None:
@@ -401,17 +479,34 @@ def _render_shape(dest, tfile, key, record):
     mapping_fn = _MAPPING_FNS.get(key)
     if mapping_fn:
         skills.fill_markers(new, mapping_fn(record))
+    # A prominent source image is carried in as a figure: reserve a right column so the
+    # template lays its content into the left, then drop the image into the freed column
+    # (owner's spec, 2026-07-13). No figure -> reserve 0, i.e. the full-width layout.
+    figure = record.get("_figure")
+    reserve = _FIGURE_RESERVE if figure else 0.0
     draw_fn = _DRAW_FNS.get(key)
     if draw_fn:
-        draw_fn(new, record)
+        # Two drawer families read slide width differently: the skills.py drawers hardcode
+        # it (they subtract skills._RIGHT_RESERVE), the draw_templates.py drawers read the
+        # module's SW. Narrow BOTH so whichever draws this key leaves the right column free.
+        skills._RIGHT_RESERVE = reserve
+        _full_sw = draw_templates.SW
+        draw_templates.SW = _full_sw - reserve
+        try:
+            draw_fn(new, record)
+        finally:
+            skills._RIGHT_RESERVE = 0.0
+            draw_templates.SW = _full_sw
     # a headline score in the source was a filled circle INSIDE a panel; redraw it inside
     # the layout (top-right of the body, over the last card's ghost-number corner), not
     # floating in the header (owner-reported, 2026-07-13).
     score = record.get("_score")
     if score:
-        draw_templates.draw_score_ring(new, draw_templates.SW - draw_templates.MARGIN - 0.58,
-                                       draw_templates.TOP + 0.52, 0.46,
-                                       score[0], score[1], draw_templates.TEAL)
+        draw_templates.draw_score_ring(
+            new, draw_templates.SW - reserve - draw_templates.MARGIN - 0.58,
+            draw_templates.TOP + 0.52, 0.46, score[0], score[1], draw_templates.TEAL)
+    if figure:
+        _place_figure(new, figure, reserve)
     return True
 
 
@@ -420,6 +515,18 @@ def recreate_deck(data, out_path, industry=""):
     slide, and save to out_path. Returns (out_path, stats) where stats =
     {"recreated": n, "restyled": n, "skipped": n} for the caller to report."""
     src_prs = Presentation(_as_stream(data))
+
+    # Make every picture a RASTER first, whatever its source format -- SVG icons (often the
+    # PRIMARY image, with no PNG fallback), WDP/HD-Photo effect layers, EMF/WMF metafiles.
+    # Pillow (and so python-pptx) can't read those, and they were silently lost -- icons
+    # vanished and primary-SVG pictures went blank (owner-reported, 2026-07-13). After this,
+    # icon extraction and slide copy below see ordinary rasters and miss nothing. Fail-safe.
+    try:
+        from deckengine.services.rendering import image_normalize
+        image_normalize.normalize_deck(src_prs)
+    except Exception:
+        pass
+
     src_slides = list(src_prs.slides)
     sw, sh = src_prs.slide_width, src_prs.slide_height   # the UPLOADED deck's own canvas
 
@@ -483,6 +590,7 @@ def recreate_deck(data, out_path, industry=""):
         # carry the source slide's own icons into the rebuilt slide's chips
         record["_icons"] = _slide_icons(slide, sw, sh)
         record["_score"] = _detect_score(text)         # a headline N/100 -> a ring
+        record["_figure"] = _prominent_image(slide, sw, sh)   # a big illustration/photo -> figure
         outcome = "recreated"
         if key == "case_study":
             from deckengine.services.rendering.deck_build import ai_to_store_record
