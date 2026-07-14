@@ -61,6 +61,20 @@ WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 SOFT = RGBColor(0xE7, 0xF0, 0xEE)
 CARD_BG = RGBColor(0xF5, 0xF5, 0xF5)    # same card fill as case_study_v2 / skills templates
 CARD_LINE = RGBColor(0xDE, 0xDE, 0xDE)  # same hairline border
+
+# J2W accent colours (the SATURATED ones) -- a source colour matching any of these, within a
+# small rounding tolerance, is already ours and must not be remapped.
+_J2W_ACCENTS = ((0x2A, 0x9D, 0x8F), (0xD6, 0x28, 0x39), (0x3A, 0x8B, 0x82))
+
+
+def _is_brand_colour(rgb):
+    """True if `rgb` is a SOURCE brand colour we should map onto our palette -- i.e. a real,
+    saturated colour (not white / black / grey) that isn't already one of ours."""
+    r, g, b = rgb
+    if max(r, g, b) - min(r, g, b) <= 45:        # neutral: white / black / grey card / hairline
+        return False
+    return not any(abs(r - jr) <= 14 and abs(g - jg) <= 14 and abs(b - jb) <= 14
+                   for jr, jg, jb in _J2W_ACCENTS)
 HEAD_FONT = "Oswald"            # matches the case-study heading font
 SUB_FONT = "Roboto Condensed"   # matches the case-study subheading font
 BODY_FONT = "Raleway"           # matches the case-study content font
@@ -139,6 +153,7 @@ def restyle_deck(data, out_path):
         size_ranks = _slide_sizes(slide.shapes)   # this slide's own size hierarchy
         dark_bg = _slide_is_dark(slide, slide.shapes, sw, sh)   # BEFORE we whiten it
         _restyle_shapes(slide.shapes, size_ranks, sw, sh, dark_bg)
+        _recolor_to_palette(slide.shapes, sw, sh)   # source brand colours -> J2W palette
         _fix_text_on_box_contrast(slide.shapes)
         _fix_picture_contrast(slide.shapes)
         _resolve_bottom_banner_overlap(slide.shapes, sw, sh)
@@ -191,22 +206,42 @@ def _slide_sizes(shapes, acc=None):
     return acc
 
 
+_STAT_RE = re.compile(r"^[\$₹€£]?\d[\d.,]*\s*[%+kKmMbBxX]?\+?$")
+
+
+def _is_stat_text(s):
+    """True for a standalone figure like '45%', '100%', '5+', '$18M', '8' -- a headline
+    STAT, not a real heading. Kept in the deck's accent colour rather than forced to ink, so
+    a colourful metric doesn't turn flat black (owner-reported, 2026-07-14)."""
+    s = (s or "").strip()
+    return 0 < len(s) <= 7 and bool(_STAT_RE.match(s))
+
+
 def _role(shape, size_ranks=None):
     """'head' | 'sub' | 'body' — how a text shape should be styled."""
     name = (shape.name or "").lower()
+    # A heading/subheading is SHORT. A long block of text that merely happens to sit in a
+    # subtitle placeholder or at the second size rank is a paragraph -- styling it as a
+    # subheading TITLE-CASES the sentence and paints it teal, which reads wrong (owner-
+    # reported, 2026-07-14). Anything longer than ~a line and a half is body.
+    try:
+        _txt = shape.text_frame.text.strip() if shape.has_text_frame else ""
+    except Exception:
+        _txt = ""
+    long_text = len(_txt) > 90
     try:
         if shape.is_placeholder:
             t = shape.placeholder_format.type
             if t in _HEAD_PH:
-                return "head"
+                return "head" if not long_text else "body"
             if t == PP_PLACEHOLDER.SUBTITLE:
-                return "sub"
+                return "sub" if not long_text else "body"
     except Exception:
         pass
     if "subtitle" in name:
-        return "sub"
+        return "sub" if not long_text else "body"
     if "title" in name:
-        return "head"
+        return "head" if not long_text else "body"
     # FALLBACK for decks with no native placeholders (common for decks built
     # outside PowerPoint's template system -- everything is a generic "Text N"
     # box). Conservative by design: a slide with no real heading (all similar,
@@ -221,8 +256,8 @@ def _role(shape, size_ranks=None):
         distinct = sorted(set(size_ranks), reverse=True)
         if sz is not None and distinct:
             if sz >= 20:
-                return "head"
-            if len(distinct) > 1 and sz == distinct[1] and 13 <= sz < 20:
+                return "head" if not long_text else "body"
+            if len(distinct) > 1 and sz == distinct[1] and 13 <= sz < 20 and not long_text:
                 return "sub"
     return "body"
 
@@ -254,19 +289,29 @@ def _restyle_shapes(shapes, size_ranks=None, slide_w=None, slide_h=None, dark_bg
             continue
         role = _role(sh, size_ranks)
         font = HEAD_FONT if role == "head" else SUB_FONT if role == "sub" else BODY_FONT
-        if role == "body":
-            try:
-                sh.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-            except Exception:
-                pass
+        try:
+            is_stat = role == "head" and _is_stat_text(sh.text_frame.text)
+        except Exception:
+            is_stat = False
+        # Shrink-to-fit for EVERY role, not just body: a heading or eyebrow whose box was
+        # sized for the SOURCE's font can otherwise overflow once we resize it and collide
+        # with the shape above/below (owner-reported overlap, 2026-07-14). auto_size marks
+        # it; _fit_body_text below bakes the real shrink in.
+        try:
+            sh.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        except Exception:
+            pass
         for para in sh.text_frame.paragraphs:
             for run in para.runs:
                 orig_size = run.font.size.pt if run.font.size else None   # BEFORE we overwrite it
                 run.font.name = font
                 if role == "head":
                     run.font.size = Pt(SZ_HEAD)
-                    run.text = run.text.upper()      # owner's spec: headings are always caps
-                    _force_color(run, INK)            # owner's spec: headings are always black
+                    if is_stat:
+                        _force_color(run, TEAL)       # a headline figure keeps an accent colour
+                    else:
+                        run.text = run.text.upper()   # owner's spec: headings are always caps
+                        _force_color(run, INK)        # owner's spec: headings are always black
                 elif role == "sub":
                     run.font.size = Pt(SZ_SUB)
                     run.text = _title_case(run.text)  # owner's spec: subheadings are Title Case
@@ -283,8 +328,7 @@ def _restyle_shapes(shapes, size_ranks=None, slide_w=None, slide_h=None, dark_bg
                         orig_size is None or orig_size >= SZ_BODY_HEAD_MIN_ORIG)
                     run.font.size = Pt(SZ_BODY_HEAD if is_mini_head else SZ_BODY)
                     _ink_if_dark_bg(run, dark_bg)
-        if role == "body":
-            _fit_body_text(sh)
+        _fit_body_text(sh)      # keep every role's text inside its own box
 
 
 _AVG_CHAR_WIDTH_EM = 0.50    # Raleway's rough average glyph width as a fraction
@@ -401,6 +445,64 @@ def _restyle_box(sh, slide_w, slide_h):
         pass
 
 
+def _recolor_to_palette(shapes, slide_w=None, slide_h=None):
+    """Map any leftover SOURCE brand colour onto the J2W palette, so a reskinned deck uses
+    ONLY our colours whatever palette it arrived in (owner's spec, 2026-07-14). The earlier
+    passes recolour text-less boxes and the heading/subheading text; this catches what they
+    leave: a COLOURED BAND/panel that carries its own text (its fill was never touched -- e.g.
+    a maroon 'Stream 1' section bar), a coloured border, and any run still set in a source
+    brand colour (a card's own coloured mini-heading). Neutrals (white/black/grey) and
+    colours already ours are left alone; images and tables are handled elsewhere and untouched
+    here. A fill becomes TEAL -- our dominant accent -- except a small square badge, which
+    becomes RED (the badge convention _restyle_box already uses). Text on a recoloured band is
+    made legible by the contrast pass that runs immediately after this one."""
+    for sh in shapes:
+        try:
+            if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+                _recolor_to_palette(sh.shapes, slide_w, slide_h)
+                continue
+        except Exception:
+            pass
+        try:                                     # solid fill -> J2W accent
+            f = sh.fill
+            if (f.type == MSO_FILL_TYPE.SOLID and f.fore_color.type == MSO_COLOR_TYPE.RGB
+                    and _is_brand_colour(tuple(f.fore_color.rgb))):
+                w = (sh.width or 0) / 914400
+                h = (sh.height or 0) / 914400
+                is_badge = 0 < w <= 1.2 and 0 < h <= 1.2 and abs(w - h) < 0.35
+                f.fore_color.rgb = RED if is_badge else TEAL
+                try:
+                    sh.line.fill.background()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:                                     # recolour an EXISTING coloured border only
+            # NB: never read sh.line.color here -- python-pptx MATERIALISES a solid <a:ln>
+            # the moment you touch it, drawing a box around every shape that had none. Edit
+            # the border straight in the XML, and only if the shape actually has one.
+            from pptx.oxml.ns import qn
+            spPr = getattr(sh._element, "spPr", None)
+            ln = spPr.find(qn("a:ln")) if spPr is not None else None
+            clr = ln.find(qn("a:solidFill") + "/" + qn("a:srgbClr")) if ln is not None else None
+            if clr is not None and clr.get("val"):
+                rgb = tuple(int(clr.get("val")[i:i + 2], 16) for i in (0, 2, 4))
+                if _is_brand_colour(rgb):
+                    clr.set("val", "2A9D8F")      # TEAL
+        except Exception:
+            pass
+        try:                                     # coloured text runs -> teal (accent) / ink
+            if sh.has_text_frame:
+                for para in sh.text_frame.paragraphs:
+                    for run in para.runs:
+                        col = run.font.color
+                        if (col is not None and col.type == MSO_COLOR_TYPE.RGB
+                                and _is_brand_colour(tuple(col.rgb))):
+                            _force_color(run, TEAL if run.font.bold else INK)
+        except Exception:
+            pass
+
+
 def _rect_of(sh):
     try:
         l, t, w, h = sh.left, sh.top, sh.width, sh.height
@@ -500,6 +602,15 @@ def _recolor_picture(sh, target_rgb):
     property. Best-effort: a picture that isn't a plain RGBA glyph (rare) is
     left untouched rather than risking a corrupted image."""
     try:
+        # Only an ICON gets recoloured. A larger picture -- a CHART, diagram or photo drawn
+        # as a transparent PNG (a teal bar chart, a % donut ring) also reads as a "glyph"
+        # by transparency/chroma, and recolouring painted it flat black: the charts lost
+        # their colour (owner-reported, 2026-07-14). Anything bigger than an icon keeps its
+        # own colours.
+        w = (sh.width or 0) / 914400
+        h = (sh.height or 0) / 914400
+        if w > 1.6 or h > 1.6:
+            return
         from PIL import Image
         import io as _io
         im = Image.open(_io.BytesIO(sh.image.blob)).convert("RGBA")
@@ -823,15 +934,22 @@ def _append_bookend_slides(prs, dest_sw, dest_sh):
     if title_src is None and winback_src is None:
         return
     msw, msh = master.slide_width, master.slide_height
-    sx = (dest_sw / msw) if msw else 1.0
-    sy = (dest_sh / msh) if msh else 1.0
+    # Scale UNIFORMLY (fit, preserve aspect) and CENTRE, so a deck whose aspect differs from
+    # the master's 16:9 -- e.g. a 20x8in (2.5:1) deck -- gets an undistorted bookend instead
+    # of one stretched 1.5x wide (owner-reported, 2026-07-14). Equal sx/sy keeps the old
+    # behaviour for a same-aspect deck.
+    s = min((dest_sw / msw) if msw else 1.0, (dest_sh / msh) if msh else 1.0)
+    dx = int(round((dest_sw - msw * s) / 2)) if msw else 0
+    dy = int(round((dest_sh - msh * s) / 2)) if msh else 0
     if title_src is not None:
         new_title = _copy_slide(prs, title_src)
-        _scale_shapes(new_title.shapes, sx, sy)
+        _scale_shapes(new_title.shapes, s, s)
+        _offset_shapes(new_title.shapes, dx, dy)
         _move_slide_to_front(prs, new_title)
     if winback_src is not None:
         new_winback = _copy_slide(prs, winback_src)
-        _scale_shapes(new_winback.shapes, sx, sy)
+        _scale_shapes(new_winback.shapes, s, s)
+        _offset_shapes(new_winback.shapes, dx, dy)
 
 
 def _scale_shapes(shapes, sx, sy):
@@ -867,6 +985,19 @@ def _scale_shapes(shapes, sx, sy):
                     for r in p.runs:
                         if r.font.size:
                             r.font.size = Pt(r.font.size.pt * s)
+        except Exception:
+            pass
+
+
+def _offset_shapes(shapes, dx, dy):
+    """Shift every TOP-LEVEL shape by (dx, dy) EMU -- used to CENTRE uniformly-scaled bookend
+    content on a canvas whose aspect differs from the master's, instead of stretching it."""
+    for sh in shapes:
+        try:
+            if sh.left is not None:
+                sh.left = int(sh.left + dx)
+            if sh.top is not None:
+                sh.top = int(sh.top + dy)
         except Exception:
             pass
 

@@ -361,6 +361,7 @@ def _restyle_original_slide(dest, src_slide, sw, sh, dest_sw, dest_sh):
     size_ranks = reskin._slide_sizes(new.shapes)
     dark_bg = reskin._slide_is_dark(new, new.shapes, sw, sh)
     reskin._restyle_shapes(new.shapes, size_ranks, sw, sh, dark_bg)
+    reskin._recolor_to_palette(new.shapes, sw, sh)   # source brand colours -> J2W palette
     reskin._fix_text_on_box_contrast(new.shapes)
     reskin._fix_picture_contrast(new.shapes)
     reskin._resolve_bottom_banner_overlap(new.shapes, sw, sh)

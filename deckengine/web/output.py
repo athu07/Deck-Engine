@@ -4,7 +4,6 @@
 import io
 import os
 import tempfile
-import zipfile
 
 from flask import Blueprint, request, send_file, abort
 
@@ -84,26 +83,35 @@ def slide_download(sid):
 
 @bp.route("/slides/download")
 def slides_download():
-    """Bulk download: several library slides selected at once, each as its own .pptx,
-    bundled into a single .zip. ids come in as a comma-separated ?ids= list."""
+    """Bulk download: several library slides selected at once, combined into ONE .pptx in
+    the selected order (owner's spec, 2026-07-14 -- previously each slide came as its own
+    file inside a .zip). ids come in as a comma-separated ?ids= list. Served from memory so
+    there's no shared file to lock between concurrent downloads."""
+    from deckengine.services.rendering import slide_generator
     ids = [x.strip().upper() for x in request.args.get("ids", "").split(",") if x.strip()]
     if not ids:
         abort(400)
-    mem = io.BytesIO()
+    dest = None
     added = 0
     with tempfile.TemporaryDirectory() as td:
-        with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
-            for sid in ids:
-                tmp = os.path.join(td, f"{sid}.pptx")
-                try:
-                    if not _render_slide(sid, tmp):
-                        continue
-                except (PermissionError, OSError):
+        for sid in ids:
+            tmp = os.path.join(td, f"{sid}.pptx")
+            try:
+                if not _render_slide(sid, tmp):
                     continue
-                zf.write(tmp, arcname=f"{sid}.pptx")
+            except (PermissionError, OSError) as e:
+                return file_busy_page(str(e))
+            src = Presentation(tmp)                 # each id rendered to its own 1-slide deck
+            if dest is None:                        # combined deck takes the first slide's size
+                dest = Presentation()
+                dest.slide_width, dest.slide_height = src.slide_width, src.slide_height
+            for s in src.slides:                    # copy every slide across, in order
+                slide_generator._copy_slide(dest, s)
                 added += 1
-    if not added:
+    if dest is None or not added:
         abort(404)
+    mem = io.BytesIO()
+    dest.save(mem)
     mem.seek(0)
-    return send_file(mem, as_attachment=True, download_name="J2W_slides.zip",
-                     mimetype="application/zip")
+    return send_file(mem, as_attachment=True, download_name="J2W_slides.pptx",
+                     mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")

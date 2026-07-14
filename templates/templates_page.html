@@ -6,11 +6,9 @@
   </div>
 </div>
 
-<!-- The deck tools. Re-skin is DISABLED (owner's spec, 2026-07-13) -- Recreate with AI
-     does strictly more (it rebuilds each slide's layout, and restyles in place only when
-     a slide doesn't fit a shape), so the two overlapped. Restore by uncommenting the
-     card below AND the /template/reskin route in deckengine/web/templates.py. -->
-{#
+<!-- The deck tools: Re-skin (restyle in place), Recreate with AI (rebuild layouts), and
+     Learn a template. Re-skin re-enabled for testing (owner's spec, 2026-07-14). -->
+<div class="tool-row">
   <form class="card tool" method="post" action="/template/reskin" enctype="multipart/form-data"
         onsubmit="return submitWithLoader(this,'Re-skinning your deck…','Restyling fonts, colours and branding — a few seconds.')">
     <div class="upload-ic"><i class="ti ti-wand"></i></div>
@@ -21,8 +19,7 @@
              onchange="this.parentNode.querySelector('span').textContent=this.files[0]?this.files[0].name:'Choose a .pptx'"></label>
     <button class="btn btn-primary btn-block" type="submit"><i class="ti ti-sparkles"></i> Re-skin &amp; preview</button>
   </form>
-#}
-<div class="tool-row tool-row-2">
+
   <form class="card tool" method="post" action="/template/recreate" enctype="multipart/form-data"
         onsubmit="return submitWithLoader(this,'Recreating your deck…','Reading each slide and rebuilding it in a J2W layout — this can take a minute.')">
     <div class="upload-ic"><i class="ti ti-layout-grid"></i></div>

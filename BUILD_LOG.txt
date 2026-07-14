@@ -4363,3 +4363,60 @@ Two more gaps found on ServiceNow HTDD.pptx and fixed:
      column. reserve=0 for slides with no figure, so full-width layout is unchanged.
 Verified end-to-end: slides 7/8 (gears, clipboard), 9 (circuit), 13/16 (photos) now show
 their source images beside the J2W content; no overlaps; non-figure slides unchanged. 53 tests green.
+
+2026-07-14 — Two owner requests:
+  1) RE-SKIN re-enabled for testing. Uncommented the /template/reskin route (web/templates.py)
+     and its card in templates_page.html (now a 3-tool row: Re-skin, Recreate with AI, Learn
+     a template). reskin.restyle_deck + render_pngs were always present (Recreate uses them);
+     preview + download already supported mode="reskin". Verified restyle_deck builds a valid
+     deck and the route is live.
+  2) LIBRARY bulk download now returns ONE combined .pptx instead of a .zip of separate files.
+     /slides/download (web/output.py) renders each selected id to its own 1-slide deck, then
+     copies every slide into a single Presentation (slide_generator._copy_slide -- verified
+     pixel-faithful for master slides AND content-store cases), in the selected order, served
+     from memory (no shared file to lock). Handles master slides + content-store cases. UI
+     wording updated ("Download as one .pptx"); test_fixes.py test updated. Tests green (53).
+
+2026-07-14 (v2) — Re-skin: recolor ANY uploaded palette to J2W. Re-skin kept images, fonts
+and layout well, but a source brand colour leaked through wherever the earlier passes didn't
+already set one: a COLOURED BAND/panel carrying its own text (its fill was never touched --
+e.g. the maroon #751138 'Stream 1/2' section bars) and coloured text runs (a card's own
+coloured mini-headings). New reskin._recolor_to_palette() pass (run right after
+_restyle_shapes, before the text-contrast pass, in BOTH restyle_deck and recreate's restyle
+fallback): maps every saturated, non-neutral, non-J2W fill / border / font onto our palette
+-- fills -> TEAL (a small square badge -> RED), borders/coloured text -> TEAL (bold accent)
+or INK (plain). Neutrals (white/black/grey cards) and colours already ours are left alone;
+images and tables untouched. Verified on Merc Benz Use Cases.pptx: 0 source colours leak
+(was maroon on 4 fills + 68 runs); Stream bands now teal with legible white text, card
+headings teal, all images/layout preserved. Tests green (53).
+
+2026-07-14 (v3) — Re-skin robustness fixes (reported on Reskinned_Merc_Benz_Use_Cases, a
+20x8in / 2.5:1 ultra-wide deck):
+  1) BOXES all over the content -- a regression from the v2 recolour pass. Reading
+     sh.line.color to check a border MATERIALISES a solid <a:ln> in python-pptx, drawing a
+     box around every shape that had none. _recolor_to_palette now edits an EXISTING border
+     straight in the XML (a:ln/a:solidFill/a:srgbClr) and never touches sh.line otherwise.
+  2) SLIDE-3 text OVERLAP -- reskin resizes text but only shrank BODY text to fit; a heading
+     or eyebrow whose box was sized for the source font overflowed and collided. Shrink-to-
+     fit (auto_size + _fit_body_text) now applies to EVERY role.
+  3) FIRST/LAST slide (bookends) distorted -- CS01/CS08 are 16:9; on a 2.5:1 deck they were
+     scaled non-uniformly (1.5x wide) and stretched. _append_bookend_slides now scales
+     UNIFORMLY (min sx/sy, aspect preserved) and CENTRES (new _offset_shapes). Same-aspect
+     decks unchanged.
+Verified on the file: no borders (0/78 text shapes), slide-3 eyebrow/title separated, book-
+ends undistorted. Tests green (53). KNOWN, not yet fixed: a full-bleed DARK-IMAGE title
+slide (the Mercedes hero) keeps its heading forced ink -> invisible on the dark photo;
+flagged to owner as a separate item.
+
+2026-07-14 (v4) — Re-skin colour fidelity (reported on the ServiceNow / pawan bhatt deck):
+  1) CHARTS/GRAPHS turned BLACK. A bar chart or % donut ring drawn as a transparent PNG
+     reads as a mono "glyph" by transparency + low chroma, so _recolor_picture painted it
+     flat ink. Added a SIZE guard: only ICON-sized pictures (<=1.6in) are ever recoloured;
+     a chart/diagram/photo keeps its own colours.
+  2) Long PARAGRAPHS styled as a SUBHEADING -- Title-Cased and painted teal -- because they
+     sat in a subtitle placeholder or at the 2nd size rank. _role now demotes any text
+     longer than ~90 chars to body, whatever its placeholder/size.
+  3) Headline STATS ('45%', '100%') forced to ink, losing their accent. New _is_stat_text()
+     keeps a standalone figure in TEAL instead of black+uppercased.
+Verified on the file: bar/donut charts keep teal, 45%/30%/100% teal, summary paragraphs are
+clean body text, numbered badges legible, images preserved. Tests green (53).

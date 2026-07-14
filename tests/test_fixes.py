@@ -132,18 +132,18 @@ def test_reskin_preserves_content(tmp_path):
     assert "Oswald" in title_fonts
 
 
-# ── Library bulk download: several slides -> one .zip of per-slide .pptx ───────
-def test_bulk_slides_zip():
+# ── Library bulk download: several slides -> ONE combined .pptx (2026-07-14) ───
+def test_bulk_slides_combined_pptx():
     _chdir()
     import io
-    import zipfile
+    from pptx import Presentation
     import app as appmod
     c = appmod.app.test_client()
-    r = c.get("/slides/download?ids=CS01,MSS001")
+    r = c.get("/slides/download?ids=CS01,MSS001")            # master + content-store case
     assert r.status_code == 200
-    assert r.headers["Content-Type"] == "application/zip"
-    names = zipfile.ZipFile(io.BytesIO(r.data)).namelist()
-    assert "CS01.pptx" in names and "MSS001.pptx" in names   # master + content-store case
+    assert "presentationml.presentation" in r.headers["Content-Type"]   # a .pptx, not a .zip
+    prs = Presentation(io.BytesIO(r.data))
+    assert len(prs.slides._sldIdLst) == 2                   # both slides in one file
     assert c.get("/slides/download?ids=").status_code == 400  # nothing selected
 
 

@@ -24,7 +24,7 @@
    b.parentNode.querySelectorAll('.fchip').forEach(x=>x.classList.remove('active'));
    b.classList.add('active');apply();}));}
  wire('wtf','wt');wire('kindf','kind');
- // ── bulk download: tick slides, download all selected as one .zip ──
+ // ── bulk download: tick slides, download all selected as one .pptx ──
  (function(){
    const selected=new Set();
    const bar=document.getElementById('sel-bar');
