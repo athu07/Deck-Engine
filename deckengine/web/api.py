@@ -8,6 +8,7 @@ from flask import Blueprint, request
 
 from deckengine.services.rendering import slide_generator, staging, client_logo
 from deckengine.services import build_context, deep_research, ingest
+from .view_helpers import resolve_industry, remember_custom_industry
 
 bp = Blueprint("api", __name__)
 
@@ -26,7 +27,9 @@ def create_ai():
     if not brief:
         return {"ok": False, "error": "Please describe the slide you want."}, 400
     bc = build_context.load(request.form.get("build_id", ""))
-    industry = bc.get("industry") or request.form.get("industry", "")
+    # normally the already-resolved industry saved by /build; resolve the fallback too
+    # so a sentinel can't reach the generator if the build context is ever unavailable
+    industry = bc.get("industry") or resolve_industry(request.form)
     client = bc.get("client_name") or request.form.get("client_name", "")
     recipient = bc.get("recipient") or request.form.get("recipient", "")
     functions = bc.get("functions")
@@ -63,9 +66,16 @@ def research_account():
     what's already on file for this account, not just the typed name."""
     client_name = request.form.get("client_name", "").strip()
     recipient = request.form.get("recipient", "").strip()
-    industry = request.form.get("industry", "").strip()
+    # A typed "Other" industry must reach the brief as the REAL industry — this used
+    # to receive the raw "__OTHER__" sentinel and research the account as though its
+    # industry were literally "(__OTHER__)", which then poisoned matching and every
+    # AI-written slide downstream (the brief rides into /build as auto_company_text).
+    industry = resolve_industry(request.form)
     if not client_name:
         return {"ok": False, "error": "Enter a client name first."}, 400
+    # she has committed to this industry by researching against it — remember it now,
+    # so it is in the dropdown next time even if this deck is never finished
+    remember_custom_industry(industry)
     research_text = ingest.extract_text(request.files.get("research_file"))
     profile_text = ingest.extract_text(request.files.get("profile_file"))
     brief = deep_research.strategic_brief(client_name, recipient, industry,

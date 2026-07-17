@@ -17,6 +17,7 @@ from flask import render_template
 
 from deckengine import config
 from deckengine import constants
+from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher
 from deckengine.services.rendering import slide_generator
 
@@ -38,6 +39,35 @@ def file_busy_page(err):
 
 def safe_filename(name):
     return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "Client"
+
+
+def resolve_industry(form):
+    """The industry the salesperson ACTUALLY meant, from a New-deck form payload.
+
+    Picking "Other…" makes the select's value the literal `__OTHER__` sentinel; the
+    real, typed industry rides in the companion `industry_other` field. Every endpoint
+    that reads the form's industry must go through here, because the sentinel is NOT
+    an industry name -- "Research this account" used to POST it straight through to
+    deep_research.strategic_brief(), so the brief was researched for an account in the
+    "(__OTHER__)" industry and the whole deck was then matched and AI-written from that
+    junk brief (owner-reported, 2026-07-17: a typed "Other" industry was ignored by the
+    generated content). Server-side so a stale cached new-form.js, a no-JS submit, or a
+    future caller can never reintroduce it.
+    """
+    industry = (form.get("industry") or "").strip()
+    if industry == constants.INDUSTRY_OTHER:
+        industry = (form.get("industry_other") or "").strip()
+    return industry
+
+
+def remember_custom_industry(industry):
+    """Persist a salesperson-typed industry that isn't in the built-in taxonomy, so it
+    is in the dropdown for every build after this one (owner's spec: an industry typed
+    once must be pickable the second time). No-op for a built-in code or an empty name.
+    Shared by /build and /research_account -- whichever moment she first commits the
+    industry is the moment it should be remembered, not only a completed deck."""
+    if industry and industry.lower() not in {i.lower() for i in constants.all_industries()}:
+        custom_industries.add(industry)
 
 
 def current_salesperson():

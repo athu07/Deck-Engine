@@ -4420,3 +4420,28 @@ flagged to owner as a separate item.
      keeps a standalone figure in TEAL instead of black+uppercased.
 Verified on the file: bar/donut charts keep teal, 45%/30%/100% teal, summary paragraphs are
 clean body text, numbered badges legible, images preserved. Tests green (53).
+
+2026-07-17 — The "Other…" industry: typed industry ignored by the content, and not remembered.
+Both symptoms reported on the New-deck form's Client section had ONE root cause: the box you
+type the industry into was not a real form field (no `name`), so it existed only inside the
+browser, and only at the moment the form was submitted. Everything that read the industry
+BEFORE that saw the "__OTHER__" sentinel -- the select's own control value -- instead of what
+was typed.
+  1) CONTENT DIDN'T MATCH THE INDUSTRY. "Research this account" sent that sentinel to the AI,
+     so the strategic brief was literally researched for "Neste (__OTHER__)" -- the typed
+     industry was never in the prompt. That brief then rides into the build as the research
+     text, so it drove slide MATCHING and every AI-WRITTEN slide too: one wrong value at the
+     top quietly steered the whole deck. (Confirmed by capturing the real prompt argument.)
+  2) NOT REMEMBERED FOR NEXT TIME. The industry was only saved by a COMPLETED /build, so an
+     industry typed and researched -- but whose deck wasn't finished -- was lost.
+Fix: the typed box now POSTs as `industry_other`, and the backend resolves the pair in ONE
+place (web/view_helpers.resolve_industry), used by /build, /research_account and /create_ai --
+so no endpoint can ever see the sentinel again, even from a stale cached new-form.js or a
+no-JS submit. The industry is now remembered as soon as she researches against it
+(view_helpers.remember_custom_industry), not only when a deck is finished, and the store
+itself refuses the sentinel so a literal "__OTHER__" can never reach the shared dropdown.
+Unchanged on purpose: a custom industry stays a display label + content-match only (it never
+enters the 8-code taxonomy), and built-in industries behave exactly as before.
+Verified end-to-end: the AI now researches "Renewable Diesel Production", it reaches slide
+generation, and it is pickable from the dropdown on the next deck. 4 regression tests added;
+tests green (56 passed; the 1 failure, master-preview staleness, pre-dates this change).
