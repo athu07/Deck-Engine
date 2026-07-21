@@ -365,11 +365,28 @@ def candidates(context):
     return out
 
 
+_TSP_INTENT_RE = re.compile(
+    r'\b(hir(e|ing|ed)|staff(ing|ed)?|recruit(ing|ment)?|headcount|'
+    r'skill\s*(profile|set)|skills?\s+(required|requirement|needed)|'
+    r'resourc(e|es|ing)\s+(needed|required)|talent\s+(requirement|need)s?|'
+    r'(build|building|stand(ing)?\s*up)\s+a?\s*team|'
+    r'(roles?|positions?|consultants?|engineers?|professionals?)\s+(needed|required)|'
+    r'ramp[\s-]?up|bench\s+strength)\b',
+    re.I,
+)
+
+
 def _target_skill_profile_candidate(transcript):
     """Whenever the notes name skills/requirements to hire against, AI-categorise
     them into the 3-column Target Skill Profile slide. Returns None if the notes
-    name nothing (never a placeholder slide) or the AI call fails (fail-safe)."""
+    name nothing (never a placeholder slide), don't actually describe a hiring/
+    staffing need (owner-reported, 2026-07-20: plain company/industry background
+    text with no hiring intent -- e.g. "Olam Group is FMCG, food & agriculture" --
+    was getting AI-categorised into a spurious skill profile because the old gate
+    was just "notes non-empty"), or the AI call fails (fail-safe)."""
     if not (transcript or "").strip():
+        return None
+    if not _TSP_INTENT_RE.search(transcript):
         return None
     from deckengine.services.matching import ai_matcher
     try:

@@ -150,5 +150,5 @@ def assemble(final_ids, path, *, client, industry, work_types, transcript, edits
             "{{CLIENT}}": client, "{{Client}}": client, "{{client}}": client,
             "{CLIENT}": client, "{Client}": client, "{client}": client,
         })
-        client_logo.stamp_into(path, client)   # no-op if no logo was uploaded for this client
+        client_logo.stamp_into(path, client)   # real logo if uploaded/found, else a placeholder box
     skills.build_into(path, final_ids, skills_cands + create_items + store_items)   # fill + slot extras

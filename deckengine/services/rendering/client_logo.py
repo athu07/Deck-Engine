@@ -53,9 +53,11 @@ import re
 
 from PIL import Image, UnidentifiedImageError
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches, Pt, Emu
 from pptx.enum.text import PP_ALIGN
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
+from pptx.oxml.ns import qn
 
 from deckengine import config
 from deckengine.services.content.build_library import read_id
@@ -214,29 +216,7 @@ def path_for(client_name):
     return p if os.path.exists(p) else None
 
 
-def stamp_into(deck_path, client_name):
-    """After assembler.build_deck() has already copied CS01 into the deck, add
-    this client's logo beside the J2W wordmark, plus a small "x" divider. No-op
-    if no logo was uploaded for this client name (the common case -- this is an
-    optional finishing touch, not a required step)."""
-    logo_path = path_for(client_name)
-    if not logo_path:
-        return False
-    prs = Presentation(deck_path)
-    slide = next((s for s in prs.slides if read_id(s) == CS01), None)
-    if slide is None:
-        return False
-
-    with Image.open(logo_path) as im:
-        iw, ih = im.size
-    scale = min(_LOGO_MAX_W / iw, _LOGO_MAX_H / ih)
-    logo_w, logo_h = iw * scale, ih * scale
-    logo_right = _WORDMARK_LEFT - _GAP_W
-    logo_left = logo_right - logo_w
-    logo_top = _WORDMARK_CENTER_Y - logo_h / 2
-    slide.shapes.add_picture(logo_path, Inches(logo_left), Inches(logo_top),
-                             width=Inches(logo_w), height=Inches(logo_h))
-
+def _add_x_divider(slide, logo_right):
     divider = slide.shapes.add_textbox(Inches(logo_right), Inches(_WORDMARK_CENTER_Y - 0.25),
                                        Inches(_GAP_W), Inches(0.5))
     tf = divider.text_frame
@@ -249,6 +229,70 @@ def stamp_into(deck_path, client_name):
     r.font.size = Pt(28)
     r.font.bold = True
     r.font.color.rgb = RGBColor(0x6B, 0x6B, 0x6B)
+
+
+def _add_logo_placeholder(slide, logo_left, logo_top):
+    """No real logo was fetched or uploaded (owner's spec, 2026-07-20: every
+    title slide should reserve the spot regardless, exactly like the manually-
+    built decks do -- a dashed box the salesperson can select and swap a real
+    logo into in PowerPoint, rather than the slide just having nothing there
+    with no visual cue a logo belongs). Placed at the SAME position/size a real
+    logo would use, so replacing it later needs no re-measuring."""
+    box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(logo_left), Inches(logo_top),
+                                 Inches(_LOGO_MAX_W), Inches(_LOGO_MAX_H * 0.7))
+    box.fill.background()
+    box.line.color.rgb = RGBColor(0xB0, 0xB0, 0xB0)
+    box.line.width = Pt(1)
+    ln = box.line._get_or_add_ln()
+    prst = ln.find(qn("a:prstDash"))
+    if prst is None:
+        prst = ln.makeelement(qn("a:prstDash"), {})
+        ln.append(prst)
+    prst.set("val", "dash")
+    tf = box.text_frame
+    tf.word_wrap = True
+    tf.margin_left = tf.margin_right = Emu(0)
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    r = p.add_run()
+    r.text = "Client logo"
+    r.font.size = Pt(11)
+    r.font.color.rgb = RGBColor(0xB0, 0xB0, 0xB0)
+
+
+def stamp_into(deck_path, client_name):
+    """After assembler.build_deck() has already copied CS01 into the deck, add
+    this client's logo beside the J2W wordmark, plus a small "x" divider. If no
+    logo was auto-fetched or uploaded for this client name, a dashed placeholder
+    box is stamped in the same spot instead of leaving nothing there -- see
+    _add_logo_placeholder. Returns True if a real logo (not just the
+    placeholder) was stamped."""
+    prs = Presentation(deck_path)
+    slide = next((s for s in prs.slides if read_id(s) == CS01), None)
+    if slide is None:
+        return False
+
+    logo_path = path_for(client_name)
+    logo_right = _WORDMARK_LEFT - _GAP_W
+
+    if not logo_path:
+        placeholder_h = _LOGO_MAX_H * 0.7
+        logo_left = logo_right - _LOGO_MAX_W
+        logo_top = _WORDMARK_CENTER_Y - placeholder_h / 2
+        _add_logo_placeholder(slide, logo_left, logo_top)
+        _add_x_divider(slide, logo_right)
+        prs.save(deck_path)
+        return False
+
+    with Image.open(logo_path) as im:
+        iw, ih = im.size
+    scale = min(_LOGO_MAX_W / iw, _LOGO_MAX_H / ih)
+    logo_w, logo_h = iw * scale, ih * scale
+    logo_left = logo_right - logo_w
+    logo_top = _WORDMARK_CENTER_Y - logo_h / 2
+    slide.shapes.add_picture(logo_path, Inches(logo_left), Inches(logo_top),
+                             width=Inches(logo_w), height=Inches(logo_h))
+    _add_x_divider(slide, logo_right)
 
     prs.save(deck_path)
     return True

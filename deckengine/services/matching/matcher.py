@@ -54,6 +54,11 @@ def _account_functions(form_functions, transcript):
 
 # Case-selection knobs (the rebuilt ranker):
 MAX_CASE_PICKS = 12    # breadth cap — a multi-solution account needs many proofs
+# Intro decks stay lean in practice (owner-confirmed, 2026-07-20: real hand-built
+# Intro decks for Olam Group and CIBC used 3-4 case studies, never anywhere near
+# 12) — the breadth cap above is for First/Second Meeting, where a multi-solution
+# account genuinely needs more proof points.
+MAX_CASE_PICKS_INTRO = 4
 CASE_FLOOR     = 1.2   # below this relevance a case isn't worth auto-including
 CASE_REL_FLOOR = 0.72  # ...and keep only cases within this fraction of the top score
                        # (so a simple, single-ask meeting gets a few cases, not 12)
@@ -141,6 +146,37 @@ _GCC_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in _GCC_TERMS) + r")\b
 
 def _has_gcc_signal(text):
     return bool(_GCC_RE.search(text or ""))
+
+
+# Explicit "lead with X" priority phrases -- swaps which work type's standard
+# block leads the deck when the notes clearly state one (owner-spec, 2026-07-20:
+# real CIBC notes said "position our Managed Services offering first ... As a
+# secondary focus ... Workforce Solutions", but the standard blocks are always
+# ordered by fixed CS number, which puts Workforce (CS10/12) ahead of MS
+# (CS18/19) regardless of what was actually asked for). Kept as an explicit,
+# readable phrase list (same pattern as _GCC_TERMS above), not a smarter guesser.
+_LEAD_WT_TERMS = {
+    "MS": ["position our managed services", "managed services offering first",
+           "lead with managed services", "managed services first",
+           "prioritize managed services", "prioritise managed services"],
+    "WORKFORCE": ["position our workforce", "workforce solutions first",
+                  "lead with workforce", "workforce offering first",
+                  "prioritize workforce", "prioritise workforce",
+                  "position our talent", "talent solutions first"],
+    "AI_POD": ["position our ai pod", "ai pods first", "lead with ai pods",
+               "prioritize ai pods", "prioritise ai pods"],
+}
+
+
+def _lead_work_type(transcript):
+    """Which work type's standard block should lead the deck, if the notes
+    clearly state one -- else None (falls back to the fixed CS-number order).
+    First phrase found wins if more than one is somehow present."""
+    text = (transcript or "").lower()
+    for wt, phrases in _LEAD_WT_TERMS.items():
+        if any(p in text for p in phrases):
+            return wt
+    return None
 
 
 # Per-slide phrase list for the generic "asked/mentioned in the transcript"
@@ -440,6 +476,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     reg = load_registry()
     chosen = {}                 # slide_id -> reason
     cases_by_wt = {}            # work_type -> [rows]
+    wt_of_sid = {}              # slide_id -> its registry work_types (for lead-block ordering)
 
     # stage/composition: Intro/First/Second use the new brief-driven rules below;
     # Proposal (or a blank/unrecognised phase) falls back to include_rule_legacy,
@@ -447,11 +484,14 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     stage = stage_of(context.get("phase"))
     composition = composition_of(wanted)
     gcc_text = transcript_raw + " " + research_raw
+    lead_wt = _lead_work_type(transcript_raw)   # explicit "lead with X" -> reorders standard blocks
+    case_cap_ceiling = MAX_CASE_PICKS_INTRO if stage == "intro" else MAX_CASE_PICKS
 
     # ---- pass 1: always-in, std blocks, and gather candidate case studies ----
     for row in reg:
         sid = row["slide_id"]
         row_wts = _wts_of(row)
+        wt_of_sid[sid] = row_wts
 
         if stage is None:
             # legacy path (Proposal / unknown phase) — today's exact behaviour,
@@ -556,7 +596,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     # 1) the research-matched cases LEAD the deck, in research order (guarantees the
     #    named hooks are proven, e.g. weld-vision, digital-twin).
     for pid in priority_list:
-        if len(selected_ids) >= MAX_CASE_PICKS:
+        if len(selected_ids) >= case_cap_ceiling:
             break
         it = ranked_by_id.get(pid)
         if it is None and pid in row_by_id:            # matched a hook but ranked low
@@ -575,7 +615,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     # 2) fill the rest with the top-ranked cases (MMR de-dup vs what's already in).
     #    Keep the deck TIGHT around the matched needs — a person-specific pitch
     #    shouldn't be padded with off-function cases. Only fill if we have < 3.
-    pick_cap = min(MAX_CASE_PICKS, max(len(selected_ids), 3))
+    pick_cap = min(case_cap_ceiling, max(len(selected_ids), 3))
     pool = [it for it in ranked
             if it["score"] >= keep_floor and it["row"]["slide_id"] not in selected_ids][:60]
     while pool and len(selected_ids) < pick_cap:
@@ -668,10 +708,16 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
 
     def order_key(sid):
         if sid in PIN_TO_END:
-            return (2, PIN_TO_END.index(sid))   # pinned closing: dead last, in list order
+            return (2, 0, PIN_TO_END.index(sid))   # pinned closing: dead last, in list order
         if sid in band1_pos:
-            return (1, band1_pos[sid])          # case-study section, grouped by work type
-        return (0, _num(sid))                   # core / standard blocks: natural deck order
+            return (1, 0, band1_pos[sid])          # case-study section, grouped by work type
+        # core / standard blocks: natural deck order, UNLESS the notes explicitly
+        # named a lead work type -- then its own standard-block slides (e.g. MS's
+        # CS18/CS19) sort ahead of any other work type's (e.g. Workforce's CS10/
+        # CS12), while work-type-agnostic slides (CS01/02/04/06 etc.) are unaffected.
+        sid_wts = wt_of_sid.get(sid) or set()
+        sub = 1 if (lead_wt and sid_wts and lead_wt not in sid_wts) else 0
+        return (0, sub, _num(sid))
     ordered = sorted(chosen.items(), key=lambda kv: order_key(kv[0]))
     picks = [{"slide_id": sid, "reason": reason} for sid, reason in ordered]
 

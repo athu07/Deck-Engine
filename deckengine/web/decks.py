@@ -19,7 +19,7 @@ from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
 from deckengine.services.content import industries as custom_industries
-from deckengine.services.matching import matcher, relevance, ai_matcher
+from deckengine.services.matching import matcher, relevance, ai_matcher, personas
 from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
                                            slide_generator, slide_schema, client_context)
@@ -223,6 +223,14 @@ def build():
     wt_ids = {c["id"] for c in case_library.all_cases()
              if c.get("work_type", "").upper() in wanted}
     acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
+    # role resonance (owner-spec, 2026-07-20): a detected persona (e.g. HR/Talent
+    # Head) previously only nudged the FALLBACK rank_cases() path -- once profile/
+    # research-driven priority picks fill the whole deck (the common case), it
+    # never got a turn. Now threaded into shortlist_cases() below too. Detection
+    # also scans the uploaded PROFILE text (not just recipient/transcript) --
+    # a profile-only build (a name typed as recipient, no transcript) still
+    # names the person's actual role/skills in the profile itself.
+    persona_codes = personas.detect(ctx.get("recipient", ""), match_notes + "\n" + profile_text)
     try:
         # ONE structured pass over research + profile + transcript: needs (with domain/
         # use-case), mismatch flags, expressed interest, account (honours the reference
@@ -242,7 +250,8 @@ def build():
             # toward the wrong cases). Industry is applied separately as a light boost.
             queries = [n["name"] for n in all_needs]
             shortlists = relevance.shortlist_cases(queries, industry=ctx.get("industry", ""),
-                                                   functions=acct_fns, allowed_ids=wt_ids, top_n=8)
+                                                   functions=acct_fns, allowed_ids=wt_ids, top_n=8,
+                                                   persona_codes=persona_codes)
             sl_by_name = {n["name"]: lst for n, lst in zip(all_needs, shortlists)}
             recs = {r["id"]: r for r in case_library._load()}
             expressed_lc = {x.lower() for x in expressed}
@@ -267,7 +276,8 @@ def build():
                         priority_ids.append(cand["id"])
                         rc = recs.get(cand["id"], {})
                         picked.append({"need": name, "id": cand["id"], "title": rc.get("title", ""),
-                                       "blurb": rc.get("challenge", "")})
+                                       "blurb": rc.get("challenge", ""),
+                                       "industry": rc.get("industry", "")})
                 elif name.lower() not in expressed_lc and n.get("description"):
                     missing.append({"name": name, "description": n["description"],
                                     "domain": n.get("domain", ""), "use_case": n.get("use_case", ""),
@@ -351,7 +361,8 @@ def build():
             recs = {r["id"]: r for r in case_library._load()}
             bet_shortlists = relevance.shortlist_cases(
                 [b["name"] for b in bets], industry=ctx.get("industry", ""),
-                functions=acct_fns, allowed_ids=wt_ids, top_n=8)
+                functions=acct_fns, allowed_ids=wt_ids, top_n=8,
+                persona_codes=persona_codes)
             for b, shortlist in zip(bets, bet_shortlists):
                 cand = None
                 for item in shortlist:

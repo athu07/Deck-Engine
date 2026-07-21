@@ -209,7 +209,7 @@
       <span id="h-multi">{% for f in ctx.functions %}<input type="hidden" name="functions" value="{{ f }}">{% endfor %}{% for w in ctx.work_types %}<input type="hidden" name="work_types" value="{{ w }}">{% endfor %}</span>
       <div class="summary">
         <div class="sum-row"><span>Slides</span><b id="sum-count">{{ picks|length }}</b></div>
-        <div class="sum-row"><span>Gaps flagged</span><b>{{ gaps|length }}</b></div>
+        <div class="sum-row"><span>Gaps flagged</span><b>{{ (gaps|length) + (missing|length) }}</b></div>
         <div class="sum-row"><span>Matching</span><b style="{{ 'color:var(--teal)' if ai_used else '' }}">{{ 'AI' if ai_used else 'Rules' }}</b></div>
       </div>
       <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:18px"><i class="ti ti-arrow-right"></i> Next: Review &amp; edit</button>

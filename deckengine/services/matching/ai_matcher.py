@@ -300,8 +300,13 @@ def extract_skill_profile(notes, max_per_category=6):
         "For each item: name = a short heading (2-5 words), description = one short "
         "line (max ~8 words) naming the specifics (e.g. tools, standards, range).\n"
         f"At most {max_per_category} items per bucket. Ground every item in the notes "
-        "— do not invent skills that aren't named or clearly implied. If the notes "
-        "name no skills/requirements at all, return every bucket empty.\n"
+        "— do not invent skills that aren't named or clearly implied. Only extract "
+        "items that are genuine hiring/staffing/team-build requirements (roles or "
+        "skills the client wants to hire or deploy against). General company or "
+        "industry background (e.g. 'they are an FMCG company', 'they operate in "
+        "food & agriculture') is NOT a skill requirement — do not turn it into one. "
+        "If the notes name no real hiring/staffing skills or requirements, return "
+        "every bucket empty.\n"
         "NOTES:\n\"\"\"\n" + notes[:9000] + "\n\"\"\"\n"
         'Return ONLY this JSON: {"domain_expertise": [{"name":"...","description":"..."}], '
         '"technical_stack": [...], "academic_professional": [...]}'
@@ -657,6 +662,14 @@ def explain_picks(brief, items):
         "signal: 'capability' (proves the needed capability), 'industry' (also same "
         "industry), 'interest' (a topic the client discussed), or 'role' (fits the "
         "stakeholder's function).",
+        "Each case below shows its OWN tagged industry in [brackets]. Use signal='industry' "
+        "-- and only say the case 'relates to'/'aligns with'/'is relevant to' the account's "
+        "industry in the reason text -- when that tagged industry genuinely matches the "
+        "ACCOUNT's industry below. If the case's industry is different (or unspecified), "
+        "explain it purely by the capability it proves and do NOT claim any industry "
+        "connection, even a soft one (owner-reported, 2026-07-20: a case tagged Automotive "
+        "was being described as 'relevant to FMCG operations' for an FMCG account -- never "
+        "do this).",
         "",
     ]
     if acct.get("industry") or acct.get("role"):
@@ -665,7 +678,8 @@ def explain_picks(brief, items):
         lines.append("EXPRESSED INTEREST: " + ", ".join(ei))
     lines.append("")
     for it in items:
-        lines.append(f'NEED "{it.get("need","")}" -> {it["id"]}: {it.get("title","")}. '
+        lines.append(f'NEED "{it.get("need","")}" -> {it["id"]}: {it.get("title","")} '
+                     f'[industry: {it.get("industry") or "unspecified"}]. '
                      f'{(it.get("blurb","") or "")[:160]}')
     lines.append('\nReturn ONLY JSON mapping each case id to '
                  '{"reason":"one line","signal":"capability|industry|interest|role"}')

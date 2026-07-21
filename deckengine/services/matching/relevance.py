@@ -61,6 +61,27 @@ CROSS_INDUSTRY_MIN = 0.42
 # how much a MAIL-thread-only match counts vs a DEEP-RESEARCH match (research leads)
 MAIL_WEIGHT = 0.7
 
+# Explicit aliases: a salesperson-typed custom industry (services/content/
+# industries.py's "Other" field) that is really a named specialization of one
+# of our 8 built-in codes (owner-confirmed, 2026-07-20: a HEALTH-TECH account
+# is a healthcare buyer -- MSS070/WFS002, both tagged HEALTHCARE, are the right
+# proof points, but the custom-industry lexical fallback below can't catch it:
+# HEALTH-TECH tokenizes to {"health","tech"}, which never exact-matches the
+# single token "healthcare"). Kept as an explicit, auditable list rather than a
+# fuzzy/guessed rule -- add a line here when a new custom industry turns out to
+# be a clear specialization of a built-in one.
+_INDUSTRY_ALIAS = {
+    "HEALTH-TECH": "HEALTHCARE",
+}
+
+
+def _canon_industry(industry):
+    """Resolve a salesperson-typed industry to its built-in code if it's a
+    known alias of one; otherwise return it unchanged (an un-aliased custom
+    industry still falls back to the lexical-overlap match below)."""
+    industry = (industry or "").strip().upper()
+    return _INDUSTRY_ALIAS.get(industry, industry)
+
 # outcome/business metrics that resonate with an executive audience
 _OUTCOME = ("roi", "cost", "saving", "revenue", "margin", "risk", "spend",
             "downtime", "compliance", "efficiency", "productivity")
@@ -264,7 +285,7 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
     eligible, persona_why}. NOTHING is filtered — matcher decides the cut."""
     functions = {f.upper() for f in (functions or set())}
     wanted = {w.upper() for w in (wanted or set())}
-    industry = (industry or "").upper()
+    industry = _canon_industry(industry)
     # A salesperson-typed "Other" industry (services/content/industries.py) is
     # NOT one of the 8 built-in taxonomy codes, so it can never equal a case's
     # own primary_industry code -- it used to get ZERO industry weight, silently
@@ -414,7 +435,7 @@ def industry_has_coverage(industry, rows):
     however specific-looking, is not enough evidence of a real match (verified,
     2026-07-14: 'RENEWABLE DIESEL PRODUCTION' false-matched 19 unrelated MS cases
     on the bare word 'renewable' or 'production' alone before this was added)."""
-    industry = (industry or "").upper()
+    industry = _canon_industry(industry)
     if not industry:
         return True                      # no industry stated -- nothing to flag
     if industry not in _BUILTIN_INDUSTRIES:
@@ -454,6 +475,7 @@ def coverage(texts):
 
 
 _case_meta = None
+_case_rows_by_id = None
 
 
 def _meta():
@@ -467,16 +489,34 @@ def _meta():
     return _case_meta
 
 
-def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=8):
+def _rows_by_id():
+    global _case_rows_by_id
+    if _case_rows_by_id is None:
+        from deckengine.services.content import case_library
+        _case_rows_by_id = {r["id"]: r for r in case_library._load()}
+    return _case_rows_by_id
+
+
+def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=8,
+                    persona_codes=()):
     """For each need text (ideally 'name. domain. use_case'), the top_n candidate
     cases as [{id, adj, cosine, title_hits}] — SEMANTICS + DOMAIN led. The literal
     term overlap is now only a mild tiebreak (was dominant), and industry/function
     fit carry real weight, so a right-domain case beats a wrong-domain term-match.
-    Work-type aware via allowed_ids. Used to build the shortlist the LLM re-ranks."""
+    Work-type aware via allowed_ids.
+    `persona_codes` (owner-spec, 2026-07-20: a profile-only build -- no research
+    brief/transcript -- previously had ZERO persona influence on its picks, only
+    on the separate rank_cases() fallback path used for leftover "fill" slots;
+    once profile-driven priority picks fill the whole deck (the common case),
+    persona never got a turn at all. A detected persona (e.g. HR/Talent Head)
+    now nudges the shortlist the SAME way it nudges rank_cases(), via the same
+    personas.score_boost()/W_PERSONA weight, so role-resonant cases can win over
+    a merely keyword-adjacent one from an unrelated industry.
+    Used to build the shortlist the LLM re-ranks."""
     embs = _load_case_embeddings()
     meta = _meta()
     heads = _case_head_index()
-    industry = (industry or "").upper()
+    industry = _canon_industry(industry)
     functions = {f.upper() for f in (functions or set())}
     texts = list(texts or [])
     if not embs or not texts:
@@ -484,6 +524,7 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
     qv = embed_texts(texts)
     if not qv:
         return [[] for _ in texts]
+    rows = _rows_by_id() if persona_codes else {}
     out = []
     for text, v in zip(texts, qv):
         need = specific_terms(text)                   # discriminating words of the need
@@ -496,11 +537,18 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
             htoks = heads.get(cid, set())
             direct = len(need & htoks)                # skill term in title/keywords
             direct_title = len(need & ttoks)          # ...and specifically the title
+            p_boost = 0.0
+            if persona_codes:
+                row = rows.get(cid)
+                if row is not None:
+                    boost, _why = personas.score_boost(persona_codes, row)
+                    p_boost = W_PERSONA * boost
             adj = (c                                   # meaning (capability) is the primary signal
                    + 0.12 * min(3, direct)             # literal term = mild tiebreak
                    + 0.10 * min(2, direct_title)
                    + (0.10 if fn in functions else 0.0)          # function fit
-                   + (0.08 if industry and ind == industry else 0.0))  # industry = light boost only
+                   + (0.08 if industry and ind == industry else 0.0)  # industry = light boost only
+                   + p_boost)                          # persona/role resonance
             scored.append({"id": cid, "adj": adj, "cosine": c, "title_hits": direct_title})
         scored.sort(key=lambda d: -d["adj"])
         out.append(scored[:top_n])
