@@ -1,6 +1,16 @@
 // Industry "Other…" — reveal a free-text box; on submit, turn the typed text
 // into a real <option> on the SAME select (name="industry") so the rest of the
 // form (cfSubmit's industry lookup, the backend) needs no special-casing.
+// The box also POSTs as `industry_other`, and the backend resolves the pair via
+// view_helpers.resolve_industry — so the typed industry survives even when a
+// request leaves this page BEFORE submit (see currentIndustry / researchAccount).
+function currentIndustry(){
+  var sel = document.getElementById('ind-select');
+  if(!sel) return '';
+  if(sel.value !== '__OTHER__') return sel.value;
+  var other = document.getElementById('ind-other');
+  return other ? other.value.trim() : '';
+}
 function indChanged(){
   var sel = document.getElementById('ind-select');
   var other = document.getElementById('ind-other');
@@ -123,7 +133,6 @@ window.addEventListener('pageshow',function(){var l=document.getElementById('loa
 function researchAccount(){
   var cn=document.querySelector('#deckForm [name="client_name"]');
   var rc=document.querySelector('#deckForm [name="recipient"]');
-  var ind=document.querySelector('#deckForm [name="industry"]');
   var btn=document.getElementById('research-btn');
   var err=document.getElementById('research-error');
   var results=document.getElementById('research-results');
@@ -140,7 +149,9 @@ function researchAccount(){
   var fd=new FormData();
   fd.append('client_name',clientName);
   fd.append('recipient',recipient);
-  fd.append('industry',ind?ind.value:'');
+  // the REAL industry — a typed "Other" one, not the "__OTHER__" sentinel, which
+  // used to be researched verbatim as the account's industry
+  fd.append('industry',currentIndustry());
   var rf=document.querySelector('#deckForm [name="research_file"]');
   var pf=document.querySelector('#deckForm [name="profile_file"]');
   if(rf&&rf.files&&rf.files.length) fd.append('research_file',rf.files[0]);

@@ -992,3 +992,83 @@ def test_concurrent_slide_builds_get_distinct_ids(tmp_path, monkeypatch):
     assert len(set(ids)) == 24                       # no collisions
     assert len(staging.all_items()) == 24            # and nothing was overwritten
 
+
+
+# ── The "Other…" industry (owner-reported, 2026-07-17) ────────────────────────
+# Picking "Other…" makes the select's value the literal "__OTHER__" sentinel and the
+# real industry is typed into the companion `industry_other` field. Two symptoms, one
+# root cause -- the typed text was not a real form field, so anything reading the form
+# BEFORE submit saw the sentinel: "Research this account" researched the account as
+# though its industry were "(__OTHER__)" (and that junk brief then drove matching and
+# every AI-written slide), and the typed industry was only ever remembered by a
+# completed /build. These pin the resolution, both endpoints, and the store guard.
+
+def _isolate_custom_industries(tmp_path, monkeypatch):
+    """Point the custom-industry store at a throwaway file -- never touch the real one."""
+    from deckengine.services.content import industries
+    monkeypatch.setattr(industries, "_PATH", str(tmp_path / "custom_industries.json"))
+    return industries
+
+
+def test_resolve_industry_unwraps_the_other_sentinel():
+    _chdir()
+    from deckengine.web.view_helpers import resolve_industry
+    # "Other…" picked -> the TYPED industry, never the sentinel
+    assert resolve_industry({"industry": "__OTHER__",
+                             "industry_other": " Renewable Diesel Production "}) \
+        == "Renewable Diesel Production"
+    # a built-in pick is untouched, even with stale text left in the box
+    assert resolve_industry({"industry": "BFSI", "industry_other": "leftover"}) == "BFSI"
+    # "Other…" with nothing typed is simply no industry -- never the sentinel
+    assert resolve_industry({"industry": "__OTHER__", "industry_other": ""}) == ""
+    assert resolve_industry({}) == ""
+
+
+def test_research_account_researches_the_typed_industry_not_the_sentinel(tmp_path, monkeypatch):
+    """The regression itself: strategic_brief() must receive the typed industry."""
+    _chdir()
+    _isolate_custom_industries(tmp_path, monkeypatch)
+    from deckengine.web import api
+
+    seen = {}
+
+    def _spy(company_name, stakeholder_name="", industry="", **kw):
+        seen["industry"] = industry
+        return "BRIEF"
+
+    monkeypatch.setattr(api.deep_research, "strategic_brief", _spy)
+
+    import app as appmod
+    c = appmod.app.test_client()
+    r = c.post("/research_account", data={"client_name": "Neste", "recipient": "Head of Eng",
+                                          "industry": "__OTHER__",
+                                          "industry_other": "Renewable Diesel Production"})
+    assert r.status_code == 200
+    assert seen["industry"] == "Renewable Diesel Production"
+
+
+def test_a_typed_other_industry_is_remembered_for_next_time(tmp_path, monkeypatch):
+    """Typed once -> pickable from the dropdown the second time, from EITHER the
+    research button or a completed build (it used to need a completed build)."""
+    _chdir()
+    industries = _isolate_custom_industries(tmp_path, monkeypatch)
+    from deckengine.web.view_helpers import remember_custom_industry
+    from deckengine import constants
+
+    remember_custom_industry("Renewable Diesel Production")
+    assert "Renewable Diesel Production" in industries.load()
+    assert "Renewable Diesel Production" in constants.all_industries()   # in the dropdown
+
+    remember_custom_industry("renewable diesel production")   # same industry, retyped
+    assert len(industries.load()) == 1                        # not duplicated
+    remember_custom_industry("BFSI")                          # a built-in code
+    assert len(industries.load()) == 1                        # never shadows the taxonomy
+
+
+def test_the_other_sentinel_can_never_be_stored_as_an_industry(tmp_path, monkeypatch):
+    """Last line before disk: a stale cached new-form.js or a no-JS submit must not
+    put a literal "__OTHER__" row in the dropdown for every salesperson, forever."""
+    _chdir()
+    industries = _isolate_custom_industries(tmp_path, monkeypatch)
+    assert industries.add("__OTHER__") is False
+    assert industries.load() == []

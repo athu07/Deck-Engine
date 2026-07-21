@@ -36,6 +36,13 @@ CONTENT_STORE = config.CONTENT_STORE_JSON
 # an industry-boost, cross-industry threshold, and the skills-slide Excel mapping all
 # key off these exact 8 codes). Never append a salesperson's free-typed industry here.
 INDUSTRIES = list(tagger.INDUSTRY.keys())
+
+# The New-deck form's "Other…" option value. The salesperson's real industry is then
+# typed into the companion `industry_other` field, so ANY endpoint reading the form
+# must resolve this sentinel before use — never treat it as an industry name (it
+# reached the AI research prompt verbatim once; see web/view_helpers.resolve_industry).
+INDUSTRY_OTHER = "__OTHER__"
+
 FUNCTIONS = list(tagger.FUNCTION.keys())
 WORK_TYPES = ["WORKFORCE", "AI_POD", "MS"]
 OWNER = "Athithia"

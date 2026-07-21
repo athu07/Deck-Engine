@@ -82,8 +82,8 @@
             {% for i in industries %}<option>{{ i }}</option>{% endfor %}
             <option value="__OTHER__">Other…</option>
           </select>
-          <input class="input" id="ind-other" placeholder="Type the industry" autocomplete="off"
-                 style="display:none;margin-top:8px"></div>
+          <input class="input" id="ind-other" name="industry_other" placeholder="Type the industry"
+                 autocomplete="off" style="display:none;margin-top:8px"></div>
         <div class="field" style="margin-bottom:0"><label>Deck phase</label>
           <select name="phase" required><option value="">Select…</option>{% for p in phases %}<option>{{ p }}</option>{% endfor %}</select></div>
         <div class="field" style="margin-bottom:0"><label>Recipient / stakeholder <span class="hint">— optional</span></label>

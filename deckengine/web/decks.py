@@ -18,8 +18,12 @@ from deckengine import config
 from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
+<<<<<<< HEAD
 from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher, personas
+=======
+from deckengine.services.matching import matcher, relevance, ai_matcher
+>>>>>>> f716c5c8840be59389657ab66acb10b32813b69d
 from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
                                            slide_generator, slide_schema, client_context)
@@ -31,7 +35,8 @@ from deckengine.services import ingest as research
 from deckengine.services import meeting_log
 from deckengine.services import build_context
 from .view_helpers import (shell, file_busy_page, current_salesperson,
-                           legacy_case_ids as _legacy_case_ids)
+                           legacy_case_ids as _legacy_case_ids,
+                           resolve_industry, remember_custom_industry)
 
 bp = Blueprint("decks", __name__)
 
@@ -131,7 +136,8 @@ def deck_reopen():
 def build():
     ctx = {
         "client_name": request.form.get("client_name", "Client").strip(),
-        "industry": request.form.get("industry", "").strip(),
+        # "Other…" -> the typed industry, never the raw sentinel (see resolve_industry)
+        "industry": resolve_industry(request.form),
         "work_types": request.form.getlist("work_types"),
         "functions": request.form.getlist("functions"),
         "phase": request.form.get("phase", "").strip(),
@@ -141,8 +147,7 @@ def build():
     }
     # a free-typed "Other" industry (not in the built-in taxonomy) is remembered
     # so it shows up in the dropdown for every build after this one
-    if ctx["industry"] and ctx["industry"].lower() not in {i.lower() for i in constants.all_industries()}:
-        custom_industries.add(ctx["industry"])
+    remember_custom_industry(ctx["industry"])
     # optional deep-research file (PDF/text) -> read alongside the notes for matching
     research_text = research.extract_text(request.files.get("research_file"))
     research_given = bool(request.files.get("research_file") and
