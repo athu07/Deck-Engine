@@ -32,6 +32,11 @@ def _asset(path):
 
 
 def create_app():
+    # Make sure every writable runtime folder exists before the first request. On a
+    # host with a freshly-mounted persistent disk (Render) the disk starts empty, so
+    # meetings/, output/, staging/ etc. would not exist until something happened to
+    # write into them -- this creates them once, up front. Idempotent everywhere else.
+    config.ensure_runtime_dirs()
     app = Flask(
         "deckengine",
         template_folder=str(config.PROJECT_ROOT / "templates"),

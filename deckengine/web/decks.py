@@ -18,12 +18,7 @@ from deckengine import config
 from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
-<<<<<<< HEAD
-from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher, personas
-=======
-from deckengine.services.matching import matcher, relevance, ai_matcher
->>>>>>> f716c5c8840be59389657ab66acb10b32813b69d
 from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
                                            slide_generator, slide_schema, client_context)

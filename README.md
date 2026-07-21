@@ -52,16 +52,42 @@ AI drafting) degrade to their offline fallbacks.
 
 ## Deploy (Docker / Render)
 
+The image runs `gunicorn wsgi:app`, and everything the app *writes* — the deck
+repository (`meetings/`), the generated `.pptx` files (`output/`), the custom-slide
+`staging/`, per-build context, learned templates, client logos, and salesperson-added
+industries — is stored on disk. **That disk MUST be persistent, or all of it is lost
+on the next restart.**
+
+### Local (Docker)
+
 ```bash
 docker compose up --build          # serves on :5000
 ```
 
-The image runs `gunicorn wsgi:app`. Set `OPENAI_API_KEY` in the environment (Render:
-as an env var; compose reads it from `.env`). `output/`, `meetings/`, and `staging/`
-are volume-mounted so generated decks and history persist across restarts.
+`docker-compose.yml` mounts every writable folder to the host, so the data persists
+across restarts. `OPENAI_API_KEY` is read from `.env`.
 
-Optional env overrides (default to the repo root): `DECK_OUTPUT_DIR`,
-`DECK_MEETINGS_DIR`, `DECK_STAGING_DIR`.
+### Render — the important part
+
+A Render web service has an **ephemeral filesystem**: without a persistent disk,
+generated decks and history are wiped on every deploy and on Render's routine
+restarts, so the Deck repository always looks empty. Fix it with a persistent disk
+and point the app's writable folders at it. `render.yaml` in this repo does exactly
+that (Docker web service + a 1 GB disk mounted at `/var/data` + the `DECK_*` env vars).
+
+- **New service:** create a Blueprint from `render.yaml`; Render prompts once for
+  `OPENAI_API_KEY`.
+- **Existing service:** in the dashboard, add a **Disk** (mount path `/var/data`,
+  1 GB), then set these environment variables so the app writes onto it:
+  `DECK_OUTPUT_DIR=/var/data/output`, `DECK_MEETINGS_DIR=/var/data/meetings`,
+  `DECK_STAGING_DIR=/var/data/staging`, `DECK_BUILD_CONTEXT_DIR=/var/data/build_context`,
+  `DECK_LEARNED_TEMPLATES_DIR=/var/data/learned_templates`,
+  `DECK_CLIENT_LOGOS_DIR=/var/data/client_logos`,
+  `DECK_CUSTOM_INDUSTRIES_JSON=/var/data/custom_industries.json`.
+
+A disk needs a **paid** instance (`starter`+), and a disk-attached service can't be
+horizontally scaled — both fine for a single sales team. Every path above defaults to
+the repo root when its env var is unset, so local runs need no configuration.
 
 **Slide previews on the review page.** The review page shows a rendered picture of
 each master-deck slide. Those images are pre-rendered and **committed** under

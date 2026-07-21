@@ -38,8 +38,13 @@ REGISTRY_XLSX           = _p("data", "registry", "J2W_CaseStudy_Portfolio_Metada
 DELIVERY_FOOTPRINT_XLSX = _p("data", "registry", "J2W_Delivery_Footprint_Organized_Latest.xlsx")
 
 # salesperson-added industries not in the built-in taxonomy (the "Other" field on
-# the New-deck form) -- persisted so they show up in the dropdown from then on
-CUSTOM_INDUSTRIES_JSON  = _p("data", "custom_industries.json")
+# the New-deck form) -- persisted so they show up in the dropdown from then on.
+# This is the ONE writable file under data/ (everything else there is committed,
+# read-only reference), so it takes an env override too: on an ephemeral host
+# (a Render web service) it must live on the persistent disk, or every industry
+# typed on the live site is lost on the next deploy. See ensure_runtime_dirs()
+# and render.yaml.
+CUSTOM_INDUSTRIES_JSON  = os.environ.get("DECK_CUSTOM_INDUSTRIES_JSON") or _p("data", "custom_industries.json")
 
 # template decks used to render new slides
 TEMPLATES_PPTX          = _p("data", "templates", "templates.pptx")
@@ -76,6 +81,22 @@ RENDERS_DIR = os.environ.get("DECK_RENDERS_DIR") or _p("static", "renders")
 # 40-slide conversion on the first request of every cold start. Keyed by the master
 # deck's content hash, not its mtime -- git checkout rewrites mtimes.
 SLIDE_PREVIEWS_DIR = _p("static", "previews")
+
+
+def ensure_runtime_dirs():
+    """Create every writable runtime location up front, so a freshly-mounted (empty)
+    persistent disk has all the folders the app writes into BEFORE the first request,
+    and the one writable data file's parent exists too. Called once from create_app().
+
+    Idempotent -- a no-op when the dirs already exist. Read-only reference data (the
+    slide library, embeddings, master deck, committed previews) is deliberately NOT
+    here: it ships inside the image and must never be created empty on the disk."""
+    for d in (OUTPUT_DIR, MEETINGS_DIR, STAGING_DIR, BUILD_CONTEXT_DIR,
+              LEARNED_TEMPLATES_DIR, CLIENT_LOGOS_DIR, RENDERS_DIR,
+              os.path.dirname(CUSTOM_INDUSTRIES_JSON)):
+        if d:
+            os.makedirs(d, exist_ok=True)
+
 
 # ── AI models ─────────────────────────────────────────────────────────────────
 # Matching / extraction stay on the cheap model; case-study GENERATION uses a

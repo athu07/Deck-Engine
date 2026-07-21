@@ -6,7 +6,13 @@ services:
       - "5000:5000"
     env_file:
       - .env
+    # Persist ALL writable runtime state on the host, so `docker compose` locally keeps
+    # the same data the Render disk keeps in production (see render.yaml). Read-only
+    # reference data lives in the image and is deliberately not mounted here.
     volumes:
       - ./output:/app/output
       - ./meetings:/app/meetings
       - ./staging:/app/staging
+      - ./build_context:/app/build_context
+      - ./learned_templates:/app/learned_templates
+      - ./client_logos:/app/client_logos

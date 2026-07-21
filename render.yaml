@@ -1,0 +1,49 @@
+# Render Blueprint -- deploys the Deck Engine as a Docker web service WITH A
+# PERSISTENT DISK, so generated decks and their history survive every deploy and
+# restart.
+#
+# Why this file exists: a Render web service otherwise has an EPHEMERAL filesystem.
+# Everything the app writes -- the deck repository (meetings/), the .pptx files
+# (output/), the custom-slide staging, the per-build context -- is wiped on the next
+# restart or deploy. That is exactly why the deployed "Deck repository" page kept
+# coming up empty: the folder it reads from was reset to empty on every restart.
+#
+# The disk below is mounted at /var/data, and every writable runtime path is pointed
+# into it via the DECK_* env vars (the app already reads these -- see
+# deckengine/config.py). Read-only reference data (the slide library, embeddings,
+# master deck, committed slide previews) is NOT on the disk -- it ships inside the
+# image and must not be created empty on the disk.
+#
+# NOTE: a persistent disk requires a PAID instance (plan: starter or higher), and a
+# service can't be horizontally scaled while a disk is attached. Both are fine for a
+# single sales team.
+services:
+  - name: deck-engine
+    type: web
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    disk:
+      name: deck-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # Secret -- NOT stored in the repo. Render prompts for it on first deploy;
+      # after that, set/rotate it under the service's Environment settings.
+      - key: OPENAI_API_KEY
+        sync: false
+      # Every writable runtime location -> a subfolder of the persistent disk.
+      - key: DECK_OUTPUT_DIR
+        value: /var/data/output
+      - key: DECK_MEETINGS_DIR
+        value: /var/data/meetings
+      - key: DECK_STAGING_DIR
+        value: /var/data/staging
+      - key: DECK_BUILD_CONTEXT_DIR
+        value: /var/data/build_context
+      - key: DECK_LEARNED_TEMPLATES_DIR
+        value: /var/data/learned_templates
+      - key: DECK_CLIENT_LOGOS_DIR
+        value: /var/data/client_logos
+      - key: DECK_CUSTOM_INDUSTRIES_JSON
+        value: /var/data/custom_industries.json
