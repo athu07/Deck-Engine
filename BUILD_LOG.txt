@@ -4445,3 +4445,41 @@ enters the 8-code taxonomy), and built-in industries behave exactly as before.
 Verified end-to-end: the AI now researches "Renewable Diesel Production", it reaches slide
 generation, and it is pickable from the dropdown on the next deck. 4 regression tests added;
 tests green (56 passed; the 1 failure, master-preview staleness, pre-dates this change).
+
+2026-07-21 — Decks weren't persisting on the deployed site (Render): the deck repository was
+always empty. TWO things, one deploy.
+  A) THE APP WAS BROKEN BY A BAD MERGE. The latest pull had committed merge-conflict markers
+     (<<<<<<< / ======= / >>>>>>>) left unresolved in TWO tracked files:
+       - deckengine/web/decks.py (import block) -- a SyntaxError, so the app could not even
+         start. Resolved: keep `personas` (it's used at decks.py:238, personas.detect(...)),
+         drop the `custom_industries` import (unused since the 2026-07-17 industry refactor
+         moved that to view_helpers.remember_custom_industry).
+       - data/custom_industries.json -- invalid JSON (load() silently returned [], so every
+         custom industry vanished). Resolved by UNION so nothing typed was lost:
+         TECHNOLOGY, FMCG, HEALTH-TECH, Retail.
+     Push this before anything else -- the deployed app is fine only because it's still
+     running an older commit; deploying the broken state would take the whole site down.
+  B) THE REAL PERSISTENCE FIX. A Render web service has an EPHEMERAL filesystem: everything
+     the app writes -- meetings/ (the repository), output/ (the .pptx files), staging/,
+     build_context/, learned_templates/, client_logos/, and the custom-industries file -- is
+     wiped on every deploy and restart. That's why the repository kept coming up empty.
+     Fix (owner chose the Render Persistent Disk route):
+       - render.yaml (NEW): Docker web service + a 1 GB persistent disk mounted at /var/data,
+         with every DECK_* path pointed into it. (Disk needs a PAID instance; a disk-attached
+         service can't be horizontally scaled -- both fine for one sales team.)
+       - config.py: added DECK_CUSTOM_INDUSTRIES_JSON override (the one writable file under
+         data/ had none, so it would have stayed ephemeral), and a new ensure_runtime_dirs()
+         that creates every writable folder at startup so a freshly-mounted empty disk works
+         on the first request. create_app() calls it.
+       - docker-compose.yml: mount build_context/ learned_templates/ client_logos/ too, so
+         local Docker persists the same set the disk does.
+       - README.md: rewrote the Deploy section -- the disk is required, with the exact env
+         vars for both a new Blueprint and an existing service.
+  Verified end-to-end against a simulated /var/data disk: fresh empty disk -> folders auto-
+  created -> real build/review/finalize -> the .pptx AND the history record land ON THE DISK
+  -> the repository page shows the deck -> a live-typed custom industry persists too. Local
+  runs need no env vars (every path defaults to the repo root). Tests green (56 passed; the 1
+  failure, master-preview staleness, pre-dates this work).
+  FOLLOW-UP worth doing: data/custom_industries.json is tracked in git, which is what caused
+  the merge conflict in the first place -- runtime-mutable data shouldn't be committed. On the
+  deployed site the disk override sidesteps it; locally it can still conflict on the next pull.
