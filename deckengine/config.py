@@ -32,6 +32,13 @@ LIBRARY_JSON            = _p("data", "library.json")                    # slide 
 TAGGED_LIBRARY_JSON     = _p("data", "tagged_library.json")             # slide records + tags
 CONTENT_STORE_JSON      = _p("data", "case_study_content_store.json")   # 160 case-study records
 CASE_EMBEDDINGS_JSON    = _p("data", "case_embeddings.json")            # semantic vectors
+# ADDITIVE, pilot (2026-07-21): mechanism-level tags per case (what the case
+# actually DOES, independent of which industry it was originally sold into --
+# e.g. MSS022 is tagged "automotive OEM" but its real mechanism is "CFD/
+# aerodynamic-simulation acceleration", equally relevant to aerospace). Never
+# merged into or overwrites CONTENT_STORE_JSON/keywords -- a separate file so
+# it's trivially removable if the pilot doesn't pan out. Keyed by case id.
+CASE_MECHANISM_TAGS_JSON = _p("data", "case_mechanism_tags.json")
 
 # registry / footprint spreadsheets
 REGISTRY_XLSX           = _p("data", "registry", "J2W_CaseStudy_Portfolio_Metadata.xlsx")

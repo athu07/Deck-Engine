@@ -1,0 +1,1323 @@
+{
+  "MSS001": {
+    "mechanism_tags": [
+      "end-to-end procurement execution",
+      "automated approval routing",
+      "purchase order lifecycle tracking",
+      "vendor quote collection via WhatsApp",
+      "spend and savings analytics"
+    ],
+    "transferable_to": "retail for managing supplier orders, healthcare for procurement of medical supplies, construction for tracking materials and approvals",
+    "title": "PROCURE-TO-PAY AUTOMATION"
+  },
+  "MSS002": {
+    "mechanism_tags": [
+      "ML-based demand forecasting engine",
+      "anomaly detection for demand planning",
+      "dynamic reorder point calculation",
+      "automated material requirements planning (MRP)",
+      "end-to-end supply chain visibility dashboard"
+    ],
+    "transferable_to": "Retail (for inventory management), Food & Beverage (for perishable goods planning), Pharmaceuticals (for managing stock levels and compliance), Electronics (for managing complex supply chains and demand variability)",
+    "title": "DEMAND-DRIVEN MATERIAL PLANNING"
+  },
+  "MSS003": {
+    "mechanism_tags": [
+      "ERP-connected production planning system",
+      "live dependency mapping",
+      "disruption cascade analysis",
+      "AI response recommendations",
+      "ERP write-back",
+      "multi-plant scale architecture"
+    ],
+    "transferable_to": "Logistics (real-time tracking of shipments and inventory), Healthcare (managing patient flow and resource allocation), Energy (monitoring supply chain disruptions in power generation), and Retail (optimizing stock levels and supplier interactions).",
+    "title": "AI-DRIVEN PRODUCTION SCHEDULING ACROSS 60+ PLANTS"
+  },
+  "MSS004": {
+    "mechanism_tags": [
+      "modular industrial AI deployment",
+      "real-time predictive maintenance",
+      "AI-driven energy optimization",
+      "containerized microservices integration",
+      "inline quality inspection using AI vision"
+    ],
+    "transferable_to": "Manufacturing (for predictive maintenance), Energy (for energy optimization), Food Processing (for inline quality inspection), Oil & Gas (for real-time monitoring and predictive analytics)",
+    "title": "INDUSTRY 4.0 INTELLIGENCE"
+  },
+  "MSS005": {
+    "mechanism_tags": [
+      "AI-embedded operational digital twin",
+      "real-time asset mirroring",
+      "predictive maintenance",
+      "anomaly detection and root cause isolation",
+      "unified operations dashboard"
+    ],
+    "transferable_to": "Manufacturing for predictive maintenance; Transportation for real-time asset monitoring; Healthcare for patient monitoring systems.",
+    "title": "OPERATIONAL DIGITAL TWIN"
+  },
+  "MSS006": {
+    "mechanism_tags": [
+      "AI-embedded sustainability intelligence layer",
+      "predictive carbon budget forecasting",
+      "real-time emission logging",
+      "anomaly detection and greenlight scoring",
+      "traceability and integration dashboard"
+    ],
+    "transferable_to": "Manufacturing for emissions tracking, Transportation for fuel efficiency monitoring, and Agriculture for resource usage optimization.",
+    "title": "CARBON TRACKING AND EMISSION INTELLIGENCE"
+  },
+  "MSS007": {
+    "mechanism_tags": [
+      "AI-embedded contract intelligence layer",
+      "multi-agent proposal generation",
+      "historical intelligence and benchmarking",
+      "capability-based contractor selection",
+      "anomaly detection and risk governance"
+    ],
+    "transferable_to": "manufacturing for supply chain optimization, healthcare for patient care contracts, and IT for service level agreements.",
+    "title": "PRE & POST CONTRACT INTELLIGENCE"
+  },
+  "MSS008": {
+    "mechanism_tags": [
+      "multi-source data integration",
+      "AI-driven root cause analysis",
+      "autonomous incident resolution",
+      "cross-departmental data correlation",
+      "pattern-matched failure identification"
+    ],
+    "transferable_to": "healthcare for diagnostic error reduction, logistics for supply chain failure analysis, IT for incident management, and energy for equipment failure troubleshooting.",
+    "title": "AGENTIC QUALITY ROOT CAUSE INTELLIGENCE"
+  },
+  "MSS009": {
+    "mechanism_tags": [
+      "natural language document retrieval",
+      "auto-tagging and artifact linking",
+      "8D report auto-generation",
+      "FMEA intelligent update",
+      "fishbone diagram automation",
+      "spec extraction from drawings and PDFs"
+    ],
+    "transferable_to": "healthcare for patient data management, aerospace for engineering documentation, and software development for bug tracking and resolution.",
+    "title": "8D, FMEA AND DOCUMENT INTELLIGENCE"
+  },
+  "MSS010": {
+    "mechanism_tags": [
+      "AI vision inspection for real-time quality control",
+      "100% inline defect detection and classification",
+      "process parameter correlation for root cause analysis",
+      "closed-loop quality feedback system",
+      "joint traceability and audit logging"
+    ],
+    "transferable_to": "automotive manufacturing for real-time inspection of welds; aerospace for critical joint integrity monitoring; electronics assembly for detecting solder defects; food packaging for ensuring seal integrity.",
+    "title": "WELD VISION AND JOINT INTEGRITY ANALYTICS"
+  },
+  "MSS011": {
+    "mechanism_tags": [
+      "computer vision-powered quality inspection",
+      "risk-adaptive sampling intelligence",
+      "defect classification model",
+      "warranty feedback loop",
+      "system-wide integration"
+    ],
+    "transferable_to": "automotive for parts quality assurance, electronics for component defect detection, pharmaceuticals for batch quality control, aerospace for compliance and safety inspections.",
+    "title": "AI-FIRST QUALITY GATES AT INBOUND"
+  },
+  "MSS012": {
+    "mechanism_tags": [
+      "AI-embedded predictive maintenance",
+      "anomaly detection",
+      "remaining useful life forecasting",
+      "automated work order generation",
+      "SCADA and MES integration"
+    ],
+    "transferable_to": "energy sector for monitoring equipment health, transportation for vehicle maintenance optimization, and healthcare for predictive diagnostics in medical equipment.",
+    "title": "PREDICTIVE MAINTENANCE INTELLIGENCE"
+  },
+  "MSS013": {
+    "mechanism_tags": [
+      "AI-Assisted Model Identification",
+      "Reinforcement Learning Setpoint Optimization",
+      "Conversational AI for Process Guidance",
+      "Soft Sensor Modeling",
+      "Human-in-the-Loop Control"
+    ],
+    "transferable_to": "Manufacturing for real-time quality control, Energy for optimizing resource usage, Food processing for yield improvement, Pharmaceuticals for batch process optimization.",
+    "title": "REAL-TIME PROCESS OPTIMIZATION"
+  },
+  "MSS014": {
+    "mechanism_tags": [
+      "unified order management system",
+      "real-time inventory synchronization",
+      "automated exception handling",
+      "end-to-end logistics visibility",
+      "integrated e-commerce platform"
+    ],
+    "transferable_to": "retail for real-time stock management, healthcare for patient order tracking, and food service for streamlined delivery operations.",
+    "title": "ORDER-TO-DELIVERY ENGINE"
+  },
+  "MSS015": {
+    "mechanism_tags": [
+      "template-agnostic document ingestion",
+      "contracted rate validation",
+      "three-way match automation",
+      "non-PO invoice auto-coding",
+      "agentic exception handling",
+      "procurement-ERP integration layer"
+    ],
+    "transferable_to": "Retail (invoice processing for diverse suppliers), Healthcare (handling varied billing formats), Logistics (managing freight invoices), and Construction (processing contractor invoices with multiple line items)",
+    "title": "TOUCHLESS INVOICE PROCESSING"
+  },
+  "MSS016": {
+    "mechanism_tags": [
+      "OT Asset Discovery",
+      "Network Segmentation",
+      "IT-OT Security Operations Centre",
+      "Threat Exposure Management",
+      "Secure Remote Access"
+    ],
+    "transferable_to": "Energy sector for securing critical infrastructure; Transportation for protecting operational technology; Healthcare for safeguarding medical devices and patient data.",
+    "title": "IT-OT CONVERGENCE SECURITY"
+  },
+  "MSS017": {
+    "mechanism_tags": [
+      "CI/CD pipeline with automated regression intelligence",
+      "containerized parallel execution for testing",
+      "automated quality gates for release promotion",
+      "API-level regression testing",
+      "static code analysis integration"
+    ],
+    "transferable_to": "Software development in finance (for regulatory compliance), healthcare (for patient data integrity), and e-commerce (for seamless user experience).",
+    "title": "INTELLIGENT QUALITY ENGINEERING"
+  },
+  "MSS018": {
+    "mechanism_tags": [
+      "2D-to-3D AI Reconstruction Engine",
+      "Text-to-CAD Generative Design",
+      "CAD-Ready Feasibility Validator",
+      "AI-driven Routing Automation",
+      "Sheet Metal Optimization"
+    ],
+    "transferable_to": "Architecture (for rapid building design iterations), Automotive (for complex component design and routing), Aerospace (for lightweight structure optimization), Consumer Electronics (for rapid prototyping of intricate designs)",
+    "title": "GENERATIVE AI FOR PRODUCT DESIGN"
+  },
+  "MSS019": {
+    "mechanism_tags": [
+      "automated DMU validation framework",
+      "rule-based interference detection",
+      "Teamcenter-native change management",
+      "automated report generation",
+      "cross-revision traceability"
+    ],
+    "transferable_to": "Aerospace for design validation, Automotive for component clearance checks, Construction for project change management.",
+    "title": "AUTOMATED DMU ANALYSIS AND CHANGE MANAGEMENT"
+  },
+  "MSS020": {
+    "mechanism_tags": [
+      "unified macro dashboard",
+      "NX Open automation",
+      "version-aware execution logging",
+      "extensible macro registry",
+      "automated geometric comparison"
+    ],
+    "transferable_to": "software development for consistent code execution, healthcare for standardized patient data processing, construction for unified project management tools",
+    "title": "NX CAD TOOLKIT AND MACRO CONSOLIDATION"
+  },
+  "MSS021": {
+    "mechanism_tags": [
+      "geometric deep learning engine for 3D geometry analysis",
+      "rapid variant iteration for design optimization",
+      "CAE-comparable accuracy validation",
+      "press forming simulation for design convergence",
+      "thickness reduction rate analysis"
+    ],
+    "transferable_to": "Aerospace for rapid prototyping of components, Consumer Electronics for optimizing complex casing designs, and Construction for evaluating structural components under varying loads.",
+    "title": "SHEET METAL FORMING INTELLIGENCE"
+  },
+  "MSS022": {
+    "mechanism_tags": [
+      "geometric deep learning surrogate model",
+      "real-time aerodynamic prediction",
+      "cross-team digital twin integration",
+      "wind tunnel validation",
+      "high-volume variant evaluation"
+    ],
+    "transferable_to": "Aerospace (for aircraft design optimization), Renewable Energy (for turbine efficiency simulations), Marine Engineering (for hull design and performance analysis)",
+    "title": "AERODYNAMIC SIMULATION INTELLIGENCE"
+  },
+  "MSS023": {
+    "mechanism_tags": [
+      "AI-assisted acoustic signal classification",
+      "multi-sensor sound source localization",
+      "vibration transfer path analysis",
+      "objective severity scoring system",
+      "PLM and test management integration",
+      "trend and regression monitoring for noise patterns"
+    ],
+    "transferable_to": "Aerospace for noise validation in aircraft; Consumer Electronics for sound quality assessment in devices; Construction for vibration analysis in machinery; Marine for noise and vibration control in vessels.",
+    "title": "AI-ASSISTED NVH VALIDATION"
+  },
+  "MSS024": {
+    "mechanism_tags": [
+      "AI-embedded PLM intelligence layer",
+      "predictive budget forecasting",
+      "ECO cost impact scoring",
+      "AI test scheduling and sequencing",
+      "predictive early-stop alerts"
+    ],
+    "transferable_to": "Aerospace (for managing complex design and testing processes), Electronics (to control costs in product development), Pharmaceuticals (for optimizing R&D and regulatory compliance), Construction (to forecast project costs and manage resource utilization).",
+    "title": "PLM BUDGET CONTROL AND TESTBED INTELLIGENCE"
+  },
+  "MSS025": {
+    "mechanism_tags": [
+      "AI-powered BOM intelligence layer",
+      "mismatch detection engine",
+      "downstream impact prediction",
+      "alternate part recommender",
+      "variant and localization management",
+      "supply chain synchronization"
+    ],
+    "transferable_to": "Aerospace (complex BOM management for aircraft components), Electronics (variant-heavy product lines with rapid changes), Consumer Goods (localization and variant tracking for diverse markets)",
+    "title": "BOM SYNCHRONIZATION AND VARIANT INTELLIGENCE"
+  },
+  "MSS026": {
+    "mechanism_tags": [
+      "RAG copilot over PLM/CAD documentation",
+      "natural language interface for data querying",
+      "automated report generation from simulation outputs",
+      "cross-team knowledge graph for project mapping",
+      "multi-system integration for engineering environments"
+    ],
+    "transferable_to": "Aerospace for complex engineering data retrieval, Healthcare for integrating patient data across systems, Construction for managing project documentation and change impacts.",
+    "title": "ENGINEERING ANALYST AUGMENTATION"
+  },
+  "MSS027": {
+    "mechanism_tags": [
+      "AI Test Generation",
+      "Self-Healing Automation",
+      "Intelligent Test Selection",
+      "Defect Prediction Engine",
+      "Agentic CI/CD Orchestration"
+    ],
+    "transferable_to": "Software development in finance for regulatory compliance testing, automotive for software reliability in vehicle systems, and healthcare for ensuring software accuracy in patient management systems.",
+    "title": "AGENTIC SDLC TRANSFORMATION"
+  },
+  "MSS028": {
+    "mechanism_tags": [
+      "real-time cost intelligence layer",
+      "BOM cost roll-up engine",
+      "what-if cost simulator",
+      "ECO/ECN cost delta tracker",
+      "program-level budget dashboard"
+    ],
+    "transferable_to": "Aerospace (complex engineering changes with significant cost implications), Construction (budget management and design changes impact costs), Consumer Electronics (rapid design iterations require real-time cost visibility)",
+    "title": "PLM COST ESTIMATION AND BUDGET GOVERNANCE INTELLIGENCE"
+  },
+  "MSS029": {
+    "mechanism_tags": [
+      "AI-powered warranty and service intelligence platform",
+      "dynamic risk-aware contract pricing",
+      "failure trend analysis",
+      "insurance premium optimization",
+      "supplier risk traceability"
+    ],
+    "transferable_to": "automotive repair (for warranty management), consumer electronics (for service contracts), heavy machinery (for maintenance contracts), and aerospace (for component reliability tracking)",
+    "title": "WARRANTY AND AMC PREDICTIVE COST MODELLING"
+  },
+  "MSS030": {
+    "mechanism_tags": [
+      "real-time AI diagnostic assistant",
+      "multimodal input processing",
+      "computer vision for defect classification",
+      "LLM-based ranked diagnosis generation",
+      "repair workflow pre-population"
+    ],
+    "transferable_to": "healthcare for patient diagnosis support, aviation for aircraft maintenance troubleshooting, and electronics for repair service optimization.",
+    "title": "AI-ASSISTED WARRANTY CLAIM TRIAGE"
+  },
+  "MSS031": {
+    "mechanism_tags": [
+      "AI-assisted damage detection and assessment",
+      "autonomous claim adjudication framework",
+      "integrated inspection and reporting system",
+      "real-time claim history management",
+      "self-generating audit trails"
+    ],
+    "transferable_to": "insurance claims processing (for automated damage assessment), construction project management (for defect identification and reporting), and healthcare equipment maintenance (for equipment failure risk assessment)",
+    "title": "VISION AI FOR WARRANTY CLAIMS"
+  },
+  "MSS032": {
+    "mechanism_tags": [
+      "centralized inventory management platform",
+      "real-time stock synchronization",
+      "AI-driven inventory alerts",
+      "automated batch and barcode tracking",
+      "inventory health scoring system"
+    ],
+    "transferable_to": "Retail (for managing stock across multiple stores), Food and Beverage (for tracking perishable goods), Pharmaceuticals (for ensuring compliance and traceability), Logistics (for optimizing supply chain visibility)",
+    "title": "INTELLIGENT INVENTORY CONTROL"
+  },
+  "MSS033": {
+    "mechanism_tags": [
+      "AI-embedded material intelligence layer",
+      "ranked material alternatives engine",
+      "supply disruption intelligence",
+      "simulation-to-selection integration",
+      "ML feedback loop and library enrichment"
+    ],
+    "transferable_to": "Aerospace (material selection for aircraft components), Construction (material sourcing and sustainability assessments), Consumer Electronics (optimizing materials for product design and supply chain resilience)",
+    "title": "PREDICTIVE MATERIAL GOVERNANCE"
+  },
+  "MSS034": {
+    "mechanism_tags": [
+      "scalable telematics platform",
+      "governed data lake",
+      "privacy-by-design compliance",
+      "driver behavior analytics",
+      "predictive maintenance models"
+    ],
+    "transferable_to": "transportation for fleet management, agriculture for equipment monitoring, logistics for asset tracking, and smart cities for infrastructure data management.",
+    "title": "CONNECTED VEHICLE DATA PLATFORM"
+  },
+  "MSS035": {
+    "mechanism_tags": [
+      "unified telemetry intelligence layer",
+      "AI pattern recognition for data analysis",
+      "gamification for behavior improvement",
+      "real-time performance feedback loop",
+      "automated spec derivation from aggregated data"
+    ],
+    "transferable_to": "transportation (for fleet management), healthcare (for patient monitoring), agriculture (for equipment performance tracking), logistics (for route optimization)",
+    "title": "TELEMETRY INTELLIGENCE"
+  },
+  "MSS036": {
+    "mechanism_tags": [
+      "multi-variable AI range prediction engine",
+      "dynamic real-time updates",
+      "distance-to-empty engine",
+      "energy efficiency optimization",
+      "charging stop planning"
+    ],
+    "transferable_to": "transportation logistics (route optimization based on real-time conditions), aviation (fuel consumption prediction under varying conditions), and public transportation (dynamic scheduling based on passenger load and traffic conditions)",
+    "title": "RANGE PREDICTION AND RANGE POLYGON"
+  },
+  "MSS037": {
+    "mechanism_tags": [
+      "cloud-integrated monitoring system",
+      "real-time telemetry analysis",
+      "machine learning predictive maintenance",
+      "remote optimization of operational parameters",
+      "fleet health benchmarking"
+    ],
+    "transferable_to": "transportation (fleet management requires monitoring of vehicle health), renewable energy (battery systems in solar storage need similar oversight), industrial equipment (predictive maintenance for machinery can reduce downtime), and telecommunications (network performance monitoring for proactive maintenance).",
+    "title": "BATTERY ON CLOUD"
+  },
+  "MSS038": {
+    "mechanism_tags": [
+      "AI-enabled data analysis and reporting platform",
+      "multi-format data ingestion",
+      "AI-powered anomaly detection",
+      "automated report generation",
+      "Python-first scripting environment"
+    ],
+    "transferable_to": "healthcare for patient data analysis, finance for transaction anomaly detection, and telecommunications for network performance reporting due to the need for data integration and reporting across varied formats.",
+    "title": "AI-ENABLED DATA EXPLORATION AND REPORTING"
+  },
+  "MSS039": {
+    "mechanism_tags": [
+      "AI-powered deal intake and triage",
+      "mandate-based scoring",
+      "priority scoring and routing",
+      "market coverage dashboard",
+      "source attribution tracking"
+    ],
+    "transferable_to": "Venture capital, real estate investment, M&A advisory, and startup incubators; all require efficient deal flow management and prioritization based on specific criteria.",
+    "title": "DEAL SOURCING INTELLIGENCE"
+  },
+  "MSS040": {
+    "mechanism_tags": [
+      "AI-powered document analysis for financial data extraction",
+      "automated diligence checklist management",
+      "dynamic data room tracking and follow-up",
+      "pre-close data gap identification",
+      "benchmarking against sector comparables"
+    ],
+    "transferable_to": "Mergers and Acquisitions for corporate finance due diligence, Real Estate for property valuation assessments, and Healthcare for patient data analysis in compliance checks.",
+    "title": "DUE DILIGENCE ACCELERATION"
+  },
+  "MSS041": {
+    "mechanism_tags": [
+      "AI co-pilot for investment analysis",
+      "automated memo generation",
+      "data-driven risk assessment",
+      "structured brief assembly",
+      "standardized document quality enforcement"
+    ],
+    "transferable_to": "Venture capital (for rapid deal assessment), M&A advisory (for consistent due diligence memos), and corporate finance (for structured investment proposals) due to the need for quick, data-driven decision-making and standardized documentation.",
+    "title": "INVESTMENT ANALYSIS AND MEMO INTELLIGENCE"
+  },
+  "MSS042": {
+    "mechanism_tags": [
+      "continuous performance monitoring engine",
+      "automated KPI and financial health tracking",
+      "real-time news and event correlation",
+      "peer benchmarking analysis",
+      "structured data onboarding for reporting"
+    ],
+    "transferable_to": "healthcare for patient outcome tracking, manufacturing for production efficiency monitoring, and technology for project management oversight.",
+    "title": "PORTFOLIO COMPANY MONITORING"
+  },
+  "MSS043": {
+    "mechanism_tags": [
+      "automated compliance platform",
+      "intelligent checklist management",
+      "multi-jurisdiction regulatory tracking",
+      "unified compliance data layer",
+      "audit-ready documentation generation"
+    ],
+    "transferable_to": "financial services for regulatory compliance, healthcare for patient data management, manufacturing for quality assurance, and technology for software compliance.",
+    "title": "COMPLIANCE AND REPORTING AUTOMATION"
+  },
+  "MSS044": {
+    "mechanism_tags": [
+      "RAG-based AI assistant for document ingestion",
+      "semantic vector search for natural language queries",
+      "source-linked citation for verification",
+      "context-aware thematic search",
+      "role-based entitlements for data access control"
+    ],
+    "transferable_to": "Legal (for case law research), Healthcare (for patient data retrieval), Education (for academic research access)",
+    "title": "AI ASSISTANT FOR SELL-SIDE EQUITY RESEARCH"
+  },
+  "MSS045": {
+    "mechanism_tags": [
+      "AIOps observability layer",
+      "AI-driven batch job scheduling",
+      "proactive incident detection",
+      "real-time resource utilization analytics",
+      "cost governance dashboard"
+    ],
+    "transferable_to": "Telecommunications for optimizing network resource usage, Manufacturing for scheduling production processes, and E-commerce for managing server load during peak traffic.",
+    "title": "MAINFRAME COST OPTIMIZATION"
+  },
+  "MSS046": {
+    "mechanism_tags": [
+      "AWS-based DevSecOps pipeline",
+      "automated quality and security gates",
+      "release train model",
+      "compliance artifact generation",
+      "multi-jurisdiction CI/CD",
+      "test automation framework"
+    ],
+    "transferable_to": "Healthcare for regulatory compliance in software releases; Telecommunications for managing complex service deployments; Automotive for ensuring safety standards in software updates.",
+    "title": "DEVSECOPS PIPELINE FOR OPEN BANKING"
+  },
+  "MSS047": {
+    "mechanism_tags": [
+      "AI-driven cash application matching",
+      "predictive collections prioritization",
+      "automated deduction and dispute routing",
+      "AI-assisted dunning outreach",
+      "human-in-the-loop ERP integration",
+      "real-time O2C analytics dashboard"
+    ],
+    "transferable_to": "Financial services for managing receivables, healthcare billing for efficient claims processing, retail for optimizing payment collections, and manufacturing for streamlining invoicing and cash flow.",
+    "title": "AGENTIC ORDER-TO-CASH TRANSFORMATION"
+  },
+  "MSS048": {
+    "mechanism_tags": [
+      "agentic copilots for task execution",
+      "AI-assisted anomaly detection",
+      "automated ticket triage and deflection",
+      "AI-driven test case generation",
+      "structured capability-building programs"
+    ],
+    "transferable_to": "healthcare for patient data management, manufacturing for quality assurance processes, and retail for customer service automation.",
+    "title": "CLOSE AND CONTROL COPILOT"
+  },
+  "MSS049": {
+    "mechanism_tags": [
+      "enterprise-grade GenAI platform for document processing",
+      "predictive analytics for portfolio monitoring",
+      "MLOps governance with model monitoring",
+      "AI-assisted content generation for research",
+      "intelligent document processing for compliance workflows"
+    ],
+    "transferable_to": "Healthcare for patient record analysis, Legal for contract review automation, Real Estate for property deal documentation, and Manufacturing for compliance and quality monitoring.",
+    "title": "AI/ML AND INTELLIGENT AUTOMATION FOR FINANCIAL INSTITUTIONS"
+  },
+  "MSS050": {
+    "mechanism_tags": [
+      "multi-channel invoice ingestion via OCR",
+      "autonomous 3-way matching and GL coding",
+      "intelligent cash application with AI suggestions",
+      "AI-prioritized collections worklist",
+      "exception triage with root cause analysis"
+    ],
+    "transferable_to": "Retail for managing supplier invoices, Healthcare for processing claims, Manufacturing for handling purchase orders and payments.",
+    "title": "AGENTIC INVOICE AND CASH MANAGEMENT"
+  },
+  "MSS051": {
+    "mechanism_tags": [
+      "multi-source transaction ingestion",
+      "intelligent match engine",
+      "exception reasoning and auto-resolution",
+      "conversational finance interface",
+      "anomaly detection and risk flagging"
+    ],
+    "transferable_to": "Supply Chain Management for matching orders to shipments, Healthcare Billing for reconciling patient payments, E-commerce for handling returns and refunds.",
+    "title": "AI-POWERED FINANCIAL RECONCILIATION"
+  },
+  "MSS052": {
+    "mechanism_tags": [
+      "GenAI-powered market data management platform",
+      "entitlement audit engine",
+      "subscription rationalization",
+      "automated invoice processing",
+      "conversational analytics interface"
+    ],
+    "transferable_to": "Healthcare for managing patient data subscriptions, Retail for optimizing inventory data feeds, Telecommunications for streamlining service usage analytics.",
+    "title": "MARKET DATA COST OPTIMIZATION AND CONVERSATIONAL ANALYTICS"
+  },
+  "MSS053": {
+    "mechanism_tags": [
+      "agentic optimization engine for load balancing",
+      "real-time consumption monitoring across distributed assets",
+      "predictive peak demand forecasting using historical data",
+      "autonomous demand response execution",
+      "grid condition anomaly detection"
+    ],
+    "transferable_to": "Manufacturing (for optimizing energy use in production processes), Transportation (for managing fleet energy consumption and routing), Telecommunications (for balancing network load and managing bandwidth demand)",
+    "title": "LOAD BALANCING AND DEMAND RESPONSE"
+  },
+  "MSS054": {
+    "mechanism_tags": [
+      "integrated predictive O&M platform",
+      "condition-based predictive maintenance",
+      "AI-driven performance analytics",
+      "automated drone thermography",
+      "ML-based defect detection"
+    ],
+    "transferable_to": "Manufacturing for predictive maintenance of machinery, Transportation for fleet monitoring and maintenance, Agriculture for crop health monitoring and anomaly detection.",
+    "title": "PREDICTIVE O&M INTELLIGENCE FOR RENEWABLE ASSETS"
+  },
+  "MSS055": {
+    "mechanism_tags": [
+      "AI-driven forecasting layer",
+      "continuous model recalibration",
+      "real-time data ingestion",
+      "forecast accuracy monitoring",
+      "dispatch optimization"
+    ],
+    "transferable_to": "Agriculture for crop yield forecasting, Transportation for route optimization, Manufacturing for predictive maintenance, and Telecommunications for network performance forecasting.",
+    "title": "GENERATION AND GRID FORECASTING INTELLIGENCE"
+  },
+  "MSS056": {
+    "mechanism_tags": [
+      "modular predictive asset intelligence layer",
+      "failure-mode-aware ML models",
+      "chain-of-thought diagnostics",
+      "anomaly detection and explanation",
+      "CMMS write-back integration",
+      "continuous model improvement"
+    ],
+    "transferable_to": "energy sector for predictive maintenance of turbines, transportation for fleet management and maintenance scheduling, and manufacturing for equipment reliability optimization.",
+    "title": "PREDICTIVE ASSET INTELLIGENCE"
+  },
+  "MSS057": {
+    "mechanism_tags": [
+      "RAG-based knowledge retrieval system",
+      "multi-agent causal reasoning for root cause analysis",
+      "GenAI documentation automation",
+      "structured queryable knowledge vault",
+      "shift handover intelligence"
+    ],
+    "transferable_to": "healthcare for patient data retrieval, manufacturing for equipment maintenance, IT for incident resolution, and logistics for operational documentation.",
+    "title": "INDUSTRIAL KNOWLEDGE COPILOT"
+  },
+  "MSS058": {
+    "mechanism_tags": [
+      "edge AI deployment for real-time inference",
+      "domain-specific model fine-tuning",
+      "offline and air-gapped AI operation",
+      "inference runtime optimization for low latency",
+      "multi-protocol integration for legacy systems"
+    ],
+    "transferable_to": "Manufacturing (real-time quality control), Healthcare (patient monitoring systems), Transportation (fleet management analytics), Energy (grid monitoring and optimization)",
+    "title": "EDGE AI FOR INDUSTRIAL OPERATIONS"
+  },
+  "MSS059": {
+    "mechanism_tags": [
+      "AI-powered AIOps platform",
+      "unified observability across hybrid infrastructure",
+      "alert noise reduction through AI filtering",
+      "automated root cause analysis",
+      "anomaly detection and predictive insights",
+      "AI agent auto-remediation"
+    ],
+    "transferable_to": "Healthcare for real-time patient monitoring, Manufacturing for predictive maintenance, Telecommunications for network performance management.",
+    "title": "AIOPS CONTROL TOWER"
+  },
+  "MSS060": {
+    "mechanism_tags": [
+      "multi-agent orchestration",
+      "autonomous root cause analysis",
+      "real-time incident monitoring",
+      "human-in-the-loop approvals",
+      "ServiceNow bi-sync"
+    ],
+    "transferable_to": "Manufacturing (for equipment failure diagnostics), Healthcare (for patient monitoring and incident response), Telecommunications (for network incident management)",
+    "title": "AUTONOMOUS INCIDENT REMEDIATION"
+  },
+  "MSS061": {
+    "mechanism_tags": [
+      "centralized application performance management",
+      "real-time telemetry aggregation",
+      "anomaly detection and alerting",
+      "unified enterprise dashboard",
+      "license utilization tracking"
+    ],
+    "transferable_to": "healthcare for monitoring patient management systems, finance for tracking transaction performance, manufacturing for overseeing operational software efficiency.",
+    "title": "APPLICATION PERFORMANCE MANAGEMENT"
+  },
+  "MSS062": {
+    "mechanism_tags": [
+      "integrated command center operations",
+      "real-time network telemetry consolidation",
+      "intelligent threat detection and correlation",
+      "unified security event management",
+      "incident response orchestration"
+    ],
+    "transferable_to": "Healthcare for patient monitoring systems, Manufacturing for equipment health tracking, Finance for fraud detection systems, Telecommunications for network performance management.",
+    "title": "COMMAND CENTER AND NETWORK OPERATIONS SECURITY SYSTEM"
+  },
+  "MSS063": {
+    "mechanism_tags": [
+      "Multi-Cloud Governance Framework",
+      "Data Residency and Classification",
+      "Cross-Cloud Integration Standards",
+      "Identity and Access Baseline",
+      "Cost Management and Accountability",
+      "Compliance and Unified Observability"
+    ],
+    "transferable_to": "Finance (for regulatory compliance and data governance), Healthcare (for patient data protection and access control), Retail (for managing customer data across platforms), Telecommunications (for integrating services across multiple networks)",
+    "title": "MULTI-CLOUD GOVERNANCE AND INTEGRATION FRAMEWORK"
+  },
+  "MSS064": {
+    "mechanism_tags": [
+      "modular agent-as-a-tool orchestration",
+      "cross-system context sharing",
+      "incremental deployment model",
+      "RBAC-governed automation",
+      "vendor-agnostic architecture",
+      "rapid use-case onboarding"
+    ],
+    "transferable_to": "healthcare for patient data integration, finance for transaction processing systems, manufacturing for supply chain automation",
+    "title": "INTELLIGENT ENTERPRISE ORCHESTRATION"
+  },
+  "MSS065": {
+    "mechanism_tags": [
+      "autonomous agent oversight governance",
+      "approval policy design for AI",
+      "human-in-the-loop controls for decision-making",
+      "behavior monitoring dashboards for AI",
+      "token-level cost tracking for AI spend",
+      "audit trail generation for compliance"
+    ],
+    "transferable_to": "finance for compliance tracking, healthcare for decision oversight, manufacturing for process automation, and logistics for cost management.",
+    "title": "AGENTIC AI GOVERNANCE IMPLEMENTATION"
+  },
+  "MSS066": {
+    "mechanism_tags": [
+      "prompt-level tracing",
+      "retrieval quality scoring",
+      "semantic drift detection",
+      "cost attribution per use case",
+      "intent-to-outcome correlation",
+      "continuous performance telemetry"
+    ],
+    "transferable_to": "healthcare for patient outcome tracking, finance for transaction monitoring, manufacturing for process optimization, and marketing for campaign performance analysis.",
+    "title": "LLMOPS AND GENAI OBSERVABILITY"
+  },
+  "MSS067": {
+    "mechanism_tags": [
+      "embedded safety controls",
+      "output validation",
+      "compliance checkpoints",
+      "real-time guardrail enforcement",
+      "cross-environment auditability",
+      "policy-bounded model interaction"
+    ],
+    "transferable_to": "healthcare for patient data compliance, finance for transaction monitoring, manufacturing for quality assurance, and autonomous vehicles for safety protocols.",
+    "title": "AI GOVERNANCE AND GUARDRAILS"
+  },
+  "MSS068": {
+    "mechanism_tags": [
+      "LLM-based regulatory monitoring agent",
+      "multi-agency data ingestion",
+      "automated impact assessment generation",
+      "portfolio impact mapping",
+      "real-time regulatory intelligence integration"
+    ],
+    "transferable_to": "Financial services for compliance tracking, Manufacturing for regulatory adherence, Telecommunications for policy updates.",
+    "title": "MULTI-JURISDICTIONAL REGULATORY CHANGE INTELLIGENCE"
+  },
+  "MSS069": {
+    "mechanism_tags": [
+      "AI/ML-driven state of health prediction",
+      "continuous telemetry data ingestion",
+      "early degradation detection and anomaly alerting",
+      "remaining useful life forecasting",
+      "condition-based proactive servicing"
+    ],
+    "transferable_to": "Aerospace for predictive maintenance of aircraft components, Healthcare for monitoring medical device performance, and Renewable Energy for wind turbine condition monitoring.",
+    "title": "BATTERY SOH ANALYTICS AND DEGRADATION INTELLIGENCE"
+  },
+  "MSS070": {
+    "mechanism_tags": [
+      "hybrid automation orchestrator",
+      "AI-powered visual validation",
+      "self-healing test execution",
+      "collaborative test authoring",
+      "fully automated evidence capture"
+    ],
+    "transferable_to": "automotive for safety-critical systems validation, aerospace for complex interface testing, financial services for regulatory compliance automation",
+    "title": "HYBRID TEST AUTOMATION FOR CLINICAL VALIDATION"
+  },
+  "MSS071": {
+    "mechanism_tags": [
+      "AI-powered end-to-end process automation",
+      "automated signature verification against forgery patterns",
+      "exception routing for human review",
+      "seamless core-system integration",
+      "100% verification coverage for critical documents"
+    ],
+    "transferable_to": "Insurance claims processing for automated fraud detection, E-commerce payment verification for instant transaction approvals, Healthcare billing for accurate and timely claims management.",
+    "title": "CLEARSIGHT - CHEQUE CLEARING AUTOMATION"
+  },
+  "MSS072": {
+    "mechanism_tags": [
+      "AI-assisted live call support",
+      "automated quality assurance scoring",
+      "knowledge base grounding for real-time responses",
+      "multilingual support for customer interactions",
+      "compliance breach flagging in real-time"
+    ],
+    "transferable_to": "Healthcare for patient inquiries, Retail for customer service, Telecommunications for technical support, Education for student assistance.",
+    "title": "CONTACTFLOW AI - CONTACT CENTER INTELLIGENCE"
+  },
+  "MSS073": {
+    "mechanism_tags": [
+      "automated deal sourcing and triage",
+      "mandate-based scoring engine",
+      "instant due diligence preparation",
+      "CIM and teaser parsing",
+      "deal ranking and prioritization"
+    ],
+    "transferable_to": "financial services for loan underwriting (automating risk assessment), real estate investment (streamlining property evaluation), venture capital (prioritizing startup deals based on criteria)",
+    "title": "DEALIQ - AGENTIC DEAL INTELLIGENCE"
+  },
+  "MSS074": {
+    "mechanism_tags": [
+      "automated multi-source reconciliation",
+      "codified validation checks",
+      "single operational view",
+      "exception aging tracking",
+      "audit-ready reconciliation records"
+    ],
+    "transferable_to": "banking for transaction reconciliation, insurance for claims processing, manufacturing for quality control, and logistics for shipment tracking.",
+    "title": "OPSIQ - INVESTMENT OPERATIONS CONSOLE"
+  },
+  "MSS075": {
+    "mechanism_tags": [
+      "agentic production planning engine",
+      "unified planning view",
+      "scenario simulation for disruptions",
+      "signal-to-plan automation",
+      "cross-plant rebalancing"
+    ],
+    "transferable_to": "Logistics for real-time route optimization, Healthcare for patient flow management, and Energy for grid stability management.",
+    "title": "PLANFORGE AI - AGENTIC PRODUCTION PLANNING"
+  },
+  "MSS076": {
+    "mechanism_tags": [
+      "unified operations intelligence platform",
+      "real-time data reconciliation",
+      "in-shift quality and performance alerts",
+      "end-to-end defect traceability",
+      "live material visibility"
+    ],
+    "transferable_to": "healthcare for real-time patient data integration, logistics for live tracking of inventory and shipments, construction for real-time project management and defect tracking",
+    "title": "PLANTPULSE - MANUFACTURING OPERATIONS INTELLIGENCE"
+  },
+  "MSS077": {
+    "mechanism_tags": [
+      "continuous signal ingestion for real-time data monitoring",
+      "live health-scored portfolio view",
+      "audit-trailed AI commentary generation",
+      "continuous covenant headroom tracking",
+      "automated news and market signal correlation",
+      "real-time peer benchmarking"
+    ],
+    "transferable_to": "financial services for risk management, healthcare for patient monitoring, supply chain management for inventory tracking, and technology for system performance monitoring.",
+    "title": "PORTFOLIO INTELLIGENCE AI - CONTINUOUS PORTFOLIO MONITORING"
+  },
+  "MSS078": {
+    "mechanism_tags": [
+      "unified asset management framework",
+      "license optimization analytics",
+      "automated lifecycle tracking",
+      "real-time compliance management",
+      "single source of truth consolidation"
+    ],
+    "transferable_to": "Healthcare for managing medical equipment assets, Manufacturing for tracking machinery and tools, Education for optimizing software licenses across institutions.",
+    "title": "SAM AND HAM - IT ASSET MANAGEMENT"
+  },
+  "MSS079": {
+    "mechanism_tags": [
+      "real-time life-event detection",
+      "in-workflow cross-sell",
+      "pre-filled same-day servicing",
+      "policy admin system integration",
+      "agent workflow embedding",
+      "SLA compliance monitoring"
+    ],
+    "transferable_to": "Healthcare for patient management, Retail for personalized marketing, Telecommunications for service upgrades, and Financial Services for customer account management.",
+    "title": "SERVEIQ - AGENTIC POLICY SERVICING"
+  },
+  "MSS080": {
+    "mechanism_tags": [
+      "AI conversation intelligence platform",
+      "real-time compliance monitoring",
+      "proactive escalation detection",
+      "modular integration with existing systems",
+      "data-driven coaching intelligence"
+    ],
+    "transferable_to": "Healthcare for patient call monitoring, Retail for customer service interactions, Telecommunications for call center efficiency.",
+    "title": "VOICEVISTA - CALL INTELLIGENCE AND QA AUTOMATION"
+  },
+  "MSS081": {
+    "mechanism_tags": [
+      "AI-powered pricing and estimation engine",
+      "dynamic pricing and margin control",
+      "requirement configuration engine",
+      "scenario planning and profitability comparison",
+      "continuous model retraining"
+    ],
+    "transferable_to": "construction (for project estimation and resource allocation), manufacturing (for cost estimation and production planning), consulting (for service pricing and project management), healthcare (for treatment cost estimation and resource planning)",
+    "title": "AI-POWERED PRICING AND ESTIMATION ENGINE"
+  },
+  "MSS082": {
+    "mechanism_tags": [
+      "non-intrusive energy intelligence layer",
+      "real-time consumption dashboards",
+      "ML anomaly detection for energy signatures",
+      "prescriptive load-balancing recommendations",
+      "automated engineering alert routing"
+    ],
+    "transferable_to": "Manufacturing (energy management), Data Centers (cooling and power usage), Food Processing (utility efficiency), Chemical Plants (process utility monitoring)",
+    "title": "PLANT ENERGY AND UTILITIES INTELLIGENCE"
+  },
+  "MSS083": {
+    "mechanism_tags": [
+      "Cross-System Data Ingestion",
+      "Common Asset Model Normalization",
+      "ML Loss Detection",
+      "Multi-Dimensional Loss Quantification",
+      "ROI-Ranked Savings Backlog",
+      "Continuous Pipeline Refresh"
+    ],
+    "transferable_to": "Energy management in commercial buildings (similar data silos and savings opportunities), Manufacturing (cross-asset benchmarking for efficiency), Supply Chain Optimization (data normalization for logistics and inventory management)",
+    "title": "AI-LED SAVINGS OPPORTUNITY DISCOVERY"
+  },
+  "MSS084": {
+    "mechanism_tags": [
+      "condition-based predictive maintenance for critical assets",
+      "machine learning for failure mode classification",
+      "real-time asset health monitoring with SCADA and sensors",
+      "automated work order generation in CMMS",
+      "remaining useful life forecasting"
+    ],
+    "transferable_to": "energy sector for turbine maintenance, transportation for fleet vehicle servicing, manufacturing for assembly line equipment, and facility management for HVAC systems.",
+    "title": "PREDICTIVE MAINTENANCE FOR CRITICAL ASSETS"
+  },
+  "MSS085": {
+    "mechanism_tags": [
+      "real-time loss classification system",
+      "dynamic bottleneck identification",
+      "automated changeover analytics",
+      "direct line signal capture",
+      "real-time operator performance feedback"
+    ],
+    "transferable_to": "manufacturing, logistics, food processing, pharmaceuticals",
+    "title": "OEE AND THROUGHPUT UPLIFT ON PACKAGING LINES"
+  },
+  "MSS086": {
+    "mechanism_tags": [
+      "Network Flow and Pressure Analytics",
+      "ML-based Leak Load Estimation",
+      "Demand Profile Modeling",
+      "Compressor Load Sequencing",
+      "Pressure Setpoint Right-Sizing",
+      "Financial Impact Repair Ranking"
+    ],
+    "transferable_to": "Manufacturing (energy optimization), Food Processing (compressed gas systems), Water Treatment (pumping efficiency), HVAC Systems (airflow management)",
+    "title": "COMPRESSED AIR SYSTEM OPTIMIZATION"
+  },
+  "MSS087": {
+    "mechanism_tags": [
+      "AI load-balancing for operational efficiency",
+      "demand-aware cooling sequencing",
+      "floating setpoint optimization",
+      "anomaly detection for performance monitoring",
+      "production schedule integration"
+    ],
+    "transferable_to": "Food processing (temperature control based on production needs), Data centers (dynamic cooling based on server load), Pharmaceutical manufacturing (precise environmental control for production consistency)",
+    "title": "INDUSTRIAL REFRIGERATION AND COOLING OPTIMIZATION"
+  },
+  "MSS088": {
+    "mechanism_tags": [
+      "Per-Head Fill Distribution Modeling",
+      "ML Drift Detection",
+      "Compliant Setpoint Recommendations",
+      "Underweight Compliance Guardrails",
+      "Operator-Confirmed Closed Loop",
+      "Cross-Line Replication Framework"
+    ],
+    "transferable_to": "Food Processing, Pharmaceutical Manufacturing, Beverage Production, Chemical Manufacturing",
+    "title": "FILL WEIGHT AND GIVEAWAY REDUCTION"
+  },
+  "MSS089": {
+    "mechanism_tags": [
+      "operational intelligence layer above ERP",
+      "real-time loss category tracking",
+      "predictive shortage and disruption signals",
+      "owned escalation workflows",
+      "EBITDA scenario simulation",
+      "structured problem solving with 8D framework"
+    ],
+    "transferable_to": "Retail (managing inventory and supplier compliance), Healthcare (tracking operational inefficiencies and costs), Logistics (monitoring freight and downtime), Construction (managing project costs and resource allocation)",
+    "title": "OPERATIONAL LOSS AND MARGIN LEAKAGE INTELLIGENCE"
+  },
+  "MSS090": {
+    "mechanism_tags": [
+      "continuous combustion efficiency monitoring",
+      "real-time combustion optimization recommendations",
+      "condensate recovery opportunity detection",
+      "waste heat recovery identification",
+      "steam demand and fuel correlation"
+    ],
+    "transferable_to": "energy production (for optimizing fuel use in power plants), food processing (for steam and thermal management), chemical manufacturing (for process heat optimization)",
+    "title": "BOILER AND STEAM THERMAL UTILITIES OPTIMIZATION"
+  },
+  "MSS091": {
+    "mechanism_tags": [
+      "plant-wide water balance analytics",
+      "leak and loss detection",
+      "CIP cycle optimization",
+      "effluent treatment load optimization",
+      "treatment anomaly detection",
+      "water intensity benchmarking"
+    ],
+    "transferable_to": "Food and Beverage (water usage optimization), Pharmaceutical (CIP efficiency), Chemical Processing (effluent treatment management), Agriculture (water resource management)",
+    "title": "WATER AND EFFLUENT OPTIMIZATION"
+  },
+  "MSS092": {
+    "mechanism_tags": [
+      "inline computer vision inspection",
+      "real-time defect classification using machine learning",
+      "human-gated quality assurance processes",
+      "defect trend analytics and upstream feedback loop"
+    ],
+    "transferable_to": "food manufacturing, pharmaceuticals, electronics assembly, automotive production",
+    "title": "INLINE VISION QUALITY INSPECTION"
+  },
+  "MSS093": {
+    "mechanism_tags": [
+      "Multi-Source Project Data Consolidation",
+      "ML Cost and Schedule Slippage Prediction",
+      "Vendor and PO Variance Tracking",
+      "Milestone Risk Dashboards",
+      "Early Warning Escalation",
+      "Portfolio-Level Capital Visibility"
+    ],
+    "transferable_to": "Construction (for managing large projects), IT Project Management (for tracking software development timelines), Aerospace (for complex project oversight), and Healthcare (for capital projects in facility upgrades).",
+    "title": "CAPITAL PROJECT COST AND SCHEDULE INTELLIGENCE"
+  },
+  "MSS094": {
+    "mechanism_tags": [
+      "multi-partner data normalization",
+      "partner capability mapping",
+      "demand forecasting",
+      "proactive customer communication",
+      "multilingual communication engine",
+      "unified service operations dashboard"
+    ],
+    "transferable_to": "Logistics (managing multiple carriers and service providers), Healthcare (coordinating between various medical service providers), Telecommunications (integrating updates from different service partners), and IT Services (orchestrating support across multiple vendors).",
+    "title": "UNIFIED FIELD SERVICE ORCHESTRATION"
+  },
+  "MSS095": {
+    "mechanism_tags": [
+      "AI-powered analytics for quality risk detection",
+      "near-miss detection for parameter monitoring",
+      "dynamic product risk scoring",
+      "automated root cause correlation",
+      "real-time SPC monitoring"
+    ],
+    "transferable_to": "Manufacturing for quality control, Food & Beverage for compliance monitoring, Aerospace for safety parameter tracking, and Automotive for defect prevention.",
+    "title": "COA PARAMETER EFFICIENCY TRACKER"
+  },
+  "MSS096": {
+    "mechanism_tags": [
+      "inline computer-vision inspection system",
+      "machine learning defect classification",
+      "integrated quality control dashboard",
+      "real-time alerting mechanism",
+      "automated data logging system"
+    ],
+    "transferable_to": "automotive manufacturing for quality assurance, electronics assembly for defect detection, food processing for contamination monitoring",
+    "title": "Predictive Quality Control for Injection Molding"
+  },
+  "MSS097": {
+    "mechanism_tags": [
+      "autonomous AI agents for data migration",
+      "data quality remediation framework",
+      "wave-based go-live orchestration",
+      "duplicate data cleansing and standardization",
+      "ABAP code conversion for system compatibility"
+    ],
+    "transferable_to": "healthcare for patient data migration, finance for regulatory compliance data management, retail for inventory data accuracy, and logistics for supply chain data integration.",
+    "title": "Agentic SAP S/4HANA Migration and Data Quality Framework"
+  },
+  "MSS098": {
+    "mechanism_tags": [
+      "real-time energy monitoring and management",
+      "anomaly detection with automated alerts",
+      "prescriptive load-balancing based on operational schedules",
+      "continuous asset-level visibility",
+      "proactive energy management"
+    ],
+    "transferable_to": "manufacturing (for optimizing machinery energy use), data centers (for managing cooling and power consumption), agriculture (for monitoring equipment energy efficiency), and commercial buildings (for HVAC and lighting energy management)",
+    "title": "Real-Time Asset-Level Energy Management"
+  },
+  "MSS099": {
+    "mechanism_tags": [
+      "Read-Only Data Integration Layer",
+      "Common Data Model Normalization",
+      "Automated Baselining and Benchmarking",
+      "Deviation Hotspot Detection",
+      "ROI-Ranked Savings Backlog"
+    ],
+    "transferable_to": "Manufacturing for process optimization, Healthcare for resource allocation efficiency, Logistics for route and asset management, Agriculture for yield and resource management.",
+    "title": "Cross-System Savings Opportunity Discovery"
+  },
+  "MSS102": {
+    "mechanism_tags": [
+      "process observation and transcription",
+      "incremental workflow digitization",
+      "layered automation implementation",
+      "legacy system in-place modernization",
+      "comprehensive process documentation",
+      "key-person dependency reduction"
+    ],
+    "transferable_to": "healthcare for digitizing patient records, manufacturing for modernizing production workflows, and logistics for optimizing supply chain processes.",
+    "title": "Legacy System Modernization and Process Automation"
+  },
+  "MSS103": {
+    "mechanism_tags": [
+      "agentic reconciliation capability",
+      "root cause exception classification",
+      "resolution path suggestion",
+      "human-in-the-loop certification",
+      "exception queue reduction"
+    ],
+    "transferable_to": "financial services for transaction matching, healthcare for patient record reconciliation, and supply chain management for inventory discrepancies due to their need for accurate data reconciliation and exception handling.",
+    "title": "Agentic Reconciliation Intelligence Layer"
+  },
+  "MSS104": {
+    "mechanism_tags": [
+      "close-orchestration architecture",
+      "central master data harmonization layer",
+      "secure ERP integration",
+      "live close status visibility",
+      "automated intercompany reconciliation",
+      "exception-based close management"
+    ],
+    "transferable_to": "manufacturing for supply chain data consistency, healthcare for patient data integration, retail for inventory management across systems",
+    "title": "Close-Orchestration Architecture for Multi-ERP Systems"
+  },
+  "MSS114": {
+    "mechanism_tags": [
+      "Edge SLM Deployment",
+      "Cloud-to-Edge Migration Framework",
+      "Hybrid Routing Architecture",
+      "Operator Copilot System",
+      "Field-Tech Maintenance Assistant"
+    ],
+    "transferable_to": "Manufacturing for real-time process control, Healthcare for rapid data processing and compliance, Telecommunications for efficient data routing and management.",
+    "title": "Edge SLM and Cloud-to-Edge Migration for Process Optimization"
+  },
+  "MSS115": {
+    "mechanism_tags": [
+      "automated asset discovery for BI migration",
+      "semantic translation engine for analytics",
+      "automated transformation of BI assets",
+      "regression testing for data validation",
+      "governance and lineage tagging for data management"
+    ],
+    "transferable_to": "Finance for migrating legacy reporting tools, Healthcare for transitioning analytics platforms, Retail for standardizing BI dashboards across systems.",
+    "title": "QLIK/TABLEAU TO POWER BI MIGRATION ACCELERATOR"
+  },
+  "MSS116": {
+    "mechanism_tags": [
+      "AI Product Decomposition",
+      "CTS/CTQ Classification",
+      "Compliance and Boundary Mapping",
+      "Auto Test Generation and Verification",
+      "Live Bidirectional Traceability"
+    ],
+    "transferable_to": "Aerospace for safety-critical systems, Automotive for compliance and verification, Consumer Electronics for BOM optimization, and Pharmaceuticals for regulatory requirements tracking.",
+    "title": "VERITRACE - AI PRODUCT DEVELOPMENT INTELLIGENCE"
+  },
+  "MSS117": {
+    "mechanism_tags": [
+      "end-to-end automated document validation pipeline",
+      "multi-format document intake and processing",
+      "intelligent classification using ML",
+      "deterministic validation engine with fuzzy matching",
+      "structured decision output with audit trail"
+    ],
+    "transferable_to": "legal document processing for compliance checks, healthcare records validation for patient data accuracy, financial services for loan application verification",
+    "title": "AI POWERED VEHICLE DOCUMENT VALIDATION SYSTEM"
+  },
+  "MSS118": {
+    "mechanism_tags": [
+      "cloud-native document management system",
+      "automated document ingestion with OCR",
+      "early completeness detection for compliance",
+      "PO vs BOM reconciliation automation",
+      "one-click digital case file assembly",
+      "immutable digital audit trail for approvals"
+    ],
+    "transferable_to": "Logistics (for shipment documentation), Healthcare (for patient records management), Construction (for project documentation compliance)",
+    "title": "INTELLIGENT INSPECTION DISPATCH AUTOMATION"
+  },
+  "MSS119": {
+    "mechanism_tags": [
+      "collaborative robot material handling",
+      "automated visual sorting",
+      "robotic process automation for documentation"
+    ],
+    "transferable_to": "logistics for automated sorting of packages, agriculture for sorting produce quality, healthcare for managing patient paperwork",
+    "title": "ROBOTICS AND AUTOMATION FOR REPETITIVE AND UNSAFE TASKS"
+  },
+  "MSS120": {
+    "mechanism_tags": [
+      "AI-driven workflow migration pipeline",
+      "semantic control-flow graph construction",
+      "autonomous code generation and validation",
+      "self-healing error correction system",
+      "contextual activity mapping with confidence scoring"
+    ],
+    "transferable_to": "software development for legacy systems, enterprise resource planning (ERP) migrations, robotic process automation (RPA) transitions, and machine learning model deployment due to the need for complex code translation and validation.",
+    "title": "AI-POWERED UIPATH MIGRATION PLATFORM"
+  },
+  "MSS121": {
+    "mechanism_tags": [
+      "AI vision surface classification",
+      "sensor fusion integration",
+      "adaptive braking logic",
+      "predictive risk alerts",
+      "terrain tagging engine",
+      "continuous calibration feedback loops"
+    ],
+    "transferable_to": "automotive safety systems (for various vehicle types), robotics (for terrain navigation), construction equipment (for varying ground conditions), and agricultural machinery (for soil type awareness)",
+    "title": "AI-POWERED TERRAIN-AWARE ADAS BRAKING AND STABILITY CONTROL"
+  },
+  "MSS122": {
+    "mechanism_tags": [
+      "computer-vision PPE detection system",
+      "real-time compliance monitoring",
+      "automated alerting for safety violations",
+      "visual evidence logging for audits",
+      "integration with access control systems"
+    ],
+    "transferable_to": "construction sites for real-time safety compliance, healthcare facilities for monitoring protective gear, laboratories in pharmaceuticals for regulatory adherence.",
+    "title": "AI-POWERED PPE COMPLIANCE MONITORING"
+  },
+  "MSS123": {
+    "mechanism_tags": [
+      "AI-powered test automation framework",
+      "risk-based test prioritization using machine learning",
+      "adaptive regression suites",
+      "predictive defect modeling",
+      "CI/CD pipeline integration"
+    ],
+    "transferable_to": "software development for finance (complex systems with high regulatory demands), automotive (software and hardware integration testing), healthcare (device-software validation), and telecommunications (network configuration testing)",
+    "title": "AI-DRIVEN QUALITY ENGINEERING AT SCALE"
+  },
+  "MSS124": {
+    "mechanism_tags": [
+      "AI-embedded analytics for test data",
+      "automated clustering of failure patterns",
+      "predictive risk scoring for quality assurance",
+      "real-time anomaly detection in test results",
+      "automated compliance report generation"
+    ],
+    "transferable_to": "automotive (for vehicle testing data analysis), aerospace (for aircraft component validation), software development (for code testing and quality assurance), manufacturing (for production quality control)",
+    "title": "AI IN VERIFICATION TEST DATA ANALYTICS"
+  },
+  "MSS125": {
+    "mechanism_tags": [
+      "generative AI-powered external risk intelligence layer",
+      "external signal ingestion engine",
+      "bullwhip simulation model",
+      "unknown unknowns layer",
+      "scenario planning interface"
+    ],
+    "transferable_to": "Logistics (managing supply chain disruptions), Healthcare (predicting patient care resource needs), Agriculture (assessing external factors affecting crop yields), Retail (forecasting demand fluctuations due to external events)",
+    "title": "PREDICTIVE SUPPLY CHAIN INTELLIGENCE"
+  },
+  "MSS126": {
+    "mechanism_tags": [
+      "Natural Language Query Engine",
+      "Multi-Source Data Ingestion",
+      "Semantic Understanding and Context Mapping",
+      "Conversational Drill-Down",
+      "Role-Based Access and Governance"
+    ],
+    "transferable_to": "Healthcare for patient data inquiries, Finance for real-time reporting, Retail for inventory management, Education for student performance analysis.",
+    "title": "TALK2DATA - CONVERSATIONAL ANALYTICS"
+  },
+  "MSS127": {
+    "mechanism_tags": [
+      "interactive part selection",
+      "optimized nesting engine",
+      "real-time utilization metrics",
+      "placement coverage tracking",
+      "total material cost view"
+    ],
+    "transferable_to": "construction (optimizing material layouts), furniture design (maximizing wood usage), textile manufacturing (efficient fabric cutting), automotive (reducing material waste in part assembly)",
+    "title": "SHEET METAL SCRAP OPTIMIZER AI"
+  },
+  "MSS128": {
+    "mechanism_tags": [
+      "real-time process monitoring and adjustment",
+      "AI-driven parameter optimization",
+      "live operational efficiency tracking",
+      "energy consumption analysis and reduction"
+    ],
+    "transferable_to": "food processing, pharmaceuticals, chemical manufacturing",
+    "title": "REAL-TIME PROCESS OPTIMIZATION FOR MIXING, CURING AND ENERGY"
+  },
+  "MSS129": {
+    "mechanism_tags": [
+      "AI-embedded DFMEA intelligence layer",
+      "AI Failure Mode Generation",
+      "Cited Risk Scoring",
+      "Knowledge Retrieval Agent",
+      "Engineer-in-the-Loop Review"
+    ],
+    "transferable_to": "Automotive for safety-critical systems, Aerospace for compliance and risk management, Manufacturing for process reliability, and Software Development for bug tracking and risk assessment.",
+    "title": "AI IN FMEA - RISK INTELLIGENCE AND DESIGN ASSURANCE"
+  }
+}

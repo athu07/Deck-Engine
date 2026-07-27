@@ -53,11 +53,9 @@ import re
 
 from PIL import Image, UnidentifiedImageError
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
-from pptx.oxml.ns import qn
 
 from deckengine import config
 from deckengine.services.content.build_library import read_id
@@ -231,58 +229,23 @@ def _add_x_divider(slide, logo_right):
     r.font.color.rgb = RGBColor(0x6B, 0x6B, 0x6B)
 
 
-def _add_logo_placeholder(slide, logo_left, logo_top):
-    """No real logo was fetched or uploaded (owner's spec, 2026-07-20: every
-    title slide should reserve the spot regardless, exactly like the manually-
-    built decks do -- a dashed box the salesperson can select and swap a real
-    logo into in PowerPoint, rather than the slide just having nothing there
-    with no visual cue a logo belongs). Placed at the SAME position/size a real
-    logo would use, so replacing it later needs no re-measuring."""
-    box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(logo_left), Inches(logo_top),
-                                 Inches(_LOGO_MAX_W), Inches(_LOGO_MAX_H * 0.7))
-    box.fill.background()
-    box.line.color.rgb = RGBColor(0xB0, 0xB0, 0xB0)
-    box.line.width = Pt(1)
-    ln = box.line._get_or_add_ln()
-    prst = ln.find(qn("a:prstDash"))
-    if prst is None:
-        prst = ln.makeelement(qn("a:prstDash"), {})
-        ln.append(prst)
-    prst.set("val", "dash")
-    tf = box.text_frame
-    tf.word_wrap = True
-    tf.margin_left = tf.margin_right = Emu(0)
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.CENTER
-    r = p.add_run()
-    r.text = "Client logo"
-    r.font.size = Pt(11)
-    r.font.color.rgb = RGBColor(0xB0, 0xB0, 0xB0)
-
-
 def stamp_into(deck_path, client_name):
     """After assembler.build_deck() has already copied CS01 into the deck, add
-    this client's logo beside the J2W wordmark, plus a small "x" divider. If no
-    logo was auto-fetched or uploaded for this client name, a dashed placeholder
-    box is stamped in the same spot instead of leaving nothing there -- see
-    _add_logo_placeholder. Returns True if a real logo (not just the
-    placeholder) was stamped."""
+    this client's logo beside the J2W wordmark, plus a small "x" divider -- only
+    when a real logo was auto-fetched or uploaded for this client name. If none
+    was found, CS01 is left exactly as it is in the master deck (owner-spec,
+    2026-07-23: reverted the dashed placeholder box from 2026-07-20 -- no logo
+    means no visible cue at all, not a stand-in graphic). Returns True if a real
+    logo was stamped."""
     prs = Presentation(deck_path)
     slide = next((s for s in prs.slides if read_id(s) == CS01), None)
     if slide is None:
         return False
 
     logo_path = path_for(client_name)
-    logo_right = _WORDMARK_LEFT - _GAP_W
-
     if not logo_path:
-        placeholder_h = _LOGO_MAX_H * 0.7
-        logo_left = logo_right - _LOGO_MAX_W
-        logo_top = _WORDMARK_CENTER_Y - placeholder_h / 2
-        _add_logo_placeholder(slide, logo_left, logo_top)
-        _add_x_divider(slide, logo_right)
-        prs.save(deck_path)
         return False
+    logo_right = _WORDMARK_LEFT - _GAP_W
 
     with Image.open(logo_path) as im:
         iw, ih = im.size

@@ -7,9 +7,12 @@ plus /deck to resume a deck-in-progress held in the browser's deck tray.
 """
 
 import json
+import logging
 import re
 import uuid
 from zipfile import BadZipFile
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, request, render_template, abort, jsonify
 from pptx import Presentation
@@ -18,12 +21,7 @@ from deckengine import config
 from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
                                   INDUSTRIES, FUNCTIONS, PHASES)
-<<<<<<< HEAD
-from deckengine.services.content import industries as custom_industries
 from deckengine.services.matching import matcher, relevance, ai_matcher, personas
-=======
-from deckengine.services.matching import matcher, relevance, ai_matcher
->>>>>>> f716c5c8840be59389657ab66acb10b32813b69d
 from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
                                            slide_generator, slide_schema, client_context)
@@ -91,7 +89,7 @@ def _resume_page(reopen_seed=None):
                                   titles=titles, all_slides=all_slides, case_lib=case_lib,
                                   suggestions=[], suggested=[], ai_used=False,
                                   persona_labels=[], rationale=[], missing=[],
-                                  research_read=False, research_failed=False,
+                                  research_read=False, research_failed=False, brief_weak=False,
                                   resume=True, build_id="", reopen_seed=reopen_seed)
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
 
@@ -222,6 +220,13 @@ def build():
     priority_reasons = {}            # case_id -> {"why","signal"} for the rationale
     brief = {}                       # set below; kept defined even if extraction fails,
                                      # so the (separate) strategic-inference pass can use it
+    # visible (not silent) degrade flag: True when we HAD research/profile/transcript
+    # text to reason over but extract_brief() came back with nothing usable (a failed
+    # OpenAI call, malformed reply, or a genuine no-needs read) -- the deck below still
+    # gets built via the generic fallback ranker, but the salesperson should know the
+    # "why this deck matches" picks are NOT research-driven this time.
+    brief_weak = False
+    has_source_text = bool(research_text.strip() or profile_text.strip() or ctx["transcript"].strip())
     # shared prep, hoisted above both the literal-extraction and strategic-inference
     # passes below (pure/no I/O, safe either way needs it)
     wanted = {w.upper() for w in ctx["work_types"]}
@@ -235,7 +240,17 @@ def build():
     # also scans the uploaded PROFILE text (not just recipient/transcript) --
     # a profile-only build (a name typed as recipient, no transcript) still
     # names the person's actual role/skills in the profile itself.
-    persona_codes = personas.detect(ctx.get("recipient", ""), match_notes + "\n" + profile_text)
+    # NOTE: deliberately ctx["transcript"], NOT match_notes (which also folds in the
+    # full deep-research brief) -- confirmed 2026-07-23 (Vanderlande): a research doc
+    # about the ACCOUNT broadly quotes several OTHER executives (its CTO, its CFO),
+    # and scanning that whole document attributed CIO_CTO/FINANCE_HEAD/CEO_FOUNDER to
+    # the actual recipient (an engineering-track stakeholder) purely because those
+    # titles were mentioned describing someone else at the company. That persona
+    # pollution then inflated unrelated cases in every capability's shortlist ranking,
+    # crowding out the case that was actually the best content match. Only the
+    # recipient's own name, the meeting transcript, and their own profile are reliable
+    # signals of WHO WE'RE PITCHING TO; a company-wide research brief is not.
+    persona_codes = personas.detect(ctx.get("recipient", ""), ctx["transcript"] + "\n" + profile_text)
     try:
         # ONE structured pass over research + profile + transcript: needs (with domain/
         # use-case), mismatch flags, expressed interest, account (honours the reference
@@ -260,46 +275,90 @@ def build():
             sl_by_name = {n["name"]: lst for n, lst in zip(all_needs, shortlists)}
             recs = {r["id"]: r for r in case_library._load()}
             expressed_lc = {x.lower() for x in expressed}
-            # SELECTION is algorithmic (the semantic shortlist ranks capability reliably): take
-            # the top candidate that is NOT mismatch-flagged and clears the coverage bar.
+            # SELECTION is algorithmic (the semantic shortlist ranks capability reliably) --
             # covered -> priority pick; nothing clears the bar -> an honest gap.
+            # GLOBAL greedy-by-strength assignment, not list order (owner-reported, 2026-07-23,
+            # Vanderlande): needs used to be matched in EXTRACTION-LIST order, first-come-
+            # first-claimed -- a case that was the OBVIOUS best fit for a later, more specific
+            # need ("BOM Synchronization" for "BOM Harmonization", cosine 0.58) got sniped by
+            # an earlier, broader need it was only a mediocre fit for ("PLM Automation", cosine
+            # 0.49), which had a much better candidate of its own waiting. Collect every
+            # (need, case) edge that clears the coverage bar across ALL needs, sort ALL of them
+            # by match strength together, then assign greedily from the top -- a case goes to
+            # whichever need it fits BEST, never just whichever need happened to be listed
+            # first. Standard greedy approximation for maximum-weight bipartite matching:
+            # simple, auditable, and provably no worse than list-order (which had no
+            # relationship to fit quality at all).
             picked = []                       # [{need,id,title,blurb}] for the explainer
+            claimed_needs = set()
+            edges = []
             for n in all_needs:
                 name = n["name"]
                 if name.strip().lower() in _GENERIC_NEEDS:
                     continue
-                cand = None
                 for item in sl_by_name.get(name, []):
-                    if item["id"] in priority_ids:
-                        continue                        # already used for another need
                     if _is_avoided(recs.get(item["id"], {}), avoid):
                         continue                        # skip a mismatch-flagged case
-                    cand = item
-                    break
-                if cand and (cand["cosine"] >= CAPABILITY_COVER or cand["title_hits"] >= 1):
-                    if cand["id"] not in priority_ids:
-                        priority_ids.append(cand["id"])
-                        rc = recs.get(cand["id"], {})
-                        picked.append({"need": name, "id": cand["id"], "title": rc.get("title", ""),
-                                       "blurb": rc.get("challenge", ""),
-                                       "industry": rc.get("industry", "")})
-                elif name.lower() not in expressed_lc and n.get("description"):
+                    if not (item["cosine"] >= CAPABILITY_COVER or item["title_hits"] >= 1):
+                        continue                        # never clears the coverage bar
+                    edges.append((n, name, item))
+            edges.sort(key=lambda e: (-e[2]["cosine"], -e[2]["title_hits"]))
+            for n, name, item in edges:
+                if name in claimed_needs or item["id"] in priority_ids:
+                    continue                            # need already filled, or case already used
+                claimed_needs.add(name)
+                priority_ids.append(item["id"])
+                rc = recs.get(item["id"], {})
+                picked.append({"need": name, "id": item["id"], "title": rc.get("title", ""),
+                               "blurb": rc.get("challenge", ""),
+                               "solution": rc.get("solution", ""),
+                               "industry": rc.get("industry", ""),
+                               "strength": item["cosine"]})
+            for n in all_needs:
+                name = n["name"]
+                if name.strip().lower() in _GENERIC_NEEDS or name in claimed_needs:
+                    continue
+                if name.lower() not in expressed_lc and n.get("description"):
+                    best_cos = max((item["cosine"] for item in sl_by_name.get(name, [])), default=0.0)
                     missing.append({"name": name, "description": n["description"],
                                     "domain": n.get("domain", ""), "use_case": n.get("use_case", ""),
-                                    "sim": round(cand["cosine"], 2) if cand else 0.0})
+                                    "sim": round(best_cos, 2)})
             missing = missing[:10]
             # rich, honest "why this was picked" line per pick (one LLM call; the model only
             # EXPLAINS the already-chosen case, so it cannot mis-pick). Templated fallback.
-            ex = ai_matcher.explain_picks(brief, picked)
+            # Now also a FACT-CHECK gate (owner-reported, 2026-07-23: the coverage bar
+            # cleared on keyword/semantic overlap alone had let through cases whose real
+            # content didn't actually match the need -- e.g. an electric-grid load-balancing
+            # case explained as "capacity and demand matching" for a manufacturer, purely a
+            # lexical collision on "demand"). explain_picks() now sees the case's real
+            # SOLUTION text (not just a title) and can say fit=false; a rejected pick is
+            # dropped back to an honest gap rather than kept with glossy reasoning.
+            ex = ai_matcher.explain_picks(brief, picked, profile_text, research_text)
             for it in picked:
                 r = ex.get(it["id"])
+                if r and r.get("fit") is False:
+                    if it["id"] in priority_ids:
+                        priority_ids.remove(it["id"])
+                    missing.append({"name": it["need"], "description": it.get("blurb", ""),
+                                    "domain": "", "use_case": "", "sim": round(it["strength"], 2)})
+                    continue
                 if r and r.get("reason"):
-                    priority_reasons[it["id"]] = {"why": r["reason"], "signal": r.get("signal", "")}
+                    priority_reasons[it["id"]] = {"why": r["reason"], "signal": r.get("signal", ""),
+                                                  "strength": it["strength"]}
                 else:
                     priority_reasons[it["id"]] = {"why": "Proves " + it["need"].lower(),
-                                                  "signal": "capability"}
+                                                  "signal": "capability", "strength": it["strength"]}
+            missing = missing[:10]
         else:
-            # fail-safe: the old name-only extraction path (offline / brief parse failed)
+            # fail-safe: the old name-only extraction path (offline / brief parse failed).
+            # This is a SILENT degrade unless flagged -- extract_brief() logs its own
+            # failure server-side, but the salesperson only sees it via brief_weak below.
+            if has_source_text:
+                brief_weak = True
+                logger.warning("extract_brief returned no usable needs for this build "
+                               "(research=%d chars, profile=%d chars, transcript=%d chars) "
+                               "-- falling back to name-only extraction / generic ranking",
+                               len(research_text), len(profile_text), len(ctx["transcript"]))
             research_needs = ai_matcher.extract_accelerators(research_text) if research_text else []
             profile_needs = ai_matcher.extract_profile(profile_text) if profile_text else []
             if not research_needs and not profile_needs and ctx["transcript"].strip():
@@ -320,7 +379,11 @@ def build():
                         missing.append({**a, "sim": round(cos, 2)})
                 missing = missing[:10]
     except Exception:
+        logger.exception("research-driven priority-pick pipeline raised -- falling back "
+                         "to the generic matcher.plan() ranker for this build")
         priority_ids, missing, avoid, priority_reasons = [], [], [], {}
+        if has_source_text:
+            brief_weak = True
 
     # Industry-level gap (owner's spec, 2026-07-14): a salesperson-typed "Other"
     # industry (constants.all_industries()'s custom entries) with genuinely NO
@@ -378,12 +441,23 @@ def build():
                     cand = item
                     break
                 if cand and (cand["cosine"] >= CAPABILITY_COVER or cand["title_hits"] >= 1):
+                    # the narrative above was written BEFORE this real case was matched --
+                    # re-ground it in what the case actually says (owner-reported, 2026-07-23:
+                    # a "supplier collaboration" narrative had survived unmodified onto a
+                    # banking finance-close case with no suppliers involved at all).
+                    rc = recs.get(cand["id"], {})
+                    v = ai_matcher.validate_bet_fit(b, rc.get("title", ""),
+                                                    rc.get("challenge", ""), rc.get("solution", ""))
+                    if not v["fit"]:
+                        continue                # doesn't really hold up -- drop the bet, no gap
                     priority_ids.append(cand["id"])
                     priority_reasons[cand["id"]] = {
-                        "why": b["stakeholder_why"], "signal": "strategic bet",
-                        "stakeholder_why": b["stakeholder_why"], "company_why": b["company_why"]}
+                        "why": v["stakeholder_why"], "signal": "strategic bet",
+                        "stakeholder_why": v["stakeholder_why"], "company_why": v["company_why"],
+                        "strength": cand["cosine"]}
     except Exception:
-        pass
+        logger.exception("strategic-bet pass raised -- deck built with 0 strategic bets "
+                         "this time (literal priority picks above are unaffected)")
 
     # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
     lead_research = (research_text + "\n"
@@ -495,8 +569,18 @@ def build():
         m = re.search(r"\bT(\d)\b", reason or "")
         return "T" + m.group(1) if m else ""
 
+    def _raw_score(reason):
+        # matcher.plan()'s own internal score (see matcher._case_reason) -- only used
+        # as a fallback ranking signal for FILL picks that never went through the
+        # priority pipeline below (so they have no captured cosine "strength"). Not
+        # on the same 0..1 scale as strength; /10 keeps it roughly comparable for
+        # ORDERING purposes only, never used as a selection threshold.
+        m = re.search(r"\(score ([\d.]+)\)", reason or "")
+        return float(m.group(1)) / 10.0 if m else 0.0
+
     rationale = [{"id": p["slide_id"], "title": titles.get(p["slide_id"], ""),
-                  "why": _why(p["reason"]), "tier": _tier(p["reason"])}
+                  "why": _why(p["reason"]), "tier": _tier(p["reason"]),
+                  "strength": _raw_score(p["reason"])}
                  for p in result["picks"] if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
 
     # "Why this resonates" per case: the LLM re-rank already justified each PRIORITY
@@ -514,12 +598,21 @@ def build():
                 r["company_why"] = pr["company_why"]
             if r.get("why", "").strip().lower() in _bare:
                 r["why"] = ""          # the re-rank reason carries it; hide the bare fallback
+            if "strength" in pr:       # real per-need cosine beats the coarser fallback score
+                r["strength"] = pr["strength"]
+
+    # owner-reported, 2026-07-23 (Kimberly-Clark): the panel showed picks in
+    # whatever order needs were extracted, with no indication some matches are
+    # stronger than others -- strongest match leads, so the best proof points
+    # aren't buried under weaker ones.
+    rationale.sort(key=lambda r: -r.get("strength", 0.0))
 
     # (priority picks + `missing` were computed before planning, above)
     body = render_template("build.html", ctx=ctx, picks=result["picks"],
                                   gaps=result["gaps"], titles=titles, all_slides=all_slides,
                                   case_lib=case_lib, rationale=rationale, missing=missing,
                                   research_read=research_read, research_failed=research_failed,
+                                  brief_weak=brief_weak,
                                   suggestions=result.get("suggestions", []),
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),

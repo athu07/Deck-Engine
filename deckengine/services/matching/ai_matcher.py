@@ -14,10 +14,31 @@ Provider: OpenAI (per project owner's choice). Key read from .env.
 """
 
 import json
+import logging
 
 from deckengine.services.infra import load_env
 
 MODEL = "gpt-4o-mini"
+# explain_picks()/validate_bet_fit() do real JUDGMENT work now (the fit check: is this
+# case a genuine mechanism+subject-matter match, or just a capability-label coincidence),
+# not just formatting/summarizing -- confirmed 2026-07-23 (Vanderlande, MSS117): given
+# fully correct information (an accurate account description AND the case's real content
+# spelling out "vehicle documents"), gpt-4o-mini's own generated reasoning named the exact
+# mismatch in its own words and still returned fit=true. The prompt/data were right; the
+# model's judgment reliability on this specific class of call wasn't. Everything else in
+# this file (extraction, refine, accelerators) stays on MODEL -- those are simpler, more
+# mechanical tasks where mini has tested reliably; only the two fact-checking calls below
+# get the stronger model, to bound the added cost/latency to where it's actually needed.
+EXPLAIN_MODEL = "gpt-4o"
+logger = logging.getLogger(__name__)
+
+# gpt-4o-mini's context window is 128K tokens (~500K chars); a deep-research brief
+# truncated at a few thousand chars was silently dropping over half of real, dense
+# briefs (confirmed 2026-07-23: a 19,241-char brief was cut mid-section-7, discarding
+# the entire stakeholder-background section). This cap is sized generously above any
+# brief seen in practice while keeping prompt + profile + transcript comfortably
+# inside the model's window.
+RESEARCH_CHAR_CAP = 40000
 
 
 def _client():
@@ -419,7 +440,7 @@ def extract_brief(research="", profile="", transcript=""):
     parts = []
     if research:
         parts.append("DEEP RESEARCH BRIEF (PRIMARY — includes synergy mapping and "
-                     "mismatch flags):\n\"\"\"\n" + research[:9000] + "\n\"\"\"")
+                     "mismatch flags):\n\"\"\"\n" + research[:RESEARCH_CHAR_CAP] + "\n\"\"\"")
     if profile:
         parts.append("STAKEHOLDER PROFILE:\n\"\"\"\n" + profile[:6000] + "\n\"\"\"")
     if transcript:
@@ -463,6 +484,23 @@ def extract_brief(research="", profile="", transcript=""):
         "category, or let a different, vaguer mention of the same technology elsewhere in "
         "the brief (e.g. a passing reference under a general 'synergies' section) take its "
         "place instead.\n"
+        "- EXPLICIT FRAMING INSTRUCTIONS: a research brief often tells the salesperson "
+        "directly how to pitch, not just what the account cares about -- \"any pitch here "
+        "should be framed around X, Y and Z\", \"position around A, B, C\", \"this creates "
+        "demand for P, Q and R\". Each named item in a sentence like this is a real, "
+        "specific, separately-checkable need in its own right -- extract EACH ONE (P, Q, "
+        "AND R, not just the sentence's general topic) exactly as named, even if a "
+        "broader-sounding need elsewhere in the brief would seem to already cover it. "
+        "Confirmed miss (owner-reported, 2026-07-23, Vanderlande): a brief said pitches "
+        "\"should be framed around the 3DEXPERIENCE ecosystem, EBOM/MBOM continuity, and "
+        "the split Veghel-Pune PLM team\" and separately \"creates demand for CAD/design "
+        "automation, BOM harmonization, and engineering-process automation\" -- extraction "
+        "produced a \"PLM Automation\" need but never \"BOM Harmonization\" on its own, so "
+        "the one case in the library actually built around BOM/EBOM/MBOM never got checked "
+        "on its own terms and lost the generic \"PLM\" need to an unrelated case whose "
+        "TITLE merely happened to contain the word \"PLM\". Named items in these "
+        "instruction sentences are exactly the failure mode GRANULARITY above warns "
+        "about -- treat them with the same discipline as a NAMED ACCELERATOR.\n"
         "- avoid: MISMATCH FLAGS — capabilities that look related by keyword but are "
         "genuinely the WRONG fit for this ACCOUNT (wrong domain / wrong use-case for the "
         "COMPANY's business). Never use this to suppress a stakeholder's own real, "
@@ -471,7 +509,17 @@ def extract_brief(research="", profile="", transcript=""):
         "capability and a one-line reason. Only clear or explicitly-flagged misfits.\n"
         "- expressed_interest: specific accelerators/topics the CLIENT actually discussed "
         "(from the transcript). Empty if none.\n"
-        "- account: {industry, role, company_context} from the profile/brief.\n"
+        "- account: {industry, role, company_context} from the profile/brief. "
+        "company_context is NOT the company's name -- it's a 1-2 sentence description of "
+        "what the account ACTUALLY DOES/SELLS/OPERATES (e.g. \"baggage-handling and parcel-"
+        "sortation systems for airports and logistics operators\", not just \"Vanderlande\"). "
+        "This is the yardstick a later step uses to judge whether a proof point genuinely "
+        "fits or is a superficial capability-label match to an unrelated business -- a bare "
+        "company name gives that step nothing to judge against (owner-reported, 2026-07-23: "
+        "a case about validating VEHICLE REGISTRATION documents passed as \"compliance "
+        "automation\" for a warehouse-automation company because company_context was just "
+        "the company's name, with no description of what the account does to compare "
+        "against). Ground it in the sources; never invent details not present.\n"
         "- prefer_high_impact: true ONLY if the transcript/notes EXPLICITLY ask for case "
         "studies with strong/proven/high-impact numbers (e.g. \"show cases with the best "
         "ROI\", \"need proof points with real margin improvement\", \"cases where we've "
@@ -512,8 +560,11 @@ def extract_brief(research="", profile="", transcript=""):
         )
         data = json.loads(resp.choices[0].message.content)
     except Exception:
+        logger.warning("extract_brief: OpenAI call/parse failed — matching falls back "
+                       "to generic ranking with no research-driven picks", exc_info=True)
         return {}
     if not isinstance(data, dict):
+        logger.warning("extract_brief: model returned non-JSON-object content: %r", data)
         return {}
 
     def _needs(v):
@@ -548,7 +599,7 @@ def extract_brief(research="", profile="", transcript=""):
 
 def infer_strategic_fit(research="", profile="", transcript="", brief=None):
     """Deep-research-style INFERENCE, deliberately separate from extract_brief()'s
-    literal grounding: proposes up to 2 capability bets that are NOT stated anywhere
+    literal grounding: proposes up to 4 capability bets that are NOT stated anywhere
     in the sources, but that a sharp account researcher would infer by connecting the
     STAKEHOLDER's own career/role pattern to the COMPANY's business.
 
@@ -566,7 +617,7 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
 
     brief = the already-extracted literal brief (needs/avoid/account), so this never
     re-proposes what extract_brief already covered. Returns a list of
-    {"name","description","stakeholder_why","company_why"}, capped at 2. Fails safe
+    {"name","description","stakeholder_why","company_why"}, capped at 4. Fails safe
     to [] -- an inferred pick is a bonus on top of the literal ones, never required."""
     research = (research or "").strip()
     profile = (profile or "").strip()
@@ -582,7 +633,7 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
     if profile:
         parts.append("STAKEHOLDER PROFILE (their career/role):\n\"\"\"\n" + profile[:6000] + "\n\"\"\"")
     if research:
-        parts.append("COMPANY / DEEP RESEARCH:\n\"\"\"\n" + research[:9000] + "\n\"\"\"")
+        parts.append("COMPANY / DEEP RESEARCH:\n\"\"\"\n" + research[:RESEARCH_CHAR_CAP] + "\n\"\"\"")
     if transcript:
         parts.append("MEETING NOTES:\n\"\"\"\n" + transcript[:4000] + "\n\"\"\"")
     if acct.get("industry") or acct.get("company_context"):
@@ -592,7 +643,7 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
     prompt = (
         "You are doing STRATEGIC ACCOUNT RESEARCH, not literal extraction. The literally "
         "stated needs have already been pulled out separately -- your job is different: "
-        "propose up to 2 capability bets that are NOT stated anywhere in the sources, but "
+        "propose up to 4 capability bets that are NOT stated anywhere in the sources, but "
         "that a sharp account researcher would infer by connecting the stakeholder's own "
         "career pattern to the company's business.\n\n"
         "For each bet you must argue BOTH sides, or don't propose it:\n"
@@ -611,7 +662,7 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
            "; ".join(f"{a['capability']} ({a['reason']})" for a in avoid) + ".\n") if avoid else "")
         + "\n" + "\n\n".join(parts) + "\n\n"
         'Return ONLY this JSON: {"bets":[{"name":"...","description":"...",'
-        '"stakeholder_why":"...","company_why":"..."}]} -- 0, 1, or 2 items; fewer is '
+        '"stakeholder_why":"...","company_why":"..."}]} -- 0 to 4 items; fewer is '
         "fine if you can't honestly argue both sides for more."
     )
     try:
@@ -627,11 +678,13 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
         )
         data = json.loads(resp.choices[0].message.content)
     except Exception:
+        logger.warning("infer_strategic_fit: OpenAI call/parse failed — no strategic "
+                       "bets this build", exc_info=True)
         return []
     if not isinstance(data, dict):
         return []
     out = []
-    for b in (data.get("bets") or [])[:2]:
+    for b in (data.get("bets") or [])[:4]:
         if not isinstance(b, dict):
             continue
         name = (b.get("name") or "").strip()
@@ -643,25 +696,166 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
     return out
 
 
-def explain_picks(brief, items):
+def validate_bet_fit(bet, case_title, case_challenge, case_solution):
+    """A strategic bet's stakeholder_why/company_why (infer_strategic_fit, above) is
+    written BEFORE any real case is matched to it -- the caller's shortlist step only
+    picks the nearest case AFTER the narrative already exists, with nothing to stop a
+    narrative written for one imagined capability ending up pinned to an unrelated real
+    case. Confirmed 2026-07-23 (Kimberly-Clark audit): a bet's narrative about "supplier
+    collaboration" survived unmodified onto MSS048, a banking finance-close/IT-ticket
+    case with nothing to do with suppliers -- the bet was never checked against what the
+    matched case actually contains.
+
+    Re-grounds the two-angle narrative in the REAL matched case's own challenge/solution:
+    tightens the wording to what the case actually does if it genuinely still supports
+    the bet, or returns fit=false if the matched case doesn't really back this narrative
+    (a keyword-level coincidence, not a real fit) so the caller can drop the bet rather
+    than keep a mismatched story. Fails safe to fit=true, UNCHANGED narrative -- an AI
+    outage here must never silently kill a bet that was already good."""
+    case_title = (case_title or "").strip()
+    case_challenge = (case_challenge or "").strip()
+    case_solution = (case_solution or "").strip()
+    if not (case_title or case_challenge or case_solution):
+        return {"stakeholder_why": bet.get("stakeholder_why", ""),
+                "company_why": bet.get("company_why", ""), "fit": True}
+    prompt = (
+        "A strategic-bet narrative was written proposing a capability BEFORE any real "
+        "case study was matched to it. A real case has now been matched by keyword/semantic "
+        "similarity -- your job is to check whether that REAL case's actual content still "
+        "genuinely supports the narrative, and tighten the wording to the case's real facts.\n\n"
+        f'PROPOSED CAPABILITY: "{bet.get("name","")}" -- {bet.get("description","")}\n'
+        f'STAKEHOLDER ANGLE (as originally written): {bet.get("stakeholder_why","")}\n'
+        f'COMPANY ANGLE (as originally written): {bet.get("company_why","")}\n\n'
+        f"REAL CASE MATCHED TO THIS BET: {case_title}\n"
+        f"CHALLENGE: {case_challenge[:300]}\n"
+        f"SOLUTION: {case_solution[:300]}\n\n"
+        "If the real case's actual mechanism genuinely supports the proposed capability, "
+        "rewrite BOTH angles to reference what the case actually does (not the original "
+        "guess) -- keep them tight, one line each. If the real case does NOT genuinely "
+        "support this narrative (a different mechanism, a different business entirely, "
+        "only a coincidental keyword overlap -- e.g. a banking finance-close case matched "
+        "to a 'supplier collaboration' bet has nothing to do with suppliers), set "
+        '"fit":false and leave the angle fields empty -- do not force a connection that '
+        "isn't really there.\n\n"
+        'Return ONLY JSON: {"stakeholder_why":"...","company_why":"...","fit":true}'
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=EXPLAIN_MODEL, temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You fact-check a sales narrative against a "
+                 "real case's actual content before it goes in front of a client. Reply "
+                 "with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        logger.warning("validate_bet_fit: OpenAI call/parse failed — keeping the bet's "
+                       "original unvalidated narrative", exc_info=True)
+        return {"stakeholder_why": bet.get("stakeholder_why", ""),
+                "company_why": bet.get("company_why", ""), "fit": True}
+    if not isinstance(data, dict):
+        return {"stakeholder_why": bet.get("stakeholder_why", ""),
+                "company_why": bet.get("company_why", ""), "fit": True}
+    fit = data.get("fit") is not False
+    sw = (data.get("stakeholder_why") or "").strip()
+    cw = (data.get("company_why") or "").strip()
+    return {"stakeholder_why": sw if (fit and sw) else bet.get("stakeholder_why", ""),
+            "company_why": cw if (fit and cw) else bet.get("company_why", ""),
+            "fit": fit}
+
+
+def explain_picks(brief, items, profile="", research=""):
     """Write ONE short line + a signal explaining why each ALREADY-PICKED case fits its
     client need. The SELECTION is done algorithmically (semantic capability match) — this
-    only EXPLAINS, so the model cannot mis-pick or hallucinate a different case.
+    EXPLAINS, so the model cannot mis-pick or SUBSTITUTE a different case; it CAN say a
+    pick doesn't actually hold up (fit=false, see below) so the caller can drop it, but it
+    never gets to choose what replaces it.
 
-    items = [{"need","id","title","blurb"}]. brief supplies account + expressed interest.
-    Returns {case_id: {"reason","signal"}}. Fails safe to {} (caller uses a template)."""
+    items = [{"need","id","title","blurb","solution"}]. brief supplies account + expressed
+    interest. profile/research (owner-spec, 2026-07-23: "why is our tool not this powerful"
+    — Kimberly-Clark test) let the model ground a reason in a SPECIFIC real fact about the
+    stakeholder or account (a prior company, a named event, a role detail) when one
+    genuinely exists, the same grounded-narrative move infer_strategic_fit() already makes
+    for its bonus bets — now available to EVERY literal pick, not just those. Bounded
+    slices only (this is explanation, not extraction); never invents beyond the text given.
+
+    "solution" (owner-reported, 2026-07-23: the Kimberly-Clark audit) -- explain_picks used
+    to see only a 160-char slice of the case's CHALLENGE, never its solution, and produced a
+    fabricated "procurement chatbot implementation" for a case that was actually a document-
+    processing pipeline with no chatbot anywhere in it. Passing the real solution text closes
+    that gap: the model has actual content to describe instead of guessing a plausible-
+    sounding mechanism. fit:false (owner-reported, same audit) is the companion fix for
+    matches that clear the semantic/lexical bar on a shared word ("demand") but are a
+    genuinely different mechanism in a genuinely different domain (a grid load-balancing
+    case explained as "capacity and demand matching" for a manufacturer) -- rather than
+    write reasoning that glosses over the gap, the model can say the case doesn't actually
+    fit, and the caller drops it back to an honest gap.
+    Returns {case_id: {"reason","signal","fit"}}. Fails safe to {} (caller uses a
+    template AND treats an absent/failed response as fit=true, never auto-drops on
+    an AI outage)."""
     items = list(items or [])
     if not items:
         return {}
     brief = brief or {}
     acct = brief.get("account") or {}
     ei = brief.get("expressed_interest") or []
+    profile = (profile or "").strip()
+    research = (research or "").strip()
     lines = [
-        "For each PICKED case study below, write ONE short line (max ~18 words) on why it "
-        "fits the client need, and a signal tag. Be specific; do not invent case facts.",
+        "For each PICKED case study below, write ONE short line (max ~22 words) on why it "
+        "fits the client need, and a signal tag. Be specific; do not invent case facts -- "
+        "every mechanism/detail you name must come from the case's own CHALLENGE/SOLUTION "
+        "text below it, never guessed from the title or need name alone (owner-reported, "
+        "2026-07-23: a case with no chatbot anywhere in its real content was explained as "
+        "'procurement chatbot implementation' -- invented, not read from the case).",
+        "FIT CHECK, before writing the line -- TWO separate questions, both must pass:\n"
+        "  (a) MECHANISM: does this case's actual CHALLENGE/SOLUTION genuinely address the "
+        "stated need, or does it only share a generic word with it (e.g. a power-grid "
+        "'demand response' case matched to a manufacturer's 'material demand planning' need "
+        "-- same word 'demand', different mechanism entirely)? Cross-INDUSTRY is fine if the "
+        "actual MECHANISM transfers (a contract-intelligence case from construction "
+        "genuinely proving contract intelligence for a manufacturer is a real fit); it's the "
+        "MECHANISM match that matters, not the industry label.\n"
+        "  (b) SUBJECT MATTER PLAUSIBILITY: even when (a) passes, would someone AT THIS "
+        "ACCOUNT actually recognize the case's concrete subject as relevant to their "
+        "business -- or is it a specific context that has nothing to do with what this "
+        "account does, merely filed under the same abstract capability label? Confirmed "
+        "miss (owner-reported, 2026-07-23, Vanderlande -- a warehouse/baggage-handling "
+        "automation company): a case about validating VEHICLE REGISTRATION documents "
+        "(invoice, chassis number, NOC) is a genuine instance of 'compliance automation' in "
+        "the abstract (passes test (a)) but has nothing to do with what Vanderlande's "
+        "compliance work would ever look like (fails test (b)) -- the label matched, the "
+        "actual subject didn't. Passing (a) alone is NOT enough.\n"
+        "If EITHER test fails, set \"fit\":false and a one-line \"reason\" saying why (it "
+        "will be dropped, not shown to the client) -- do NOT write flattering-sounding but "
+        "empty reasoning to paper over a mismatch. Default \"fit\":true only when BOTH "
+        "genuinely hold up.",
         "signal: 'capability' (proves the needed capability), 'industry' (also same "
-        "industry), 'interest' (a topic the client discussed), or 'role' (fits the "
-        "stakeholder's function).",
+        "industry), 'interest' (a topic the client discussed), 'role' (fits the "
+        "stakeholder's function), or 'narrative' (see below).",
+        "CITATION CHECK, mandatory, in this order, BEFORE falling back to a generic "
+        "capability line (owner-reported, 2026-07-23: our reasoning read as generic next to "
+        "a competitor's freeform research, which explicitly quoted the brief's own words for "
+        "every pick instead of just describing the case in the abstract):\n"
+        "  1. Does the DEEP RESEARCH text below EXPLICITLY tell the seller how to position "
+        "or frame THIS capability -- \"should be framed around X\", \"position around Y\", "
+        "\"creates demand for Z\"? If yes: signal='narrative', and QUOTE the brief's own "
+        "phrase in the reason (e.g. \"The brief itself frames this around EBOM/MBOM "
+        "continuity\" beats a generic \"proves PLM capability\").\n"
+        "  2. Otherwise, does the case genuinely connect to a SPECIFIC fact in the "
+        "STAKEHOLDER BACKGROUND / DEEP RESEARCH text -- a named prior company or role, a "
+        "specific project or certification, a named business event (a reorg, a spinoff, a "
+        "new plant)? If yes: signal='narrative', and cite that fact plainly (e.g. 'Mirrors "
+        "their P&G contract-manufacturing background' not 'Fits their procurement "
+        "experience').\n"
+        "  3. Only if NEITHER 1 nor 2 genuinely applies, fall back to capability/industry/"
+        "interest/role, describing the case's own mechanism instead.\n"
+        "Never invent a citation that isn't genuinely there just to avoid step 3 -- an "
+        "honest capability line beats a fabricated brief quote every time. This is the SAME "
+        "grounding discipline as the fit check above: real text only, never inferred.",
         "Each case below shows its OWN tagged industry in [brackets]. Use signal='industry' "
         "-- and only say the case 'relates to'/'aligns with'/'is relevant to' the account's "
         "industry in the reason text -- when that tagged industry genuinely matches the "
@@ -673,28 +867,47 @@ def explain_picks(brief, items):
         "",
     ]
     if acct.get("industry") or acct.get("role"):
-        lines.append(f"ACCOUNT: industry={acct.get('industry','')} role={acct.get('role','')}")
+        lines.append(f"ACCOUNT: industry={acct.get('industry','')} role={acct.get('role','')} "
+                     f"company_context={acct.get('company_context','')}")
     if ei:
         lines.append("EXPRESSED INTEREST: " + ", ".join(ei))
+    if profile:
+        lines.append("STAKEHOLDER BACKGROUND (for narrative grounding and citing the "
+                     "account's own stated asks -- never a case fact):\n\"\"\"\n"
+                     + profile[:6000] + "\n\"\"\"")
+    if research:
+        # same cap as extract_brief() -- a smaller slice here would cut off exactly the
+        # stakeholder-specific section (owner-reported, 2026-07-23: capping this at 6000
+        # chars hid Kimberly-Clark's Lovish Jain / Arbex facts from every literal pick's
+        # reasoning even though extract_brief() itself saw the full document).
+        lines.append("DEEP RESEARCH (for narrative grounding and citing the account's own "
+                     "stated asks -- never a case fact):\n"
+                     "\"\"\"\n" + research[:RESEARCH_CHAR_CAP] + "\n\"\"\"")
     lines.append("")
     for it in items:
         lines.append(f'NEED "{it.get("need","")}" -> {it["id"]}: {it.get("title","")} '
                      f'[industry: {it.get("industry") or "unspecified"}]. '
-                     f'{(it.get("blurb","") or "")[:160]}')
+                     f'CHALLENGE: {(it.get("blurb","") or "")[:220]} '
+                     f'SOLUTION: {(it.get("solution","") or "")[:220]}')
     lines.append('\nReturn ONLY JSON mapping each case id to '
-                 '{"reason":"one line","signal":"capability|industry|interest|role"}')
+                 '{"reason":"one line","signal":"capability|industry|interest|role|narrative",'
+                 '"fit":true}')
     try:
         resp = _client().chat.completions.create(
-            model=MODEL, temperature=0.2,
+            model=EXPLAIN_MODEL, temperature=0.2,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You explain why a proof point fits a client "
-                 "need. Reply with one JSON object only."},
+                 "need, grounded strictly in the case's own challenge/solution text -- and "
+                 "fact-check whether it genuinely fits at all before explaining it. Reply "
+                 "with one JSON object only."},
                 {"role": "user", "content": "\n".join(lines)},
             ],
         )
         data = json.loads(resp.choices[0].message.content)
     except Exception:
+        logger.warning("explain_picks: OpenAI call/parse failed — picks keep their "
+                       "templated fallback reason instead", exc_info=True)
         return {}
     if not isinstance(data, dict):
         return {}
@@ -703,5 +916,88 @@ def explain_picks(brief, items):
     for cid, v in data.items():
         if cid in valid and isinstance(v, dict):
             out[cid] = {"reason": (v.get("reason") or "").strip(),
-                        "signal": (v.get("signal") or "").strip().lower()}
+                        "signal": (v.get("signal") or "").strip().lower(),
+                        "fit": v.get("fit") is not False}   # missing/anything-but-False -> True
+    return out
+
+
+def extract_mechanism_tags(case):
+    """PILOT, additive (owner-spec, 2026-07-21): read a case's REAL content --
+    challenge/solution/capabilities/results, not just its existing keywords or
+    the industry it happened to be sold into -- and name the underlying,
+    transferable MECHANISM/capability it proves. The gap this closes: MSS022's
+    own keyword list is all automotive-flavoured (adas, ev, oem, stamping)
+    even though its actual mechanism -- a CFD surrogate model that predicts
+    drag/lift from geometry in seconds instead of hours -- is exactly as
+    relevant to an aerospace airframe/engine program, but nothing in its tags
+    said so, so a GE Aerospace build could never lexically find it.
+
+    Returns {"mechanism_tags": [3-6 short phrases, the ACTUAL technique/
+    approach, e.g. "CFD/aerodynamic simulation surrogate model" -- not vague
+    restatements like "efficiency" or "innovation"], "transferable_to": one
+    line naming 2-4 OTHER industries/domains where this SAME mechanism would
+    apply and why -- grounded in the mechanism, never inventing a result or
+    client that isn't in the source}. Returns {} on any failure or if the
+    case has no real challenge/solution text to ground this in (fail-safe --
+    never fabricate tags for a case we can't actually read)."""
+    title = (case.get("title") or "").strip()
+    challenge = (case.get("challenge") or "").strip()
+    solution = (case.get("solution") or "").strip()
+    if not (challenge and solution):
+        return {}
+    caps = case.get("capabilities") or []
+    cap_lines = "\n".join(f"- {c.get('title','')}: {c.get('body','')}"
+                          for c in caps if isinstance(c, dict))
+    results = case.get("results") or []
+    results_lines = "\n".join(f"- {r}" for r in results if isinstance(r, str))
+    industry = (case.get("industry") or "").strip()
+    prompt = (
+        "Read this case study's REAL content below and name the underlying "
+        "MECHANISM it proves -- the actual technique, approach or system, "
+        "described concretely enough that someone could judge whether it "
+        "would resonate with a DIFFERENT client in a DIFFERENT industry, not "
+        "just a restatement of the industry it happened to be sold into.\n\n"
+        f"TITLE: {title}\n"
+        f"ORIGINAL INDUSTRY (do not just repeat this as a tag): {industry}\n"
+        f"CHALLENGE: {challenge}\n"
+        f"SOLUTION: {solution}\n"
+        + (f"CAPABILITIES:\n{cap_lines}\n" if cap_lines else "")
+        + (f"RESULTS:\n{results_lines}\n" if results_lines else "")
+        + "\nReturn ONLY this JSON:\n"
+        '{"mechanism_tags": ["...", "..."], "transferable_to": "one line"}\n\n'
+        "Rules for mechanism_tags (3-6 items): each is the ACTUAL technique/"
+        "approach (e.g. \"CFD/aerodynamic simulation surrogate model\", "
+        "\"condition-based predictive maintenance for rotating assets\", "
+        "\"RAG copilot over PLM/CAD documentation\") -- never a vague word "
+        "like \"efficiency\", \"innovation\", \"automation\" alone, and never "
+        "just the original industry restated as a tag.\n"
+        "Rule for transferable_to: name 2-4 OTHER industries/domains where "
+        "this SAME mechanism (not just a similar-sounding one) would "
+        "genuinely apply, and say why in a few words each. If the mechanism "
+        "is genuinely industry-specific and doesn't transfer, say so plainly "
+        "-- do not force a connection that isn't real."
+    )
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL, temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You analyse a case study's real content to "
+                 "name its transferable underlying mechanism. Ground everything in the "
+                 "text given; never invent a client, result or capability that isn't "
+                 "there. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    tags = [t.strip() for t in (data.get("mechanism_tags") or [])
+           if isinstance(t, str) and t.strip()]
+    transferable = (data.get("transferable_to") or "").strip()
+    if not tags:
+        return {}
+    return {"mechanism_tags": tags[:6], "transferable_to": transferable}
     return out

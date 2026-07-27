@@ -59,6 +59,12 @@
     </div>
     {% endif %}
 
+    {% if brief_weak %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
+      <b>⚠ Your research/profile was read, but this build's AI analysis of it didn't come through.</b> The picks below used general keyword matching instead of the deeper research-driven pass — they may be less targeted than usual. Try rebuilding this deck; if it keeps happening, the notes/profile text may need to be shortened or simplified.
+    </div>
+    {% endif %}
+
     {% if rationale %}
     <div class="card" style="margin-top:18px;border-left:4px solid #3A8B82">
       <h2 class="sec-title" style="margin-bottom:4px"><i class="ti ti-list-check"></i> Why this deck matches{% if research_read %} <span class="hint" style="font-size:13px;font-weight:400">· read your research file too</span>{% endif %}</h2>
@@ -66,7 +72,7 @@
       <ul style="list-style:none;padding:0;margin:0">
         {% for r in rationale %}
         <li style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f0efec">
-          {% if r.signal %}<span style="flex:0 0 auto;font-size:10px;font-weight:700;text-transform:uppercase;color:#fff;background:{{ '#8451C7' if r.signal == 'strategic bet' else '#3A8B82' }};border-radius:4px;padding:2px 6px;margin-top:1px">{{ r.signal }}</span>{% endif %}
+          {% if r.signal %}<span style="flex:0 0 auto;font-size:10px;font-weight:700;text-transform:uppercase;color:#fff;background:{{ '#8451C7' if r.signal in ('strategic bet', 'narrative') else '#3A8B82' }};border-radius:4px;padding:2px 6px;margin-top:1px">{{ r.signal }}</span>{% endif %}
           <span><b>{{ r.id }} · {{ r.title }}</b>
             {% if r.company_why %}
             <br><span style="font-size:13px;color:#3E3E3E"><b>Stakeholder angle:</b> {{ r.stakeholder_why }}</span>

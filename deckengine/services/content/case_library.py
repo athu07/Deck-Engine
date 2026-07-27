@@ -24,9 +24,18 @@ CONTENT_STORE = config.CONTENT_STORE_JSON
 MIDDOT = "·"   # the keyword separator matcher splits on
 
 _cache = None
+_enriched_cache = None
 
 
 def _load():
+    """The pristine, on-disk case records -- used for PERSISTENCE (promote_
+    ai_case's append + write-back) and RENDERING/display (record(), title_map(),
+    the library page). Deliberately never touched by the mechanism-tag pilot --
+    see _load_for_matching() for the enriched, matching-only view. Keeping these
+    separate matters: promote_ai_case() does `store = _load(); store.append(...);
+    write_json(CONTENT_STORE, store)` -- if _load() ever returned pilot-enriched
+    records, the NEXT accepted AI case study would silently bake the pilot's
+    AI-generated tags into the real, permanent content store."""
     global _cache
     if _cache is None:
         try:
@@ -35,6 +44,40 @@ def _load():
         except (OSError, ValueError):
             _cache = []
     return _cache
+
+
+def _load_for_matching():
+    """PILOT, lexical-matching-only (owner-spec, 2026-07-21): the same records
+    as _load(), but each returned as a FRESH shallow copy whose `keywords` list
+    is additively unioned with any AI-generated mechanism tags (config.
+    CASE_MECHANISM_TAGS_JSON -- see scripts/enrich_mechanism_tags.py). This is
+    what lets lexical/title-hit matching (relevance._case_head_index, and
+    candidate_rows()/all_rows() below, which feed lexical_hits()) find e.g.
+    MSS022 for an aerospace ask even though its original keywords are all
+    automotive-flavoured -- without ever touching the original `keywords` list,
+    the case's `industry` tag (industry-boost scoring is unaffected), or the
+    on-disk store. Never used by _load()/record()/title_map(), so rendering, the
+    library page, and promote_ai_case()'s save path never see the enrichment --
+    only matching does. Only MS Solution cases have pilot entries right now;
+    everything else passes through unchanged. Fails safe if the pilot file is
+    missing or unreadable (falls back to the plain records, unenriched)."""
+    global _enriched_cache
+    if _enriched_cache is None:
+        try:
+            with open(config.CASE_MECHANISM_TAGS_JSON, encoding="utf-8") as f:
+                tags_by_id = json.load(f)
+        except (OSError, ValueError):
+            tags_by_id = {}
+        out = []
+        for rec in _load():
+            entry = tags_by_id.get(rec.get("id")) if tags_by_id else None
+            new_tags = ([t for t in (entry.get("mechanism_tags") or [])
+                        if t not in (rec.get("keywords") or [])]
+                       if entry else [])
+            out.append({**rec, "keywords": (rec.get("keywords") or []) + new_tags}
+                      if new_tags else rec)
+        _enriched_cache = out
+    return _enriched_cache
 
 
 # ---------------------------------------------------------------------------
@@ -264,10 +307,13 @@ def _as_row(rec):
 
 
 def candidate_rows(wanted):
-    """{work_type -> [row,...]} for the selected work types (codes like AI_POD)."""
+    """{work_type -> [row,...]} for the selected work types (codes like AI_POD).
+    Sourced from _load_for_matching() (mechanism-tag pilot, lexical-only) so
+    lexical_hits()-based ranking benefits the same way relevance.py's
+    _case_head_index() does."""
     want = {str(w).strip().upper() for w in (wanted or []) if str(w).strip()}
     out = {}
-    for rec in _load():
+    for rec in _load_for_matching():
         wt = (rec.get("work_type") or "").upper()
         if wt in want:
             out.setdefault(wt, []).append(_as_row(rec))
@@ -277,9 +323,10 @@ def candidate_rows(wanted):
 def all_rows():
     """Every case as a matcher-shaped row, keyed by work type — NO work-type gate.
     The rebuilt matcher scores across all cases and treats the salesperson's
-    work-type selection as a boost, not a filter."""
+    work-type selection as a boost, not a filter. Sourced from
+    _load_for_matching() -- see candidate_rows()."""
     out = {}
-    for rec in _load():
+    for rec in _load_for_matching():
         wt = (rec.get("work_type") or "").upper()
         out.setdefault(wt, []).append(_as_row(rec))
     return out

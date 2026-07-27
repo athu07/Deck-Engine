@@ -398,12 +398,17 @@ _head_index = None
 
 def _case_head_index():
     """{id: token set of (title + keywords)} — a lexical view of each case, for
-    the 'do our cases even mention these words' check."""
+    the 'do our cases even mention these words' check. Sourced from
+    case_library._load_for_matching(), which additively unions in the AI-
+    generated mechanism-tag pilot (2026-07-21, MS Solution only) on top of the
+    real keywords -- e.g. MSS022 now lexically matches "aerospace" asks even
+    though its curated keywords are all automotive-flavoured. Never touches the
+    on-disk store; see _load_for_matching()'s docstring."""
     global _head_index
     if _head_index is None:
         from deckengine.services.content import case_library
         _head_index = {r["id"]: _tokens(r.get("title", "") + " " + " ".join(r.get("keywords", [])))
-                       for r in case_library._load()}
+                       for r in case_library._load_for_matching()}
     return _head_index
 
 
@@ -490,10 +495,21 @@ def _meta():
 
 
 def _rows_by_id():
+    """id -> matcher-shaped row (case_library._as_row shape: string-joined
+    `keywords`, `primary_function`, `work_types`) for persona scoring below.
+    MUST be this shape, not a raw case_library._load() record (list `keywords`,
+    singular `function`/`work_type`, no `primary_function`/`work_types` keys at
+    all) -- confirmed 2026-07-23: sourcing raw records here crashed
+    personas.score_boost()'s string concatenation (list + str) on every build
+    where a persona was detected, silently falling the whole priority-pick
+    pipeline back to generic ranking (root cause of the Kimberly-Clark
+    3-picks-only build)."""
     global _case_rows_by_id
     if _case_rows_by_id is None:
         from deckengine.services.content import case_library
-        _case_rows_by_id = {r["id"]: r for r in case_library._load()}
+        _case_rows_by_id = {row["slide_id"]: row
+                            for rows in case_library.all_rows().values()
+                            for row in rows}
     return _case_rows_by_id
 
 

@@ -134,18 +134,41 @@ def composition_of(work_types):
 # Serve", "End to End GCC Build Offerings", "Greenfield & Brownfield Use Cases").
 # Broad-list approach (owner's choice over a literal "GCC"-only match). Extend
 # this list, don't invent a smarter matcher — it's meant to be readable/auditable.
+# Dropped bare "coe" (owner-reported, 2026-07-23: Kimberly-Clark's brief matched it
+# inside the stakeholder's own job title, "...COE & Innovation Senior Manager APAC..."
+# -- a 3-letter acronym is too fragile against unrelated text; "center/centre of
+# excellence" spelled out below still catches a genuine mention).
 _GCC_TERMS = [
     "gcc", "global capability center", "global capability centre",
     "captive center", "captive centre", "greenfield", "brownfield",
-    "center of excellence", "centre of excellence", "coe",
+    "center of excellence", "centre of excellence",
     "shared services center", "shared services centre",
     "in-house capability center", "in-house capability centre",
 ]
 _GCC_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in _GCC_TERMS) + r")\b", re.I)
 
+# A GCC TERM alone isn't enough -- the same Kimberly-Clark brief also said "the
+# GDTC/GCC is in Bengaluru" (the client's own EXISTING facility, mentioned as
+# background) and "J2W is a Bengaluru-HQ'd GCC specialist... position Bengaluru as
+# the delivery advantage" (sales positioning ADVICE ABOUT J2W, not a client ask) --
+# both false-triggered these slides even though nobody asked to see GCC-build case
+# studies. Require a build/setup-INTENT verb in the SAME SENTENCE as the term, so a
+# passing location/positioning mention doesn't count, only a genuine "help us set
+# one up" signal does.
+_GCC_INTENT_TERMS = [
+    "build", "building", "set up", "setting up", "stand up", "standing up",
+    "establish", "establishing", "launch", "launching", "expand", "expanding",
+    "scale up", "scaling up", "stood up", "set-up",
+]
+_GCC_INTENT_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in _GCC_INTENT_TERMS) + r")\b", re.I)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?\n])\s+")
+
 
 def _has_gcc_signal(text):
-    return bool(_GCC_RE.search(text or ""))
+    for sentence in _SENTENCE_SPLIT_RE.split(text or ""):
+        if _GCC_RE.search(sentence) and _GCC_INTENT_RE.search(sentence):
+            return True
+    return False
 
 
 # Explicit "lead with X" priority phrases -- swaps which work type's standard
