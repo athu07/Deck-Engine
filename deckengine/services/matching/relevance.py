@@ -61,6 +61,23 @@ CROSS_INDUSTRY_MIN = 0.42
 # how much a MAIL-thread-only match counts vs a DEEP-RESEARCH match (research leads)
 MAIL_WEIGHT = 0.7
 
+# ── shortlist (AI priority-pick path) industry weighting ─────────────────────
+# The priority picks come from shortlist_cases(), which used to only BOOST a
+# same-industry case (+0.08) and never PENALISE a wrong one -- so for ARKO (a
+# convenience-store/fuel RETAILER) a BFSI capital-markets case or a PE due-diligence
+# case at cosine ~0.5 beat the finance-ops close/reconciliation cases the FP&A
+# stakeholder actually needed (2026-07-27). Now graded: a same-vertical case is
+# boosted, a case in a DIFFERENT specific vertical is demoted, and a HORIZONTAL
+# function-domain (finance operations applies to ANY company's finance dept) or an
+# unknown industry is neutral -- so the demotion never touches a legitimately
+# cross-industry finance-ops proof point. Kept small so a strongly-matching cross-
+# industry case (high cosine) still survives -- this DEMOTES, it does not exclude.
+W_SHORT_IND_MATCH    = 0.10   # case is in the account's own industry
+W_SHORT_IND_MISMATCH = 0.10   # case is in a different, specific vertical -> demote
+# domains that are a business FUNCTION, not a vertical: relevant to any industry's
+# finance department, so never penalised as a "wrong industry".
+_HORIZONTAL_DOMAINS = {"FINANCE_OPS"}
+
 # Explicit aliases: a salesperson-typed custom industry (services/content/
 # industries.py's "Other" field) that is really a named specialization of one
 # of our 8 built-in codes (owner-confirmed, 2026-07-20: a HEALTH-TECH account
@@ -72,6 +89,19 @@ MAIL_WEIGHT = 0.7
 # be a clear specialization of a built-in one.
 _INDUSTRY_ALIAS = {
     "HEALTH-TECH": "HEALTHCARE",
+    # IT-services / consulting / ITES accounts (e.g. NTT DATA Business Solutions,
+    # an SAP/ERP systems integrator) live under the built-in TECH_IT vertical --
+    # that's where the tech/ITES proof points are tagged (RPO-for-tech, HTD-for-
+    # ITES, accelerated-hiring). Without this, a salesperson-typed "Consulting"
+    # (a custom industry) matches NO case, so industry gives ZERO signal and every
+    # vertical case is uniformly demoted (owner-reported, 2026-07-29, NTT DATA).
+    "CONSULTING": "TECH_IT",
+    "IT SERVICES": "TECH_IT",
+    "IT_SERVICES": "TECH_IT",
+    "IT SERVICES & CONSULTING": "TECH_IT",
+    "ITES": "TECH_IT",
+    "IT-ENABLED SERVICES": "TECH_IT",
+    "TECHNOLOGY": "TECH_IT",
 }
 
 
@@ -559,11 +589,21 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
                 if row is not None:
                     boost, _why = personas.score_boost(persona_codes, row)
                     p_boost = W_PERSONA * boost
+            # graded industry term: boost same-vertical, demote a wrong vertical,
+            # stay neutral for a horizontal function-domain (FINANCE_OPS) or an
+            # unknown industry on either side (never penalise a cross-industry
+            # finance-ops proof point, or a case with no industry tag).
+            ind_term = 0.0
+            if industry and ind:
+                if ind == industry:
+                    ind_term = W_SHORT_IND_MATCH
+                elif ind not in _HORIZONTAL_DOMAINS:
+                    ind_term = -W_SHORT_IND_MISMATCH
             adj = (c                                   # meaning (capability) is the primary signal
                    + 0.12 * min(3, direct)             # literal term = mild tiebreak
                    + 0.10 * min(2, direct_title)
                    + (0.10 if fn in functions else 0.0)          # function fit
-                   + (0.08 if industry and ind == industry else 0.0)  # industry = light boost only
+                   + ind_term                          # industry: boost same / demote wrong vertical
                    + p_boost)                          # persona/role resonance
             scored.append({"id": cid, "adj": adj, "cosine": c, "title_hits": direct_title})
         scored.sort(key=lambda d: -d["adj"])

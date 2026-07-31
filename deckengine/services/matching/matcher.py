@@ -66,8 +66,17 @@ DEDUP_GATE     = 0.80  # two cases this similar (cosine) are near-twins...
 DEDUP_WEIGHT   = 10.0  # ...demote the later one so the picks aren't look-alikes
 
 
-def _case_reason(wt, item):
-    """A short, human 'why this case' string from the ranking signals."""
+def _case_reason(wt, item, notes=""):
+    """A short, human 'why this case' string from the ranking signals.
+
+    `notes` = the actual text the salesperson provided (transcript + research).
+    The "notes:" tag only lists terms that LITERALLY appear in that text -- the
+    lexical matcher synonym-EXPANDS single words (e.g. "delivery"/"deploy" ->
+    "continuous integration", "continuous deployment", "deployment pipeline"),
+    which then collide with generic delivery keywords in a case body and used to
+    surface as confusing, off-topic tags (CI/CD noise on a talent case). Showing
+    only the user's own words keeps the caption honest and readable; if nothing
+    literal survives, the tag is dropped rather than shown empty."""
     bits = []
     if item.get("research"):
         bits.append("research match")
@@ -76,8 +85,11 @@ def _case_reason(wt, item):
     elif item.get("sem", 0) >= 0.20:
         bits.append("meaning match")
     if item.get("matched"):
-        top = sorted(item["matched"], key=lambda t: (-len(t)))[:4]
-        bits.append("notes: " + ", ".join(top))
+        note_lc = (notes or "").lower()
+        literal = [t for t in item["matched"] if t and t.lower() in note_lc]
+        top = sorted(literal, key=lambda t: (-len(t)))[:4]
+        if top:
+            bits.append("notes: " + ", ".join(top))
     if item.get("industry_hit"):
         bits.append("same industry")
     if item.get("function_hit"):
@@ -630,7 +642,8 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
         row = it["row"]
         sid = row["slide_id"]
         wt = (row.get("work_types") or "").upper()
-        chosen[sid] = _case_reason(wt, {**it, "research": True})
+        chosen[sid] = _case_reason(wt, {**it, "research": True},
+                                   notes=transcript_raw + " " + research_raw)
         selected_case_wts.add(wt)
         case_order.setdefault(wt, []).append(sid)
         selected_ids.append(sid)
@@ -651,7 +664,7 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
         row = best["row"]
         sid = row["slide_id"]
         wt = (row.get("work_types") or "").upper()
-        chosen[sid] = _case_reason(wt, best)
+        chosen[sid] = _case_reason(wt, best, notes=transcript_raw + " " + research_raw)
         selected_case_wts.add(wt)
         case_order.setdefault(wt, []).append(sid)
         selected_ids.append(sid)

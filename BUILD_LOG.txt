@@ -4483,3 +4483,456 @@ always empty. TWO things, one deploy.
   FOLLOW-UP worth doing: data/custom_industries.json is tracked in git, which is what caused
   the merge conflict in the first place -- runtime-mutable data shouldn't be committed. On the
   deployed site the disk override sidesteps it; locally it can still conflict on the next pull.
+
+------------------------------------
+2026-07-27 -- Case studies: filled missing capabilities so every case renders 6 cards
+------------------------------------
+Owner: some case studies rendered fewer than 6 capability cards (blank white slots
+in the case_study_v2 template) because their Capabilities cell held <6 entries.
+Fill the gaps MEANINGFULLY -- each new capability grounded ONLY in that case's own
+challenge/solution/results, no invented facts, house "Title: description" style,
+no em-dashes, a real feature that belongs to the case.
+
+7 cases were under 6 (all recent AI-generated MS cases): MSS115 (5->6), MSS119
+(3->6), MSS123 (5->6), MSS125 (4->6, "Predictive Supply Chain Intelligence" -- the
+one the owner named), MSS126 (5->6), MSS127 (5->6), MSS128 (3->6). 12 capabilities
+added; owner reviewed and approved every one before anything was written. Two narrow
+cases (MSS119, MSS128) were flagged as a stretch to reach 6 distinct features; owner
+approved the proposed additions as-is.
+
+HOW (surgical, NOT a full store rebuild -- see the landmine below): appended the
+approved capabilities to BOTH the project Excel (data/registry/Case_Studies_Master_
+IDed.xlsx, Capabilities cell, one "Title: description" line each) AND the JSON store
+(data/case_study_content_store.json, as {title,body} dicts), matched by id. Keywords
+refreshed ADDITIVELY -- union of the existing keyword set with the pipeline's
+synonym-expanded terms for the new capability text -- because these AI-promoted cases
+were keyword-tagged by case_library.promote_ai_case (a DIFFERENT path than build_case
+_study_store._strong_keywords), so a from-scratch recompute would have SHRUNK some
+sets (MSS127 20->5) and hurt matching; the union only grows them (e.g. MSS115 26->71,
+MSS127 20->25). function/personas were byte-identical after re-derive -> left
+unchanged. The 7 changed embedding vectors were refreshed in place (text-embedding-3-
+small); the other 195 untouched.
+
+*** LANDMINE (read before editing ANY case-study content) ***
+scripts/build_case_study_store.py still reads SRC_XLSX =
+C:\Users\E36250417\Downloads\Case_Studies_Master_IDed.xlsx -- a DOWNLOADS file, NOT
+the in-repo Excel (config.CASE_STUDIES_SOURCE_XLSX). Every AI-created case since
+MSS096 was appended by promote_ai_case ONLY to the project Excel + JSON store, so the
+two Excels have DIVERGED. Running build_case_study_store.py now would rebuild from the
+stale Downloads copy and could silently drop ~30 newer cases. That is why this change
+was applied surgically and the canonical rebuild was deliberately NOT run. TODO worth
+doing: repoint SRC_XLSX at config.CASE_STUDIES_SOURCE_XLSX so the rebuild is safe again.
+
+VERIFIED: all 202 cases now have >=6 capabilities (0 under 6). fill_case_study.build_
+mapping fills all six cards for each of the 7 with 0 leftover {{markers}}; the Excel
+Capabilities cell shows 6 lines each. Sample slides written to output/_CAPCHECK_MSS125
+.pptx and _CAPCHECK_MSS128.pptx for a PowerPoint eyeball (no LibreOffice locally -> no
+PNG render here). Note: openpyxl re-save shrank the .xlsx 169KB->147KB by dropping
+unused styling -- the DATA is intact (re-read to confirm). Safety net: the three data
+files were git-clean before the edit, so `git checkout` restores instantly if needed.
+
+NEXT (Phase 2, in progress): condense over-long Challenge/Solution text so it renders
+at the normal 11pt instead of auto-shrinking. Distribution across 202 cases: Challenge
+median ~400 chars (fits), 39 cases >500 and 18 >600 (up to 826); Solution similar.
+Target ~45-50 cases, worst in the MSS081-095 manufacturing block. Owner reviews the
+before/after condensing before it is written (same gate as the capabilities).
+
+------------------------------------
+2026-07-27 -- Case studies: condensed Challenge/Solution to fit 11pt (batch 1: MSS081-095)
+------------------------------------
+Phase 2, batch 1. The case_study_v2 Challenge/Solution boxes are Raleway 11pt with
+shrink-to-fit, so over-long text auto-shrinks toward 10pt and reads inconsistently.
+Owner: tighten the long ones so they all render at the normal 11pt, preserving every fact.
+
+Calibrated the real 11pt budget (no LibreOffice locally to render): the app's own fitting
+model (reskin.py: 0.50em avg char width, 1.22 line height) gives ~511 chars for the
+Challenge box (5.65in) and ~560 for the Solution box (6.14in). Owner then confirmed in
+PowerPoint that a condensed sample at 446/592 renders at 11pt, so the true limit is ~6%
+above the model (~540 Challenge / ~600 Solution). Used those as the targets.
+
+Batch 1 = the 15 longest MS cases, MSS081-095 (challenge 611-826, solution 598-824, all
+shrinking). Condensed by Claude, every fact/number/system name kept (SCADA, CMMS,
+COA/LIMS/ERP, WhatsApp + preferred Indian language, "8 plants", ratios), no em-dashes,
+same voice. Result: challenge avg 685->498 (max 520), solution avg 678->586 (max 606),
+all inside the validated 11pt zone. Owner reviewed a before/after page and approved.
+
+Applied surgically (same as the capabilities, same Downloads-Excel-landmine reason):
+updated only challenge/solution in the project Excel (cols 5/6) and the JSON store by id;
+keywords refreshed ADDITIVELY (union, since condensing removes words a from-scratch
+recompute could only shrink the set); 15 embeddings refreshed in place. Pre-write backup
+of store/Excel/embeddings kept in the session scratchpad. VERIFIED lengths match the
+approved text. NEXT: remaining overflow cases outside this block (challenge >~540 or
+solution >~600), same review-then-apply loop.
+
+------------------------------------
+2026-07-27 -- Case studies: condensed batch 2 (12 more) + a stale-cache clobber incident
+------------------------------------
+Phase 2, batch 2. 12 remaining overflow cases outside MSS081-095, each with only its
+Challenge OR Solution over the 11pt limit, so only the over field was touched. Condensed
+8 challenges (MSS004/005/006/021/025/031/061/068) + 4 solutions (MSS002/037/049/062),
+every fact/figure kept (£340,000, £2.1M, 11 days, 100+ portals, FDA/EMA/PMDA/NMPA/MHRA/
+CDSCO, EBOM/MBOM/SBOM, OPC UA/MQTT, RAG/LLM/MLOps, BMS), no em-dashes. Owner reviewed a
+before/after page and approved. Applied surgically (Excel cols 5/6 + JSON by id, additive
+keywords, 12 embeddings refreshed).
+
+*** INCIDENT: a stale in-memory store cache clobbered batch 1 ***
+After batch 1 was saved + verified (store 202), a case study was created THROUGH THE
+RUNNING APP. The app caches the content store in memory at startup, and case_library.
+promote_ai_case does a read-modify-write that wrote the app's STALE cache (which predated
+the batch-1 condensing) back to disk plus the new case, reverting MSS081-095 to their
+original long text while keeping the capabilities (they predated the cache) and adding
+2 real new cases (202 -> 204). A final library-wide scan caught it. Fix: killed ALL
+app.py instances (a separately-run one was holding the stale cache), re-applied batch 1
+to the current 204-case store, re-verified clean. LESSON for future bulk store edits:
+stop the app first, edit, then restart -- otherwise a running app's cached store will
+overwrite on-disk edits on its next promote_ai_case (Create-with-AI / Custom Slide Builder).
+
+FINAL STATE, both phases complete: 204 cases; 0 challenges >540, 0 solutions >600 (max
+540 / 598, all within the 11pt fit budget the owner validated in PowerPoint), 0 cases
+under 6 capabilities. Every case study now shows 6 capability cards with Challenge and
+Solution rendering at a consistent 11pt.
+
+------------------------------------
+2026-07-27 -- Matching: extract_brief pulled shallow "Top Skills" tags, not real workflows (ARKO/Deepak)
+------------------------------------
+Owner reported wrong case-study picks for ARKO Corp (a convenience-store / fuel RETAILER;
+stakeholder Deepak = FP&A Manager): the engine led with MSS052 (market-data cost
+optimization), MSS049 (AI/ML for financial INSTITUTIONS), MSS040 (VC-style due diligence) --
+all BFSI/PE cases matched on surface keyword overlap ("financial services", "analytics",
+"dashboards"), none matching what an FP&A manager does.
+
+DIAGNOSED (reproduced with the real profile PDF + mail): extract_brief extracted Deepak's
+LinkedIn "Top Skills" strip VERBATIM as the needs -- Finance Transformation Leadership,
+Process Optimization, Data Governance, Finance Analytics, Agile Methodologies, Stakeholder /
+Resource Management -- and NEVER the substantive FP&A workflows filling his 18-year history
+(month-end close, GL reconciliation, AP / cost-of-payments, budgeting/forecasting, variance/
+margin analysis, controllership). Those generic tags are semantically UNDISCRIMINATING:
+cosine(need, case) was ~0.42-0.50 for BOTH the wrong cases AND the right ones (MSS048/050/051),
+so the wrong ones won on tiebreaks -- contaminated keyword bags (MSS052 literally carries
+AP/AR keywords) and a weak +0.08 industry boost that didn't penalize BFSI cases for a retail
+account. PROOF the data is fine: explicit needs surface the right cases decisively ("period-
+end close" -> MSS048 0.94; "financial reconciliation" -> MSS051 1.22; "AP and cash mgmt" ->
+MSS050 1.10). Same class as the Sakshi/SAP bug (2026-07-08); the earlier prompt fix didn't
+hold when a profile's Top Skills + title + summary all foreground generic language.
+
+FIXED (extraction only -- owner's chosen scope):
+ - ai_matcher.extract_brief prompt: new "CONCRETE WORKFLOWS, NOT LABEL TAGS" rule (name each
+   need as the specific WORKFLOW from the work-history bullets; REJECT umbrella labels; a
+   discrimination self-test; prioritise CURRENT role + RECURRING themes with CANONICAL names;
+   qualify ambiguous names as FINANCIAL so "forecasting" doesn't match an energy-grid case),
+   carrying the ARKO confirmed-miss alongside the existing Vanderlande/Sakshi examples.
+ - constants._GENERIC_NEEDS: widened with the umbrella labels that still slipped through
+   (process optimization, data governance, resource management, finance transformation,
+   process automation, agile methodologies, cross-functional leadership, ...). Deterministic
+   backstop for anything the prompt misses.
+
+RESULT (reproduced, real gpt-4o-mini): needs now come back as Month-End Close / Financial
+Reconciliation / Budgeting and Forecasting / Management Reporting instead of the Top-Skills
+tags, and the deck now LEADS with MSS051 (Financial Reconciliation) -- Deepak's core remit --
+often with MSS104 (Close-Orchestration), instead of the all-wrong MSS052/049/040. 56/56
+pytest pass (the 1 failure, master-preview staleness, pre-dates this).
+
+KNOWN RESIDUAL (the deferred lever): with correct needs, some FP&A/reporting/budgeting needs
+still occasionally pick a wrong-DOMAIN finance-ish case (a PE investment-memo case, an energy
+grid-forecasting case) because industry weight is only +0.08 -- a retail account isn't steered
+off BFSI/PE finance cases. That is the industry / business-context RANKING lever (not
+extraction), recommended as the next fix. Also inherent: LLM extraction varies slightly run to
+run, so the exact non-reconciliation picks shift between builds.
+
+------------------------------------
+2026-07-27 -- Matching: industry weight now DEMOTES a wrong-vertical case (ARKO follow-up)
+------------------------------------
+Follow-up to the extract_brief fix above (owner approved doing this lever next). Even with
+correct needs, relevance.shortlist_cases (the AI priority-pick path) still let wrong-VERTICAL
+cases win: it only BOOSTED a same-industry case (+0.08) and never penalised a mismatch, so a
+BFSI capital-markets case or a PE due-diligence case at cosine ~0.5 out-ranked the finance-ops
+close/reconciliation cases a retail FP&A stakeholder actually needs.
+
+FIX (relevance.shortlist_cases ONLY -- the offline rank_cases path the golden test exercises is
+untouched): graded industry term -- +W_SHORT_IND_MATCH (0.10) for the account's own vertical,
+-W_SHORT_IND_MISMATCH (0.10) for a DIFFERENT specific vertical, and NEUTRAL for a HORIZONTAL
+function-domain (_HORIZONTAL_DOMAINS = {FINANCE_OPS} -- finance operations apply to ANY
+company's finance dept, so a finance-ops proof point is never penalised for a retail account)
+or an unknown industry on either side. Deliberately small: it DEMOTES, never excludes, so a
+strongly-matching cross-industry case (e.g. Ericsson telecom needing a manufacturing case)
+still survives, just ranked below same-industry.
+
+VERIFIED: for a RETAIL account, "financial reconciliation" now ranks MSS051/050/103/104
+(finance-ops: neutral/boosted) ABOVE MSS048 (BFSI) and MSS076 (manufacturing), both correctly
+demoted, none excluded. The full ARKO deck now leads with MSS051 (Financial Reconciliation),
+and the BFSI capital-markets/AI cases (MSS052/049) are gone. 56/56 pytest pass, golden matcher
+pins unchanged (shortlist isn't exercised offline; the 1 failure is the pre-existing master-
+preview staleness).
+
+RESIDUAL (honest): on a WEAK need where the store has NO finance-ops case (e.g. "sales tax
+compliance", a bare "financial planning and analysis"), a demoted PE case (MSS041/MSS043) can
+still be the best of a thin field -- the penalty demotes it but there is nothing better to
+promote. That is a case-library COVERAGE gap, not a ranking bug; the fuller lever for it is the
+company_context / avoid-flag mismatch mechanism (the case's OWN business vs what the account
+actually does), not industry code alone.
+
+------------------------------------
+2026-07-27 -- Matching: business-model mismatch gate (company_context) drops investor cases (ARKO residual)
+------------------------------------
+Follow-up to the industry-weight fix (owner approved chasing the residual). On WEAK finance
+needs (sales tax, a bare "financial planning and analysis", "management reporting") where the
+store has NO finance-ops case, a demoted-but-still-best PE investor case (MSS040 due diligence,
+MSS041 investment memos, MSS043 fund compliance) could still be picked for a retail account.
+Fixed via the EXISTING explain_picks() fact-check gate -- no new AI call or wiring:
+ - ai_matcher.explain_picks: FIT CHECK test (b) gained a BUSINESS-MODEL clause -- a case built
+   for an INVESTOR / financial institution (PE/VC due diligence, investment memos, portfolio
+   monitoring; bank capital-markets / credit / covenant work) does NOT fit an OPERATING company
+   (retailer/manufacturer/...) whose finance team does corporate close / recon / AP / reporting,
+   even though both are "finance". Judge against company_context, not the shared word
+   "financial". Carries the ARKO confirmed-miss. A flagged pick returns fit=false and drops to
+   an honest "not in our library" gap (the gate's existing mechanism).
+ - web/decks.py: before explain_picks, override brief.account.industry with the FORM industry.
+   extract_brief mis-inferred ARKO's industry as "Finance" (the only inputs were a finance
+   stakeholder's profile + a deck-request mail, neither saying what ARKO SELLS); the
+   salesperson's picked industry (RETAIL) is ground truth and the business-model check needs it.
+VERIFIED (real gpt-4o-mini, RETAIL account, 2 runs, stable): MSS051 (Financial Reconciliation,
+FINANCE_OPS) KEPT; MSS041 / MSS040 / MSS043 (all PRIVATE_EQUITY investor cases) all fit=false
+with correct reasons ("investment analysis for a private credit firm, irrelevant to ARKO's
+FP&A" / "VC deal analysis" / "investment fund reporting"). 56/57 pytest pass (the 2 "failures"
+are the pre-existing master-preview staleness + one flaky Windows file-lock concurrency test
+that passes in isolation -- neither touches matching).
+
+NET (all four ARKO fixes, in order applied): (1) extract_brief extracts real FP&A workflows,
+not Top-Skills tags; (2) _GENERIC_NEEDS backstop drops umbrella labels; (3) shortlist industry
+weight demotes wrong verticals so finance-ops cases lead; (4) explain_picks business-model gate
+drops investor/finance-institution cases that clear the bar on a weak need. The deck now leads
+with the reconciliation/close proof points a retail FP&A stakeholder actually needs, and flags
+the genuinely-uncovered needs as honest gaps instead of showing a PE deal-flow case.
+
+============================================================================
+2026-07-29  NTT DATA / Tirumala -- off-vertical WORKFORCE picks (HR stakeholder,
+            custom "Consulting" industry). Three-part matching fix.
+============================================================================
+SYMPTOM: an intro Workforce deck for NTT DATA Business Solutions (an SAP/ERP systems
+integrator; stakeholder = Executive Head, People & Culture) picked WFS011 [BFSI],
+WFS044 [untagged seasonal-BPO], WFS022 [Healthcare], WFS002 [Healthcare] -- every pick
+off-vertical -- while the four cases that actually fit (WFS019 RPO, WFS032 HTD-for-ITES,
+WFS043 accelerated-hiring, WFS033) are ALL tagged TECH_IT, NTT DATA's real vertical.
+
+ROOT CAUSES (confirmed by offline repro against the real profile):
+ A. DEAD INDUSTRY SIGNAL. "Consulting" is a custom industry (data/custom_industries.json),
+    not aliased to any built-in code, and the taxonomy has no IT-services vertical. So in
+    shortlist_cases the same-vertical boost never fired and EVERY vertical case got a
+    uniform -0.10 demote -- the four correct TECH_IT cases penalised exactly as hard as the
+    wrong ones. Industry became noise.
+ B. SELECTION IGNORED INDUSTRY. Even with the boost, the greedy picker (web/decks.py) sorted
+    eligible edges by RAW COSINE; the industry/persona/function boosts live only in `adj`,
+    which merely decided top-N shortlist membership. The right TECH_IT cases were IN the
+    shortlist but lost the pick by ~0.03 cosine -- the alias alone was a no-op for the pick.
+ C. GENERIC HR NEEDS. A thin People-&-Culture profile made extract_brief emit umbrella needs
+    ("Talent Acquisition Strategy", "Employee Engagement Programs", "Learning & Development",
+    "D&I Programs", "Corporate Communications"). Every workforce case matches those ~equally
+    (cosine ~0.44-0.51), so an off-vertical case with a hair more cosine won.
+
+FIX (3 parts, all validated; 55 pass / 2 deselected = pre-existing preview + flaky staging):
+ 1a. services/matching/relevance.py _INDUSTRY_ALIAS: map CONSULTING / IT SERVICES / ITES /
+     TECHNOLOGY -> TECH_IT (where the tech/ITES workforce proof points live).
+ 1b. web/decks.py: order eligible priority-pick edges by `adj` (cosine stays the coverage GATE
+     and a secondary tiebreak), so vertical + persona + function fit finally count at SELECTION
+     time, not just shortlist membership. GLOBAL change -- golden tests green, ARKO unaffected.
+ 2.  services/matching/ai_matcher.py extract_brief: new "TALENT / HR / WORKFORCE STAKEHOLDERS"
+     rule -- name concrete recruitment/workforce-DELIVERY workflows (RPO, hire-train-deploy,
+     C2H, high-volume/accelerated hiring, technical recruiting, workforce planning, attrition &
+     retention), reject broad HR-program umbrellas; carries the NTT DATA confirmed-miss.
+     constants.py _GENERIC_NEEDS: HR-umbrella backstop (talent acquisition STRATEGY, talent
+     management, employee engagement, learning & development, hr transformation, people &
+     culture, employer branding, corporate communications). Bare "talent acquisition" kept OUT
+     (it IS the core capability) -- only umbrella forms filtered.
+
+VERIFIED (real gpt-4o-mini repro): needs now extract as High-Volume Recruiting / Talent
+Pipeline / Campus Hiring / Attrition & Retention / Managed Recruitment (concrete, not
+umbrellas); picks now lead with WFS019 (RPO) + WFS043 (accelerated hiring) -- the two headline
+TECH_IT cases the manual fact-check wanted -- plus WFS011 (fact-check-endorsed). RESIDUAL: the
+"attrition" need still takes WFS002 [Healthcare] because the TECH_IT attrition cases sit at
+cos ~0.41, just under the 0.42 coverage bar; a mechanism-dedup pass (the deferred Fix 3) is the
+clean lever for that, not lowering the global bar. Same failure FAMILY as ARKO (generic need ->
+flat cosine -> weak tiebreak), plus a new distinct cause: dead industry signal for any
+out-of-taxonomy account.
+
+------------------------------------------------------------
+2026-07-29  Match-notes caption cleanup (cosmetic, display-only)
+------------------------------------------------------------
+The "notes: ..." tag on a picked case study (services/matching/matcher.py _case_reason)
+listed the case-body terms that overlapped the salesperson's notes -- but the lexical
+matcher SYNONYM-EXPANDS single words (relevance.transcript_terms: "delivery"/"deploy" ->
+"continuous integration / continuous deployment / deployment pipeline"), so those
+expansions collided with generic delivery keywords in a case body and surfaced as
+confusing, off-topic tags (CI/CD noise on a TALENT case -- NTT DATA live test). Fix:
+_case_reason now takes the raw notes (transcript + research) and shows ONLY matched terms
+that LITERALLY appear in that text; synonym-injected tokens the user never wrote are
+dropped, and if nothing literal survives the tag is omitted rather than shown empty.
+Display-only -- scoring/selection untouched. NTT caption now reads
+"notes: talent acquisition, acquisition, recruitment, recruiting". Tests 55 pass / 2
+deselected (pre-existing preview + flaky staging).
+
+------------------------------------------------------------
+2026-07-29  Fix 3 -- mechanism-dedup on the priority-pick path
+------------------------------------------------------------
+The AI priority-pick greedy loop (web/decks.py) had NO dedup -- two look-alike case
+studies could both land in a deck. Added a near-TWIN gate: skip a candidate whose
+case-to-case cosine (relevance.max_similarity) vs an already-picked case is >=
+PRIORITY_DEDUP_SIM (0.85); a differentiated candidate can still fill that need, else it
+stays an honest gap. Threshold calibrated from the real store: TRUE duplicates land at
+0.85-0.91 (identical DevSecOps-open-banking AIP012/MSS046 = 0.91; WFS002/WFS025
+workforce-scaling = 0.87; predictive-maintenance twins; order-to-cash/invoice twins),
+while genuinely DISTINCT talent picks top out at ~0.74 (RPO WFS019 vs HTD WFS032 vs
+accelerated-hiring WFS043) -- so 0.85 removes only real duplicates, never a capability.
+Verified: WFS025-vs-WFS002 and MSS046-vs-AIP012 SKIP; WFS032/WFS043/WFS011 KEEP.
+NOTE (honest limit): this does NOT remove the NTT WFS002 "attrition" residual -- WFS002
+vs the picked TECH_IT cases is only ~0.73, i.e. NOT a true content duplicate; the
+fact-check's "redundant" read was about shared sub-mechanics, not overall duplication.
+That residual is already handled in practice by the industry-aware selection + the
+explain_picks fit-gate (WFS002 did not appear in the live NTT run at all). Tests 55 pass
+/ 2 deselected.
+
+------------------------------------------------------------
+2026-07-29  Fix 4 -- strategic-bet "company angle" grounded in INTERNAL use
+------------------------------------------------------------
+infer_strategic_fit (services/matching/ai_matcher.py) already passed company_context and
+asked for a company-tied company_why, but had no guard against the specific category
+error the NTT DATA fact-check caught: a talent bet justified as "NTT DATA can offer
+CLIENTS rapid, data-backed hiring" -- treating an SAP/ERP integrator as if it resells
+staffing/RPO to its customers. Added a company_why rule: the reason must be the account
+USING the capability for its OWN operations (how it runs/builds/sells/delivers its actual
+product); do NOT argue it would RESELL/offer the capability to its own clients unless
+company_context itself says that IS the account's business. Carries the NTT DATA
+confirmed-miss. VERIFIED (real gpt-4o-mini): the three bets now read internally ("NTT DATA
+needs to fill roles quickly to meet client demands ... optimize its hiring process";
+"fostering internal talent") -- no reselling category error. Golden tests 55 pass / 2
+deselected (pre-existing preview + flaky staging). Display-only path (a bonus bet atop the
+literal picks); fails safe to no-bets on any API issue.
+
+============================================================================
+2026-07-29  Case-study Challenge/Solution REPLACED from J2W_Case_Studies_FINAL.xlsx
+============================================================================
+Owner delivered a deep depth-audit rewrite of every case study's Challenge + Solution
+narrative (J2W_Case_Studies_FINAL.xlsx, sheet "All 206 Case Studies"): 206 cases, the
+EXACT same id set as the store (0 added/removed), rewritten to fit the REAL .pptx template
+ceilings (Challenge box 5.65"x1.48" -> 540 chars; Solution box 6.14"x1.48" -> 598 chars),
+zero overflow. The file's "Original" columns matched our then-current store (197/206 ch,
+203/206 sol), confirming it was built on our content; only Challenge + Solution were
+rewritten (Title/Capabilities/Results/Keywords/tags/work-type untouched).
+
+APPLIED SURGICALLY (did NOT run build_case_study_store.py -- its SRC_XLSX still points at a
+STALE 183-row Downloads\Case_Studies_Master_IDed.xlsx that would REGRESS the store 206->183;
+the Downloads landmine): updated only `challenge`/`solution` in
+data/case_study_content_store.json (102 challenge + 146 solution changed; rest identical /
+"Original Kept"), em/en dashes -> hyphen per owner rule; synced the repo mirror
+data/registry/Case_Studies_Master_IDed.xlsx (cols Challenge/Solution, 206 rows); regenerated
+data/case_embeddings.json (challenge+solution feed _search_text, so semantic match had to be
+refreshed -- 206 vectors, text-embedding-3-small, dim 1536). Backups written for all three
+(*.bak-2026-07-29). Post-update max lengths 540/598 (at ceiling, no overflow). Spot-checked
+AIP001/AIP002/MSS051/WFS019: new text in place, caps=6/results=3/keywords intact, no
+em-dashes. Tests 55 pass / 2 deselected (pre-existing preview + flaky staging).
+
+============================================================================
+2026-07-31  Broadridge India / Vivek Avvari -- thin-profile extraction +
+            generic-support-ops mismatch + gap/bet double-duty. Fixes A/B/C.
+============================================================================
+SYMPTOM: an Intro deck for Broadridge India (BFSI, stakeholder Vivek Avvari, VP -- a
+capital-markets product/GTM leader) picked WFS003 "Core Banking Transformation and Support
+Optimization" -- a generic 60-person branch-network IT-helpdesk case (ServiceNow, ITIL,
+SLA monitoring) with zero securities/capital-markets content -- explained as addressing
+"securities processing efficiency needs". Separately, "Wealth Management Technology" was
+shown as a "not in our library" gap in the SAME deck that also picked MSS052 (a wealth-
+management-adjacent case) via the strategic-bet path -- the deck simultaneously claimed a
+proof point and claimed no proof exists for the same theme.
+
+ROOT CAUSES:
+ A. THIN WORK-HISTORY PROFILE. Vivek's LinkedIn export has NO work-history bullets -- a
+    bare title/date timeline. extract_brief's existing rules ("read from work-history
+    bullets") had nothing to read, so it fell back to paraphrasing the vague Summary
+    paragraph into 'Product Strategy Development' / 'Client Adoption Initiatives' /
+    'Innovation in Capital Markets' -- undiscriminating (an aerodynamic-simulation case
+    scored within 0.10 cosine of his genuine matches). His real signal -- Top Skills
+    (Cryptocurrency, DLT, FinTech) and Certifications (Fixed Income & Equities Operations,
+    Global Securities Operations, Cryptocurrencies and Ledgers) -- was never read.
+ B. Even with better needs, WFS003 still clears the literal coverage bar on lexical/cosine
+    overlap with a need like "Securities Operations Technology" (cosine 0.442, above the
+    0.42 bar) purely on "banking"/"operations" word-level overlap -- explain_picks' fit-gate
+    had no clause for a GENERIC-support-ops case (helpdesk/SLA/ITIL) failing to prove a
+    SPECIALIZED domain capability (securities ops, capital-markets product delivery).
+ C. `missing` (gaps) is computed from literal-need coverage BEFORE the strategic-bet pass
+    runs, so a bet added afterward (MSS052) was never re-checked against a gap already
+    flagged ("Wealth Management Technology") -- structural, no reconciliation existed at all.
+
+FIX (3 parts, all validated -- 55 pass / 2 deselected = pre-existing preview + flaky staging):
+ A. ai_matcher.extract_brief: new "THIN WORK-HISTORY, CERTIFICATION-LED PROFILES" rule --
+    when Experience has no bullets, ground needs in Top Skills + Certifications, name the
+    SPECIFIC domain/technology named there, reject vague Product/Strategy/Innovation/Client-
+    Adoption paraphrases of a headline. Carries the Vivek confirmed-miss. VERIFIED: needs now
+    extract as 'Securities Operations Technology' / 'Cryptocurrency and DLT Solutions' /
+    'Capital Markets Product Delivery' -- matching the account's real certifications and
+    (independently) the user's own manual cross-check almost verbatim.
+ B. ai_matcher.explain_picks: new GENERIC-SUPPORT-OPS clause in the FIT CHECK -- a helpdesk/
+    ITIL/SLA case does not, by itself, prove a specialized domain capability just because
+    both sit under the same industry umbrella. Carries the Broadridge/WFS003 confirmed-miss.
+    VERIFIED (real gpt-4o-mini, 2 runs): WFS003 -> fit=false BOTH runs, with a correct
+    grounded reason ("IT support optimization... unrelated to securities operations
+    technology"), even though it clears the literal cosine bar (0.442) -- confirms this gate
+    is load-bearing, not redundant with Fix A.
+ C. NEW ai_matcher.resolve_gap_overlap() + web/decks.py gap/bet reconciliation pass: after
+    literal picks AND strategic bets are both finalized, re-check every remaining gap
+    against the final pick set. A bare cosine re-check CANNOT safely resolve this -- on the
+    real data, MSS052-vs-"Wealth Management Technology" (cosine 0.401, a genuinely partial/
+    narrow overlap) and MSS052-vs-"Capital Markets Product Delivery" (cosine 0.398, clearly
+    NOT the same thing) sit 0.003 apart, no threshold separates them. Mirrors the
+    validate_bet_fit/explain_picks pattern: a cheap embedding pass (GAP_PREFILTER_COVER=0.30)
+    only decides whether a gap is worth ASKING about; the real verdict comes from reading the
+    candidate's actual challenge/solution text, defaulting to covered=false when genuinely
+    uncertain (a missed-but-harmless gap costs nothing; a wrongly-hidden real gap costs
+    client-facing credibility). VERIFIED (real model, 2 runs + a positive control): the three
+    real Broadridge gaps all correctly return covered=false (MSS052 is a narrow market-data-
+    COST case, not a dedicated wealth-management-technology or product-delivery story -- a
+    defensible, conservative call, consistent with the external cross-check's own "reconsider
+    positioning" framing rather than "hide it"); an obvious near-restate control case
+    ("Market Data Cost Governance" vs MSS052) correctly returns covered=true both runs --
+    confirms the mechanism discriminates real overlap from same-industry coincidence rather
+    than just always defaulting to false.
+NOTE: fixing the STRUCTURAL double-duty bug does not mean every previously-flagged gap now
+disappears -- on reflection, "Wealth Management Technology" legitimately stays a gap for this
+account (MSS052 only partially, narrowly touches it). The bug was that the two passes never
+talked to each other at all; now they do, and the (considered, grounded) answer for this case
+happens to be "keep the gap." Per-work-type cap for Intro decks (originally proposed as Fix D)
+deferred at owner's request -- not yet implemented.
+
+------------------------------------------------------------
+2026-07-31  Fix D -- per-work-type cap of 3 case studies, Intro decks only
+------------------------------------------------------------
+Owner's new rule: on an Intro deck, cap each SELECTED work type (Workforce/AI Pods/MS) at 3
+case studies -- a CEILING with a quality gate, not a floor; if fewer than 3 genuinely clear
+the bar, ship fewer, never pad with a weaker match. Previously there was no per-work-type
+limit anywhere in the literal-need path or the strategic-bet path -- one work type could
+absorb 5+ slides while another got 1.
+
+IMPLEMENTATION (web/decks.py): new INTRO_WORKTYPE_CAP=3 constant + apply_worktype_cap
+(ctx["phase"]=="Intro") / wt_pick_counts state, hoisted to the top of the build pipeline
+(not inside the literal-extraction branch) so the SEPARATE strategic-bet pass sees the same
+running per-work-type count and both passes draw from ONE combined cap, not 3 literal + N
+extra via bets. Both existing greedy-assignment loops (already sorted best-first by `adj`,
+so capping naturally keeps the top 3 and drops the rest) now skip a candidate once its work
+type is full. A need capped out this way goes into a NEW `capped_needs` set, excluded from
+the "not in our library" gap list -- a real case existed for it, there just wasn't room;
+flagging it as a gap would wrongly imply no proof point exists at all (owner confirmed this
+reading explicitly -- "lean towards" not showing a gap here).
+
+VERIFIED: (1) algorithm check with 5 real, non-near-twin MS-work-type candidates (mirroring
+the exact greedy-loop code) -- top 3 by strength picked, remaining 2 correctly routed to
+capped_needs, not missing. (2) Confirmed the cap is a no-op when phase != "Intro" (same 5
+candidates -> all 5 picked). Golden tests 55 pass / 2 deselected (pre-existing preview +
+flaky staging); one additional flaky concurrency test
+(test_concurrent_slide_saves_all_succeed, Windows file-lock timing, same family as the
+already-documented staging flake) failed once in the full run and passed both in isolation
+and on a full re-run -- confirmed unrelated to this change.
+
+This closes the 4-part Broadridge/Vivek Avvari fix set (A/B/C/D), alongside the earlier
+NTT DATA and ARKO fixes -- all five confirmed matching-quality incidents this project has
+hit share the same root shape (a weak/generic signal -> flat cosine -> wrong case wins) plus
+now two structural gaps (dead industry signal off the taxonomy; gap/bet passes never
+cross-checking each other) and one new selection-shape rule (per-work-type ceiling for
+Intro decks).

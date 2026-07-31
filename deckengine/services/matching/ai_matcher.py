@@ -463,6 +463,102 @@ def extract_brief(research="", profile="", transcript=""):
         "augmented, or scaled. For each need: name (1-3 words, a business capability), a "
         "1-2 line description, the DOMAIN / industry it applies to, and the specific "
         "USE_CASE. Ground every field in the text; never invent.\n"
+        "- CONCRETE WORKFLOWS, NOT LABEL TAGS: each need NAME must be a specific, case-"
+        "study-shaped capability -- the actual WORKFLOW the person operates -- read from the "
+        "work-history bullets that describe what they did day to day, NOT a generic umbrella "
+        "label lifted from a headline or a 'Top Skills' strip. For a finance stakeholder that "
+        "means naming the real functions the bullets describe: period-end / month-end CLOSE, "
+        "financial RECONCILIATION (GL-to-transaction, multi-source matching), ACCOUNTS "
+        "PAYABLE / RECEIVABLE and cost-of-payments, BUDGETING and FORECASTING, VARIANCE / "
+        "MARGIN analysis, MANAGEMENT REPORTING, CONTROLLERSHIP, ORDER-TO-CASH. REJECT "
+        "umbrella labels that are not themselves a provable capability and would match dozens "
+        "of unrelated cases equally: 'Finance Transformation', 'Process Optimization', 'Data "
+        "Governance', 'Finance Analytics', 'Digital Transformation', 'Business Process "
+        "Reengineering', 'Stakeholder Management', 'Resource Management', 'Program/Project "
+        "Management', 'Agile Methodologies', 'Change Management'. When the profile FOREGROUNDS "
+        "one of these (a Top-Skills strip, a headline), do NOT emit it -- look at the bullets "
+        "UNDER it and name the specific workflow it was applied to instead (not 'Finance "
+        "Analytics' but e.g. 'budgeting and forecasting' or 'profitability and margin "
+        "analysis'; not 'Process Optimization' but e.g. 'accounts-payable automation' or "
+        "'month-end close automation'). TEST every need name before you emit it: could it "
+        "describe a market-data-terminal case, a due-diligence case, AND a reconciliation case "
+        "equally well? If yes it is too generic -- replace it with the specific workflow "
+        "underneath it. Confirmed miss (owner-reported, 2026-07-27, ARKO/Deepak): an FP&A "
+        "manager whose 18-year history was almost entirely month-end close, GL reconciliation, "
+        "AP / cost-of-payments, and budgeting/forecasting led his profile with Top Skills "
+        "'Finance Analytics, Data Governance, Process Optimization' and a 'Finance Analytics & "
+        "Automation' headline; extraction returned those tags verbatim, which matched a market-"
+        "data case, a PE due-diligence case, and a BFSI AI case (all ~0.45 cosine, "
+        "undiscriminating) instead of the close / reconciliation / AP cases that fit exactly. "
+        "The specific workflows were right there in his job bullets and were never extracted.\n"
+        "- CURRENT ROLE + RECURRING THEMES, CANONICAL NAMES: prioritise the workflows of the "
+        "stakeholder's CURRENT role and the ones that RECUR across several jobs in their "
+        "history over a one-off bullet from a single old role -- a capability they have "
+        "returned to across their career is a stronger need than something they touched once. "
+        "Name each need with the CANONICAL workflow term the bullets actually describe, not a "
+        "broader reporting/analytics/transformation paraphrase that would also fit an "
+        "unrelated case: bullets about managing 'month-end / quarter-end / year-end closing' "
+        "-> 'Month-End Close'; 'reconciling the GL to transaction systems' or 'exception "
+        "resolution' -> 'Financial Reconciliation'; 'budgeting, forecasting, variance / "
+        "deviation analysis, profit planning' -> 'Budgeting and Forecasting' and 'Variance "
+        "Analysis'; 'AP / accounts payable / cost of payments / invoice processing' -> "
+        "'Accounts Payable Automation'; 'consolidated reporting packs / management reporting / "
+        "MIS' -> 'Management Reporting'. Emit the workflow name itself, so the matcher can "
+        "find the case study built around that exact workflow. Where a workflow name could "
+        "also describe a DIFFERENT industry (e.g. 'forecasting' exists in energy-grid, demand, "
+        "and weather contexts; 'reconciliation' in data pipelines), qualify it as FINANCIAL so "
+        "it matches the finance case, not an unrelated one -- 'Financial Budgeting and "
+        "Forecasting', 'Financial Planning and Analysis', not a bare 'Forecasting'.\n"
+        "- TALENT / HR / WORKFORCE STAKEHOLDERS, SAME DISCIPLINE: for a People / Talent / HR "
+        "leader, name the concrete recruitment and workforce-DELIVERY workflows the work-history "
+        "bullets describe -- the actual case-study-shaped capability -- NOT a broad HR program "
+        "area. Real matchable workflows: RPO / managed recruitment, HIRE-TRAIN-DEPLOY (HTD), "
+        "CONTRACT-TO-HIRE (C2H), HIGH-VOLUME / ACCELERATED hiring, TECHNICAL / niche-skill "
+        "RECRUITING, WORKFORCE PLANNING, TALENT-PIPELINE building, CAMPUS / GCC hiring, ATTRITION "
+        "and RETENTION. REJECT broad HR-program umbrellas that are not themselves a provable, "
+        "case-shaped capability and would match dozens of unrelated workforce cases equally: "
+        "'Talent Acquisition Strategy', 'Talent Management', 'Employee Engagement', 'Learning and "
+        "Development', 'Diversity and Inclusion Programs', 'HR Transformation', 'People and "
+        "Culture', 'Employer Branding', 'Corporate Communications', 'Organizational Development'. "
+        "When a profile FOREGROUNDS one of these (a Top-Skills strip, a 'People & Culture' "
+        "headline), do NOT emit it -- read the work-history bullets underneath and name the "
+        "specific recruitment workflow the person actually ran (someone whose career is 'Talent "
+        "Acquisition / Technical Recruiting / Senior Manager - Recruiting' has an RPO / "
+        "technical-recruiting / high-volume-hiring need, not a generic 'Talent Acquisition "
+        "Strategy' need). Prioritise the RECURRING workflow (a decade of recruiting roles) over "
+        "one-off breadth picked up from a current combined title (e.g. a 'corporate "
+        "communications' or 'D&I' line that appears once). Confirmed miss (owner-reported, "
+        "2026-07-29, NTT DATA / Tirumala -- an Executive Head of People & Culture whose 20-year "
+        "history is almost entirely talent acquisition and technical recruiting): extraction "
+        "returned 'Talent Acquisition Strategy', 'Employee Engagement Programs', 'Learning and "
+        "Development Initiatives', 'Diversity and Inclusion Programs', 'Corporate Communications' "
+        "-- all broad HR-program umbrellas -- so the flat, undiscriminating match handed the deck "
+        "off-vertical Retail / Healthcare / BFSI workforce cases instead of the RPO / "
+        "Hire-Train-Deploy / accelerated-hiring cases built for technology / IT-services clients "
+        "that fit her recruiting depth exactly.\n"
+        "- THIN WORK-HISTORY, CERTIFICATION-LED PROFILES: some LinkedIn exports (especially a "
+        "senior person's) have NO work-history bullets at all -- just a bare title/date timeline "
+        "('Vice President, Dec 2020-Present', nothing under it). When that happens, the rules "
+        "above ('read from work-history bullets') have nothing to read -- do NOT fall back to "
+        "paraphrasing the vague headline or Summary paragraph instead ('Product Strategy', "
+        "'Client Adoption', 'Innovation', 'Driving Growth' -- these are undiscriminating and "
+        "match almost any case at a similar low cosine). Ground needs in the profile's TOP "
+        "SKILLS and CERTIFICATIONS sections instead -- these are the person's own declared, "
+        "specific expertise areas, and are far more discriminating than a summary paraphrase. "
+        "Name each need after the SPECIFIC domain/technology the skill or certification names "
+        "(e.g. certifications in 'Fixed Income, Equities and Operations', 'Global Securities "
+        "Operations', 'Cryptocurrencies and Ledgers' -> needs like 'Securities Operations "
+        "Technology', 'Fixed Income and Equities Operations', 'Cryptocurrency and DLT "
+        "Solutions' -- NOT a generic 'Product Strategy Development' or 'Innovation in Capital "
+        "Markets' that could describe literally any product leader at any company). Confirmed "
+        "miss (owner-reported, 2026-07-31, Broadridge India / Vivek Avvari -- a VP with a bare "
+        "title timeline whose Top Skills were Cryptocurrency/DLT/FinTech and whose certifications "
+        "were Fixed Income & Equities Operations, Global Securities Operations, Cryptocurrencies "
+        "and Ledgers): extraction ignored all of that and paraphrased his Summary into 'Product "
+        "Strategy Development', 'Client Adoption Initiatives', 'Innovation in Capital Markets' -- "
+        "so undiscriminating that an unrelated aerodynamic-simulation case and a generic branch-"
+        "network IT-helpdesk case (no securities/capital-markets content at all) scored within "
+        "0.03-0.10 cosine of his genuine matches, letting the helpdesk case win a slot.\n"
         "- GRANULARITY: do not collapse someone's expertise into one umbrella need. If a "
         "person's background spans several genuinely distinct capabilities (e.g. a "
         "platform-migration specialism, a specific in-memory/performance specialism, a "
@@ -653,7 +749,19 @@ def infer_strategic_fit(research="", profile="", transcript="", brief=None):
         "extrapolating from.\n"
         "- company_why: why THIS COMPANY, given its actual business/industry, would "
         "strategically fund it -- not just 'it's generally useful,' but a reason tied to "
-        "what this specific company does.\n"
+        "what this specific company does. GROUND this in the account's OWN operations: the "
+        "reason must be the company USING the capability for its OWN business (how it runs, "
+        "builds, sells, or delivers its actual product/service). Do NOT argue that the "
+        "company would RESELL, offer, or pass the capability on to ITS OWN clients/customers "
+        "-- that reselling framing is only valid if the account's company_context ITSELF "
+        "says its business is providing that exact service to others. Default to the "
+        "internal-use reason. Confirmed miss (owner-reported, 2026-07-29, NTT DATA Business "
+        "Solutions -- an SAP/ERP systems integrator): a talent bet was justified as 'NTT "
+        "DATA can offer clients rapid, data-backed hiring processes' -- a category error "
+        "that assumed an ERP integrator resells staffing/RPO to its customers. The correct "
+        "company_why is internal: how faster, better hiring helps NTT DATA staff its OWN SAP "
+        "delivery teams. Judge against what the account actually DOES (company_context), "
+        "never what it could theoretically resell.\n"
         "A bet that only satisfies one side is not good enough -- skip it rather than force "
         "a weak connection. Do not propose a generic capability that could apply to any "
         "account; the whole point is that it's specific to THIS person at THIS company.\n"
@@ -767,6 +875,93 @@ def validate_bet_fit(bet, case_title, case_challenge, case_solution):
             "fit": fit}
 
 
+def resolve_gap_overlap(gaps):
+    """A "not in our library" gap is computed from LITERAL-need coverage before the
+    strategic-bet pass runs -- so a bet added afterward is never re-checked against gaps
+    already flagged. Confirmed 2026-07-31 (Broadridge India / Vivek Avvari): a "Wealth
+    Management Technology" gap and an MSS052 strategic-bet pick (a wealth-management
+    conversational-analytics case) shipped in the SAME deck -- MSS052 was shown as a proof
+    point and, in the same breath, the deck said we have no proof for that exact capability.
+
+    A bare embedding-cosine re-check can't reliably resolve this: on the real data, MSS052
+    vs "Wealth Management Technology" (cosine 0.401, a genuinely debatable overlap -- MSS052
+    is a market-data-COST case that happens to serve wealth teams, not a dedicated wealth-
+    management-technology story) and MSS052 vs "Capital Markets Product Delivery" (cosine
+    0.398, clearly NOT the same thing -- market-data-cost governance vs product-delivery/GTM
+    strategy) sit 0.003 apart -- noise, not signal, and cosine alone can't tell a genuine-but-
+    narrow overlap from a same-industry coincidence. This needs the same grounded-content
+    judgment as validate_bet_fit/explain_picks, not a number -- and the same conservative
+    default: it's safer to still show a gap the salesperson can shrug off than to silently
+    hide one that would have mattered.
+
+    gaps = [{"name","description","candidate_id","candidate_title","candidate_challenge",
+    "candidate_solution"}] -- the caller has already cheaply pre-filtered to gaps with a
+    plausible best-candidate (so this stays a small, single batched call, not one call per
+    gap). Returns {gap_name: {"covered":bool,"reason":str}}. Fails safe to {} -- caller
+    treats an absent/failed entry as covered=False (an AI outage must never silently hide
+    a gap the salesperson should see)."""
+    gaps = [g for g in (gaps or []) if g.get("candidate_id")]
+    if not gaps:
+        return {}
+    lines = [
+        "Each item below is a capability the account NEEDS that our literal matching "
+        "couldn't confidently cover on its own -- but a DIFFERENT case was separately "
+        "picked for this account (via a strategic bet or another need) and MIGHT, by "
+        "coincidence or genuine overlap, already prove this exact gap too. Judge each "
+        "pair strictly on the candidate case's REAL challenge/solution text -- does it "
+        "SUBSTANTIVELY address the stated gap, or is it a different angle on a loosely "
+        "related theme that only shares an industry or a generic word?\n"
+        "Example of covered=false despite same-industry overlap (Broadridge India, "
+        "2026-07-31): a 'Capital Markets Product Delivery' gap (leading the delivery of "
+        "new capital-markets PRODUCTS to clients) is NOT covered by a case about market-"
+        "DATA-COST governance for wealth/capital-markets teams -- product-delivery/GTM "
+        "strategy and market-data-cost optimization are different mechanisms that only "
+        "share the industry label, even though both mention 'capital markets'.\n"
+        "A case that only serves or touches the gap's audience in passing (e.g. a cost-"
+        "governance tool used BY wealth-management teams) is a weaker, narrower claim than "
+        "a case that is actually ABOUT the stated capability (e.g. a dedicated wealth-"
+        "management-technology practice) -- when the overlap is this partial, prefer "
+        "covered=false so the gap still surfaces for a human to judge.\n"
+        "Default covered=false when genuinely uncertain -- a missed gap the salesperson "
+        "can just ignore costs nothing; a wrongly-hidden real gap costs a client-facing "
+        "credibility gap.\n",
+    ]
+    for g in gaps:
+        lines.append(
+            f'GAP "{g["name"]}": {g.get("description", "")}\n'
+            f'  CANDIDATE {g["candidate_id"]}: {g.get("candidate_title", "")}\n'
+            f'  CHALLENGE: {(g.get("candidate_challenge", "") or "")[:220]}\n'
+            f'  SOLUTION: {(g.get("candidate_solution", "") or "")[:220]}\n')
+    lines.append('\nReturn ONLY JSON mapping each GAP NAME to '
+                 '{"covered":true|false,"reason":"one line"}')
+    try:
+        resp = _client().chat.completions.create(
+            model=EXPLAIN_MODEL, temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You check whether an already-picked case's "
+                 "real content substantively covers a separately-flagged capability gap, "
+                 "defaulting to 'not covered' when uncertain. Reply with one JSON object "
+                 "only."},
+                {"role": "user", "content": "\n".join(lines)},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+    except Exception:
+        logger.warning("resolve_gap_overlap: OpenAI call/parse failed — gaps kept "
+                       "unreconciled (fail-safe: shown, not hidden)", exc_info=True)
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    valid = {g["name"] for g in gaps}
+    out = {}
+    for name, v in data.items():
+        if name in valid and isinstance(v, dict):
+            out[name] = {"covered": v.get("covered") is True,
+                        "reason": (v.get("reason") or "").strip()}
+    return out
+
+
 def explain_picks(brief, items, profile="", research=""):
     """Write ONE short line + a signal explaining why each ALREADY-PICKED case fits its
     client need. The SELECTION is done algorithmically (semantic capability match) — this
@@ -828,7 +1023,34 @@ def explain_picks(brief, items, profile="", research=""):
         "(invoice, chassis number, NOC) is a genuine instance of 'compliance automation' in "
         "the abstract (passes test (a)) but has nothing to do with what Vanderlande's "
         "compliance work would ever look like (fails test (b)) -- the label matched, the "
-        "actual subject didn't. Passing (a) alone is NOT enough.\n"
+        "actual subject didn't. This especially includes a BUSINESS-MODEL mismatch: a case "
+        "built for an INVESTOR or FINANCIAL INSTITUTION -- a private-equity or VC fund doing "
+        "deal due-diligence, investment memos or portfolio monitoring; a bank or credit fund "
+        "doing capital-markets, credit-research or covenant work -- does NOT fit an OPERATING "
+        "company (a retailer, manufacturer, logistics or energy operator) whose finance team "
+        "does corporate close, reconciliation, AP/AR, budgeting and reporting, even though "
+        "both are 'finance'. Judge against what the ACCOUNT actually DOES (its company_context "
+        "above), not the shared word 'financial' or 'analysis'. Confirmed miss (owner-"
+        "reported, 2026-07-27, ARKO -- a convenience-store / fuel RETAILER; stakeholder an "
+        "FP&A manager): a private-equity 'Investment Analysis and Memo Intelligence' case and "
+        "a VC-style 'Due Diligence Acceleration' case cleared the capability bar on 'financial "
+        "analysis' word overlap, but are investor deal-flow tools with nothing to do with a "
+        "retailer's corporate FP&A -- set fit=false.\n"
+        "Also watch for a GENERIC-SUPPORT-OPS mismatch: a case about generic IT/branch "
+        "helpdesk support (ticket triage, SLA monitoring, ITIL, ServiceNow, L1-L3 support "
+        "desks) does NOT, by itself, prove a SPECIALIZED domain capability (securities "
+        "operations, capital-markets product delivery, equities/fixed-income processing, "
+        "KYC/compliance workflows) just because both sit under the same industry umbrella "
+        "('banking', 'financial services'). The case must actually be ABOUT that specialized "
+        "workflow, not merely about running IT support FOR a company in that industry. "
+        "Confirmed miss (owner-reported, 2026-07-31, Broadridge India / Vivek Avvari -- a "
+        "capital-markets product/GTM leader): a case about a 60-person branch-network L1-L3 "
+        "helpdesk team with centralized SLA monitoring and ITIL training was explained as "
+        "addressing 'securities processing efficiency needs' -- the case never touches "
+        "securities, capital markets, or equities anywhere in its real content; the only "
+        "connection was the shared word 'banking' and a generic 'efficiency' framing -- set "
+        "fit=false.\n"
+        "Passing (a) alone is NOT enough.\n"
         "If EITHER test fails, set \"fit\":false and a one-line \"reason\" saying why (it "
         "will be dropped, not shown to the client) -- do NOT write flattering-sounding but "
         "empty reasoning to paper over a mismatch. Default \"fit\":true only when BOTH "

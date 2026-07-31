@@ -21,12 +21,42 @@ COVERAGE_THRESHOLD = 0.50
 # is the bare capability, so genuine matches land a touch lower.
 CAPABILITY_COVER = 0.42
 
-# generic management labels that aren't a case-study TOPIC — never pick or flag them
+# generic management labels that aren't a case-study TOPIC — never pick or flag them.
+# A NEED with one of these names matches dozens of unrelated cases equally (no
+# discrimination), so the wrong one wins on a tiebreak — the ARKO/Deepak failure
+# (2026-07-27): a profile's shallow "Top Skills" tags ("Finance Analytics", "Process
+# Optimization", "Data Governance"...) got extracted as needs and matched a market-data
+# case / PE due-diligence case over the close/reconciliation/AP cases that actually fit.
+# The real fix is in ai_matcher.extract_brief (extract the concrete workflow underneath a
+# label, not the label); this stoplist is the deterministic backstop for umbrella labels
+# that still slip through. Kept to pure management/transformation umbrellas — NOT terms
+# that can be a genuine capability in some account (e.g. "data governance" platform work).
 _GENERIC_NEEDS = {
     "project management", "program management", "budget management", "risk management",
     "stakeholder management", "change management", "general management", "people management",
     "team management", "operations management", "performance management", "cost management",
     "vendor management", "process improvement", "data analytics", "cost optimization",
+    # umbrella labels added 2026-07-27 (ARKO): never a case-study-shaped capability on their own
+    "process optimization", "resource management", "finance transformation",
+    "finance transformation leadership", "digital transformation",
+    "digital finance transformation", "business process reengineering",
+    "agile methodologies", "transformation roadmapping", "value realization",
+    "finance process design", "finance technology strategy", "finance systems implementation",
+    "program leadership", "operational excellence", "business process management",
+    "process automation", "data governance", "agile project management",
+    "cross-functional leadership", "cross-functional team leadership", "data governance frameworks",
+    "agile project management in finance",
+    # HR / talent umbrella labels added 2026-07-29 (NTT DATA / Tirumala): broad
+    # People-&-Culture PROGRAM areas, never a single case-study-shaped workforce
+    # capability on their own -- the real, matchable need is the specific recruitment
+    # workflow underneath (RPO, hire-train-deploy, high-volume hiring, technical
+    # recruiting, workforce planning). Bare "talent acquisition" is deliberately NOT
+    # here -- it IS the core capability; only these umbrella FORMS are filtered.
+    "talent acquisition strategy", "talent management", "talent strategy",
+    "employee engagement", "employee engagement programs", "learning and development",
+    "learning and development initiatives", "learning and development strategy",
+    "hr transformation", "human resources transformation", "people and culture",
+    "employer branding", "organizational development", "corporate communications",
 }
 
 OUTPUT_DIR = config.OUTPUT_DIR

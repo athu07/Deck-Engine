@@ -38,6 +38,34 @@ from .view_helpers import (shell, file_busy_page, current_salesperson,
 
 bp = Blueprint("decks", __name__)
 
+# Two priority-picked cases whose case-to-case cosine is >= this are near-TWINS --
+# the second is skipped so the deck never shows two look-alike proof points. Calibrated
+# from the real store (2026-07-29): genuine duplicates land at 0.85-0.91 (e.g. identical
+# DevSecOps-open-banking cases 0.91; WFS002/WFS025 workforce-scaling 0.87), while
+# genuinely DISTINCT talent picks (RPO vs HTD vs accelerated-hiring) top out at ~0.74 --
+# so 0.85 drops only true duplicates, never a real capability.
+PRIORITY_DEDUP_SIM = 0.85
+
+# Intro-deck per-work-type cap (owner-spec, 2026-07-31): on an Intro deck, cap each
+# SELECTED work type (Workforce/AI Pods/MS) at this many case studies -- a CEILING with a
+# quality gate, not a floor. The greedy pick loops already process candidates best-first
+# (sorted by adj, which folds in cosine + industry + persona + function fit), so capping
+# simply keeps the N best per work type and lets weaker ones fall away; nothing pads a
+# work type back UP to this count if fewer genuinely clear the bar. Applies to literal
+# priority-picks AND strategic bets COMBINED (one running count per work type, not a
+# separate allowance for each pass). Only Intro -- First/Second Meeting and Proposal decks
+# are unaffected. A need capped out this way is NOT shown as a "not in our library" gap
+# (a real case exists for it; there just wasn't room) -- see `capped_needs` below.
+INTRO_WORKTYPE_CAP = 3
+
+# Gap/bet reconciliation (2026-07-31): the cheap embedding pre-filter before asking the
+# LLM whether an already-picked case substantively covers a flagged gap (ai_matcher.
+# resolve_gap_overlap). Deliberately LOW and inclusive -- this only decides whether a
+# gap is worth ASKING about at all; the real yes/no comes from the grounded LLM read of
+# the candidate's actual challenge/solution text, not this number. Calibrated so all
+# three real Broadridge candidates (cosine 0.401 / 0.398 / 0.353) reach the LLM step.
+GAP_PREFILTER_COVER = 0.30
+
 # the pasted shapes that render through the shared inline-editor macro on /review
 # (a case study has its own richer card; library slides have their own title/subtitle form)
 _SHAPE_KINDS = tuple(k for k in slide_schema.SCHEMA if k != "case_study")
@@ -218,6 +246,12 @@ def build():
     profile_needs = []               # needs (name+description) — feeds lead_research
     avoid = []                       # the brief's mismatch flags
     priority_reasons = {}            # case_id -> {"why","signal"} for the rationale
+    # Intro per-work-type cap state (INTRO_WORKTYPE_CAP) -- defined here, not inside the
+    # literal-extraction branch below, so the (separate) strategic-bet pass can always see
+    # it and keep counting against the SAME running total, even on a build where the
+    # literal-needs branch never ran (e.g. extract_brief returned no usable needs).
+    apply_worktype_cap = ctx.get("phase") == "Intro"
+    wt_pick_counts = {}
     brief = {}                       # set below; kept defined even if extraction fails,
                                      # so the (separate) strategic-inference pass can use it
     # visible (not silent) degrade flag: True when we HAD research/profile/transcript
@@ -291,6 +325,11 @@ def build():
             # relationship to fit quality at all).
             picked = []                       # [{need,id,title,blurb}] for the explainer
             claimed_needs = set()
+            # capped_needs: needs whose only reason for going unfilled was the Intro
+            # per-work-type cap (a real case existed; there just wasn't room for it) --
+            # excluded from the "not in our library" gap list below, since that gap means
+            # something different (no proof point exists at all).
+            capped_needs = set()
             edges = []
             for n in all_needs:
                 name = n["name"]
@@ -302,13 +341,44 @@ def build():
                     if not (item["cosine"] >= CAPABILITY_COVER or item["title_hits"] >= 1):
                         continue                        # never clears the coverage bar
                     edges.append((n, name, item))
-            edges.sort(key=lambda e: (-e[2]["cosine"], -e[2]["title_hits"]))
+            # Order eligible edges by ADJUSTED strength, not raw cosine. cosine is the
+            # coverage GATE above (a case must clear CAPABILITY_COVER to be an edge at
+            # all); among cases that clear it, `adj` is the real "match strength" -- it
+            # folds in industry-vertical fit, the stakeholder persona, function, and
+            # lexical overlap on top of meaning. Sorting by raw cosine here made those
+            # signals inert at selection time: they only decided top-N shortlist
+            # membership, never the pick (owner-reported, 2026-07-29, NTT DATA -- a
+            # TECH_IT RPO case that was the obvious vertical + role fit sat in the
+            # shortlist but lost the pick to an off-vertical BFSI case by 0.03 cosine,
+            # because the +0.10 same-vertical boost lived only in adj). cosine stays as
+            # the secondary tiebreak so meaning still breaks ties between equal-adj cases.
+            edges.sort(key=lambda e: (-e[2]["adj"], -e[2]["cosine"], -e[2]["title_hits"]))
             for n, name, item in edges:
                 if name in claimed_needs or item["id"] in priority_ids:
                     continue                            # need already filled, or case already used
+                # MECHANISM-DEDUP: skip a case that is a near-TWIN (case-to-case cosine
+                # >= PRIORITY_DEDUP_SIM) of one already picked, so the deck doesn't show
+                # two look-alike proof points (e.g. WFS002 Zero-Disruption Scaling and
+                # WFS025 Contract-to-Hire, cos 0.87; two identical DevSecOps-open-banking
+                # cases, cos 0.91). A different, differentiated candidate can still fill
+                # this need on a later edge; if none exists it stays an honest gap. The
+                # 0.85 gate is calibrated ABOVE the ~0.74 max seen among genuinely
+                # DISTINCT talent picks (RPO vs HTD vs accelerated-hiring), so it never
+                # drops a real capability -- only true duplicates (2026-07-29).
+                if relevance.max_similarity(item["id"], priority_ids) >= PRIORITY_DEDUP_SIM:
+                    continue
+                rc = recs.get(item["id"], {})
+                if apply_worktype_cap:
+                    wt = (rc.get("work_type") or "").upper()
+                    if wt and wt_pick_counts.get(wt, 0) >= INTRO_WORKTYPE_CAP:
+                        capped_needs.add(name)      # a real case existed -- just no room
+                        continue
                 claimed_needs.add(name)
                 priority_ids.append(item["id"])
-                rc = recs.get(item["id"], {})
+                if apply_worktype_cap:
+                    wt = (rc.get("work_type") or "").upper()
+                    if wt:
+                        wt_pick_counts[wt] = wt_pick_counts.get(wt, 0) + 1
                 picked.append({"need": name, "id": item["id"], "title": rc.get("title", ""),
                                "blurb": rc.get("challenge", ""),
                                "solution": rc.get("solution", ""),
@@ -316,7 +386,8 @@ def build():
                                "strength": item["cosine"]})
             for n in all_needs:
                 name = n["name"]
-                if name.strip().lower() in _GENERIC_NEEDS or name in claimed_needs:
+                if (name.strip().lower() in _GENERIC_NEEDS or name in claimed_needs
+                        or name in capped_needs):
                     continue
                 if name.lower() not in expressed_lc and n.get("description"):
                     best_cos = max((item["cosine"] for item in sl_by_name.get(name, [])), default=0.0)
@@ -333,6 +404,15 @@ def build():
             # lexical collision on "demand"). explain_picks() now sees the case's real
             # SOLUTION text (not just a title) and can say fit=false; a rejected pick is
             # dropped back to an honest gap rather than kept with glossy reasoning.
+            # the FORM industry is authoritative over the one extract_brief inferred: when an
+            # account is described only through a finance stakeholder's profile + a logistics
+            # mail (neither says what the COMPANY sells), the model guesses the account's
+            # industry as "Finance" for what is really a retailer -- and the business-model fit
+            # check below needs the account's REAL industry to reject investor / finance-
+            # institution cases (ARKO, 2026-07-27). The salesperson's picked industry is ground
+            # truth; use it.
+            if ctx.get("industry"):
+                brief.setdefault("account", {})["industry"] = ctx["industry"]
             ex = ai_matcher.explain_picks(brief, picked, profile_text, research_text)
             for it in picked:
                 r = ex.get(it["id"])
@@ -438,6 +518,10 @@ def build():
                         continue                        # already used for a literal need
                     if _is_avoided(recs.get(item["id"], {}), avoid):
                         continue                        # skip a mismatch-flagged case
+                    if apply_worktype_cap:
+                        wt = (recs.get(item["id"], {}).get("work_type") or "").upper()
+                        if wt and wt_pick_counts.get(wt, 0) >= INTRO_WORKTYPE_CAP:
+                            continue                    # work type already at the Intro cap
                     cand = item
                     break
                 if cand and (cand["cosine"] >= CAPABILITY_COVER or cand["title_hits"] >= 1):
@@ -451,6 +535,10 @@ def build():
                     if not v["fit"]:
                         continue                # doesn't really hold up -- drop the bet, no gap
                     priority_ids.append(cand["id"])
+                    if apply_worktype_cap:
+                        wt = (rc.get("work_type") or "").upper()
+                        if wt:
+                            wt_pick_counts[wt] = wt_pick_counts.get(wt, 0) + 1
                     priority_reasons[cand["id"]] = {
                         "why": v["stakeholder_why"], "signal": "strategic bet",
                         "stakeholder_why": v["stakeholder_why"], "company_why": v["company_why"],
@@ -458,6 +546,42 @@ def build():
     except Exception:
         logger.exception("strategic-bet pass raised -- deck built with 0 strategic bets "
                          "this time (literal priority picks above are unaffected)")
+
+    # GAP/BET RECONCILIATION (owner-reported, 2026-07-31, Broadridge India / Vivek Avvari):
+    # `missing` is computed from LITERAL-need coverage above, BEFORE the strategic-bet pass
+    # runs -- so a bet added afterward was never re-checked against gaps already flagged. A
+    # "Wealth Management Technology" gap and an MSS052 strategic-bet pick (a wealth-management
+    # conversational-analytics case) shipped in the SAME deck: the deck claimed MSS052 as a
+    # proof point and, in the same breath, said we have no proof for that exact capability.
+    # A bare cosine re-check can't safely resolve this (calibrated on this exact account:
+    # "MSS052 covers Wealth Management" at cosine 0.401 and "MSS052 does NOT cover Capital
+    # Markets Product Delivery" at 0.398 sit 0.003 apart -- no threshold gets both right), so
+    # this uses the same grounded-LLM-judgment pattern as explain_picks/validate_bet_fit: a
+    # cheap embedding pass only PRE-FILTERS to gaps with a plausible best-candidate (skip the
+    # LLM ask entirely below GAP_PREFILTER_COVER -- obviously not covered, no need to ask),
+    # then resolve_gap_overlap reads the candidate's REAL challenge/solution before deciding.
+    if missing and priority_ids:
+        try:
+            recs = {r["id"]: r for r in case_library._load()}
+            gap_texts = [f'{m["name"]}. {m.get("description", "")}' for m in missing]
+            gap_shortlists = relevance.shortlist_cases(
+                gap_texts, industry=ctx.get("industry", ""), functions=acct_fns,
+                allowed_ids=set(priority_ids), top_n=1, persona_codes=persona_codes)
+            candidates = []
+            for m, sl in zip(missing, gap_shortlists):
+                if sl and sl[0]["cosine"] >= GAP_PREFILTER_COVER:
+                    cid = sl[0]["id"]
+                    rc = recs.get(cid, {})
+                    candidates.append({"name": m["name"], "description": m.get("description", ""),
+                                       "candidate_id": cid, "candidate_title": rc.get("title", ""),
+                                       "candidate_challenge": rc.get("challenge", ""),
+                                       "candidate_solution": rc.get("solution", "")})
+            resolved = ai_matcher.resolve_gap_overlap(candidates) if candidates else {}
+            missing = [m for m in missing
+                      if not resolved.get(m["name"], {}).get("covered")]
+        except Exception:
+            logger.exception("gap/bet reconciliation raised -- gaps kept unreconciled "
+                             "(fail-safe: shown, not silently hidden)")
 
     # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
     lead_research = (research_text + "\n"
