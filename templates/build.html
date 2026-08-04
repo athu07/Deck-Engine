@@ -59,6 +59,18 @@
     </div>
     {% endif %}
 
+    {% if profile_failed %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
+      <b>⚠ Couldn't read any text from the stakeholder profile.</b> It's most likely a scanned or image-only PDF. On a profile-driven deck that file is usually the main signal, so the picks below came from your notes and the form alone — export the profile as a text PDF, or paste the key points into the Context box, and rebuild.
+    </div>
+    {% endif %}
+
+    {% if no_research_picks %}
+    <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
+      <b>⚠ Nothing in the library matched this account's needs closely enough.</b> Your notes and files were read and understood, but no case study cleared the quality bar for any of the needs found — so the case studies below are general best matches, not proof points tied to a specific need. The gaps flagged below are what's genuinely missing; use <b>Draft with AI</b> to write one.
+    </div>
+    {% endif %}
+
     {% if brief_weak %}
     <div class="card" style="margin-top:18px;border-left:4px solid #c47d27;background:#fff8f0;color:#7a4a06">
       <b>⚠ Your research/profile was read, but this build's AI analysis of it didn't come through.</b> The picks below used general keyword matching instead of the deeper research-driven pass — they may be less targeted than usual. Try rebuilding this deck; if it keeps happening, the notes/profile text may need to be shortened or simplified.
@@ -94,7 +106,7 @@
       {% for m in missing %}
       <div class="gap-card" id="gap-{{ loop.index0 }}" style="background:#fdf2f2;border:1px solid #f2d2d2;border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <div><b>{{ m.name }}</b><br><span class="hint" style="font-size:13px">{{ m.description }}</span>
+          <div><b>{{ m.name }}</b>{% if m.expressed %} <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#fff;background:#C02026;border-radius:4px;padding:2px 6px;vertical-align:middle">raised in your notes</span>{% endif %}<br><span class="hint" style="font-size:13px">{{ m.description }}</span>
             <span class="gap-done" style="display:none;color:#2C6E66;font-size:12.5px;font-weight:600"><br><i class="ti ti-check"></i> Drafted and added to your deck</span></div>
           {# The gap's text rides on data-* attributes, which Jinja escapes properly.
              It used to be an inline onclick="draftAI({{ m.name|tojson }}, ...)" -- and

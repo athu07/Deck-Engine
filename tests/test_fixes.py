@@ -1072,3 +1072,177 @@ def test_the_other_sentinel_can_never_be_stored_as_an_industry(tmp_path, monkeyp
     industries = _isolate_custom_industries(tmp_path, monkeypatch)
     assert industries.add("__OTHER__") is False
     assert industries.load() == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# /build pick-count + typed-context regressions (owner-reported, 2026-08-04)
+#
+#   1. A deck built from a stakeholder profile came back with 3 case studies
+#      whatever the input -- two separate ceilings were fighting each other and
+#      one of them silently threw away picks the pipeline had already vetted.
+#   2. Whatever the salesperson typed into the Context box left no trace in the
+#      built deck: topics the client actually raised were neither picked nor
+#      flagged as a gap.
+# ══════════════════════════════════════════════════════════════════════════════
+def _cand(cid, adj=0.90, cosine=0.80, title_hits=1):
+    """One shortlist_cases() candidate row."""
+    return {"id": cid, "adj": adj, "cosine": cosine, "title_hits": title_hits}
+
+
+def _hermetic_build(monkeypatch, tmp_path, *, brief, shortlists):
+    """Pin every AI seam /build touches to a fixed answer, so a POST is offline and
+    deterministic. `shortlists` maps a need NAME -> the candidates shortlist_cases
+    would have returned for it. Returns a dict that captures what reached
+    matcher.plan()."""
+    from deckengine import config
+    from deckengine.services.matching import ai_matcher, matcher, relevance
+
+    monkeypatch.setattr(config, "BUILD_CONTEXT_DIR", str(tmp_path))
+    monkeypatch.setattr(ai_matcher, "extract_brief",
+                        lambda research="", profile="", transcript="": dict(brief))
+    monkeypatch.setattr(ai_matcher, "infer_strategic_fit",
+                        lambda research="", profile="", transcript="", brief=None: [])
+    monkeypatch.setattr(ai_matcher, "resolve_gap_overlap", lambda gaps: {})
+    monkeypatch.setattr(ai_matcher, "explain_picks",
+                        lambda brief, items, profile="", research="":
+                        {i["id"]: {"fit": True, "reason": "proves " + i["need"],
+                                   "signal": "capability"} for i in items})
+    monkeypatch.setattr(relevance, "embed_texts", lambda texts: None)   # no network
+    monkeypatch.setattr(relevance, "max_similarity", lambda sid, others: 0.0)
+    monkeypatch.setattr(relevance, "shortlist_cases",
+                        lambda texts, industry="", functions=None, allowed_ids=None,
+                        top_n=8, persona_codes=(): [list(shortlists.get(t, [])) for t in texts])
+
+    seen = {}
+    real_plan = matcher.plan
+
+    def spy_plan(context, *a, **kw):
+        seen["priority_ids"] = list(kw.get("priority_ids") or [])
+        seen["research"] = context.get("research") or ""
+        seen["transcript"] = context.get("transcript") or ""
+        return real_plan(context, *a, **kw)
+
+    monkeypatch.setattr(matcher, "plan", spy_plan)
+    return seen
+
+
+def _post_build(client, **over):
+    import re
+    form = {"client_name": "Acme Corp", "industry": "RETAIL", "phase": "Intro",
+            "recipient": "FP&A Manager", "transcript": "notes", "work_types": ["MS"],
+            "functions": []}
+    form.update(over)
+    r = client.post("/build", data=form, content_type="multipart/form-data")
+    assert r.status_code == 200, r.status_code
+    html = r.get_data(as_text=True)
+    ids = re.findall(r'data-id="([^"]+)"', html)
+    return {
+        "html": html,
+        "cases": [i for i in ids if i[:3] in ("AIP", "WFS", "MSS")],
+        "gaps": re.findall(r'data-name="([^"]*)"', html),
+    }
+
+
+def _brief(needs, expressed=()):
+    return {"needs": [{"name": n, "description": n + " description", "domain": "Retail",
+                       "use_case": n} for n in needs],
+            "avoid": [], "expressed_interest": list(expressed),
+            "account": {"industry": "RETAIL", "role": "FP&A Manager",
+                        "company_context": "A convenience retailer."},
+            "prefer_high_impact": False, "asks_differentiation": False,
+            "asks_why_not_big_si": False}
+
+
+def test_plan_never_silently_drops_a_vetted_priority_pick():
+    """matcher.plan applied its OWN Intro ceiling (a flat 4) on top of the per-work-type
+    cap the pick pipeline had already enforced (3 EACH), so a mixed Intro deck lost every
+    pick past the 4th -- no gap, no log, no trace (owner-reported, 2026-08-04)."""
+    _chdir()
+    from deckengine.services.matching import matcher
+    ctx = {"client_name": "Acme", "industry": "RETAIL", "phase": "Intro",
+           "work_types": ["MS", "WORKFORCE"], "functions": [], "recipient": "CFO",
+           "transcript": "notes"}
+    vetted = ["MSS050", "MSS051", "MSS048", "WFS019", "WFS032", "WFS043"]
+    ids = [p["slide_id"] for p in matcher.plan(ctx, use_ai=False, priority_ids=vetted)["picks"]]
+    dropped = [v for v in vetted if v not in ids]
+    assert not dropped, "plan() threw away vetted picks: %s" % dropped
+
+
+def test_intro_deck_carries_three_case_studies_per_selected_work_type(tmp_path, monkeypatch):
+    """The owner's Intro rule is 3 case studies per SELECTED work type (a ceiling with a
+    quality gate). A Workforce+MS Intro deck must therefore be able to carry 6, not 4."""
+    _chdir()
+    import app as appmod
+    needs = ["Month-End Close", "Financial Reconciliation", "Close Orchestration",
+             "Managed Recruitment", "Hire Train Deploy", "Accelerated Hiring"]
+    picks = ["MSS050", "MSS051", "MSS048", "WFS019", "WFS032", "WFS043"]
+    _hermetic_build(monkeypatch, tmp_path, brief=_brief(needs),
+                    shortlists={n: [_cand(c)] for n, c in zip(needs, picks)})
+    out = _post_build(appmod.app.test_client(), work_types=["MS", "WORKFORCE"], phase="Intro")
+    assert sorted(out["cases"]) == sorted(picks), out["cases"]
+
+
+def test_a_topic_the_client_raised_is_flagged_when_we_have_no_case(tmp_path, monkeypatch):
+    """A capability the salesperson typed into the Context box that our library can't
+    prove was dropped on the floor -- never picked, never flagged. It is the single most
+    important gap there is: the client asked for it out loud."""
+    _chdir()
+    import app as appmod
+    _hermetic_build(monkeypatch, tmp_path,
+                    brief=_brief(["Financial Reconciliation"],
+                                 expressed=["SAP S/4HANA migration"]),
+                    shortlists={"Financial Reconciliation": [_cand("MSS051")],
+                                "SAP S/4HANA migration": []})     # nothing covers it
+    out = _post_build(appmod.app.test_client(),
+                      transcript="Their CIO asked twice about an SAP S/4HANA migration.")
+    assert "MSS051" in out["cases"]
+    assert any("SAP S/4HANA migration" in g for g in out["gaps"]), out["gaps"]
+
+
+def test_a_topic_the_client_raised_gets_first_claim_on_a_case(tmp_path, monkeypatch):
+    """When slots are scarce (an Intro deck caps at 3 per work type), a topic the client
+    actually raised must claim its proof point ahead of one merely inferred from the
+    stakeholder's profile -- even though the profile match scores higher. It still has to
+    clear the same coverage bar; this only decides who claims a case first."""
+    _chdir()
+    import app as appmod
+    profile_needs = ["Month-End Close", "Financial Reconciliation", "Management Reporting"]
+    _hermetic_build(
+        monkeypatch, tmp_path,
+        brief=_brief(profile_needs, expressed=["Predictive Maintenance"]),
+        shortlists={"Month-End Close": [_cand("MSS048", adj=0.95, cosine=0.90)],
+                    "Financial Reconciliation": [_cand("MSS051", adj=0.94, cosine=0.89)],
+                    "Management Reporting": [_cand("MSS050", adj=0.93, cosine=0.88)],
+                    # genuinely covered, but the weakest of the four
+                    "Predictive Maintenance": [_cand("MSS084", adj=0.55, cosine=0.52)]})
+    out = _post_build(appmod.app.test_client(), phase="Intro", work_types=["MS"],
+                      transcript="They want predictive maintenance for the fuel fleet.")
+    assert "MSS084" in out["cases"], out["cases"]
+
+
+def test_topics_the_client_raised_reach_the_fill_ranker(tmp_path, monkeypatch):
+    """`lead_research` -- the full-weight signal the fill ranker sorts on -- was built
+    from the profile's needs only, so the salesperson's own notes carried no weight
+    there at all."""
+    _chdir()
+    import app as appmod
+    seen = _hermetic_build(monkeypatch, tmp_path,
+                           brief=_brief(["Financial Reconciliation"],
+                                        expressed=["Warehouse Automation"]),
+                           shortlists={"Financial Reconciliation": [_cand("MSS051")]})
+    _post_build(appmod.app.test_client(),
+                transcript="They asked about warehouse automation for the fleet.")
+    assert "Warehouse Automation" in seen["research"], seen["research"]
+
+
+def test_an_unreadable_profile_file_warns_instead_of_matching_on_nothing(tmp_path, monkeypatch):
+    """A scanned/image profile PDF yields no text. The research file has warned about
+    this since day one; the profile file silently matched on nothing instead."""
+    _chdir()
+    import io
+    import app as appmod
+    _hermetic_build(monkeypatch, tmp_path, brief={}, shortlists={})
+    out = _post_build(appmod.app.test_client(), transcript="",
+                      profile_file=(io.BytesIO(b"%PDF-1.4 not really a pdf"), "profile.pdf"))
+    assert "couldn't read any text from the stakeholder profile" in out["html"].lower(), \
+        "no warning shown for an unreadable profile file"

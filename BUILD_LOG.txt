@@ -4936,3 +4936,104 @@ hit share the same root shape (a weak/generic signal -> flat cosine -> wrong cas
 now two structural gaps (dead industry signal off the taxonomy; gap/bet passes never
 cross-checking each other) and one new selection-shape rule (per-work-type ceiling for
 Intro decks).
+
+============================================================================
+2026-08-04  New-deck Context page -- two owner-reported bugs on /build:
+            (1) "it only ever picks 3 case studies"; (2) "I can't find
+            anything related to the content I typed in".
+============================================================================
+
+------------------------------------------------------------
+ISSUE 1 -- the deck came back with 3 case studies whatever the input
+------------------------------------------------------------
+REPRODUCED (instrumented /build, identical inputs, phase varied): Intro -> 3 case
+studies; First Meeting / Proposal -> 7. Two separate ceilings were involved, and one of
+them was throwing away picks the pipeline had already vetted.
+
+ROOT CAUSE A -- TWO CONTRADICTORY INTRO CEILINGS, one of them silent.
+  web/decks.py enforced the owner's 2026-07-31 rule (3 case studies per SELECTED work
+  type), while matcher.plan() applied its own, older, flat MAX_CASE_PICKS_INTRO = 4 to
+  the deck TOTAL. On a Workforce+MS Intro deck the pipeline legitimately selected 5-6
+  cases and plan() dropped everything past the 4th -- no gap, no log, no trace. Proven:
+  pipeline selected ['MSS050','MSS051','WFS025','WFS011','MSS048'], deck got 4, MSS048
+  vanished. The two numbers were written 11 days apart and never reconciled.
+FIX: INTRO_WORKTYPE_CAP now lives in matcher.py as the ONE source of that number, with
+  new matcher.intro_case_ceiling(work_types) = cap x (number of selected work types)
+  -- 1 work type -> 3, Workforce+MS -> 6, all three -> 9. decks.py imports the constant
+  instead of redefining it, so the two halves of the pipeline can no longer disagree.
+  MAX_CASE_PICKS_INTRO is gone. plan() also now LOGS a warning naming every vetted pick
+  it drops if a ceiling ever does bite again -- silent content loss was the real defect.
+  Single-work-type Intro decks are unchanged (3, the owner's rule); First/Second Meeting
+  and Proposal are untouched (MAX_CASE_PICKS = 12).
+
+ROOT CAUSE B -- "exactly 3" is also the signature of the FALLBACK path.
+  pick_cap = min(ceiling, max(len(selected_ids), 3)) in matcher.plan: when the
+  research-driven pass produces NO picks, every deck (any phase) gets exactly 3 generic
+  fill cases. That is the intended "keep the deck tight" behaviour and is pinned by the
+  golden test, so it was NOT changed -- but it was indistinguishable on screen from a
+  properly research-driven deck. Of 22 logged decks in meetings/, 7 sit at exactly 3.
+FIX (visibility, not behaviour): a new "Nothing in the library matched this account's
+  needs closely enough" banner on /build whenever the brief WAS usable but not one case
+  cleared the coverage bar -- i.e. the case studies shown are general best matches, not
+  proof points tied to a need. brief_weak already covered the other degrade (no usable
+  brief at all); this covers the silent one.
+
+ALSO FIXED: an unreadable stakeholder profile (a scanned/image PDF -> no text) had NO
+  warning at all -- the research file has warned since day one, the profile file did not.
+  On a profile-driven build that file is usually the ONLY signal, so the deck was matched
+  on nothing and looked exactly like "it always picks the same three slides". New
+  profile_failed flag + banner, mirroring research_failed.
+
+------------------------------------------------------------
+ISSUE 2 -- what the salesperson typed into the Context box left no trace
+------------------------------------------------------------
+REPRODUCED (real gpt-4o-mini): with a stakeholder profile attached, extract_brief's
+reference priority puts EVERYTHING from the typed notes into `expressed_interest` and
+NOTHING into `needs` -- verified: the same notes alone yield 4 real needs; alongside a
+profile they yield 0. Downstream, those expressed topics were second-class in three
+separate places, so on an Intro deck (3 slots) the client's own questions disappeared:
+"SAP S/4HANA migration", asked twice by their CIO, was neither picked NOR flagged.
+
+ROOT CAUSES (all in web/decks.py):
+  a. Expressed topics became needs with an EMPTY description/domain/use_case.
+  b. The gap loop excluded them TWICE -- `name.lower() not in expressed_lc` and
+     `n.get("description")` -- so a capability the client asked for out loud and that our
+     library cannot prove vanished completely: not a pick, not a gap, nothing to draft
+     against. The gap that matters most was the one gap that could never be shown.
+  c. lead_research (the FULL-weight signal the fill ranker sorts on) was built from the
+     profile's needs only, so the typed notes reached the ranker only through the raw
+     transcript -- which is deliberately down-weighted to 0.7. What the salesperson typed
+     counted for less than a capability inferred from a LinkedIn page.
+  d. Claim order was by `adj` alone, so three profile-inferred needs at cosine ~0.9 took
+     all three Intro slots ahead of anything the client actually raised.
+
+FIX: an expressed-interest topic is now a FIRST-CLASS need, flagged `expressed`:
+  - carries a real description + the account's domain (so it is gap-eligible and so
+    "Draft with AI" has something to write from);
+  - gets FIRST CLAIM on a case in the greedy assignment. This lowers no bar -- an edge
+    only exists if that case already cleared CAPABILITY_COVER -- it only decides who
+    claims a case first when slots are scarce;
+  - is eligible for the "not in our library" list, sorted to the TOP of it (the list is
+    truncated at 10; a topic they asked about must never be what falls off the end), and
+    badged "RAISED IN YOUR NOTES" on the gap card;
+  - rides in lead_research at full weight (name only -- its description is a fixed house
+    string that would just add noise to the ranking text);
+  - shows a "discussed" chip in "Why this deck matches", so the page SHOWS which picks
+    came from what was typed in.
+
+VERIFIED (real gpt-4o-mini, ARKO/FP&A profile + notes naming warehouse automation,
+predictive maintenance, S/4HANA migration and computer-vision shrink detection):
+  - BEFORE, Intro: MSS050 / MSS051 / MSS014 -- three finance cases from the profile,
+    nothing from the notes, and no gap for any of the four topics raised.
+  - AFTER, Intro: MSS084 (predictive maintenance) / MSS131 (AI vision) / MSS120
+    (migration platform) -- the topics the client actually raised.
+  - AFTER, First Meeting: both signals coexist -- the three raised topics LEAD, then the
+    profile's finance cases (MSS015/047/051/104/043...), with 4 "discussed" chips shown.
+
+TESTS: 6 new hermetic guards in tests/test_fixes.py (no network -- every AI seam pinned):
+plan never silently drops a vetted pick; an Intro deck carries 3 per SELECTED work type;
+a raised topic we can't prove is flagged as a gap; a raised topic gets first claim on a
+case; raised topics reach the fill ranker via lead_research; an unreadable profile warns.
+All 6 failed before the fix, pass after. Full suite 62 pass / 1 fail -- the 1 failure is
+the PRE-EXISTING stale-master-preview test (run scripts/prerender_master.py and commit
+static/previews/ to clear it); the golden matcher pins are unchanged.

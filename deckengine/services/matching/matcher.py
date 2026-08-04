@@ -20,10 +20,13 @@ The registry drives the rules (its include_rule column); the content library
 """
 
 import json
+import logging
 import re
 import sys
 
 import openpyxl
+
+logger = logging.getLogger(__name__)
 
 from deckengine import config
 from deckengine.services.matching import synonyms      # equivalence groups so paraphrased topics still match
@@ -54,11 +57,30 @@ def _account_functions(form_functions, transcript):
 
 # Case-selection knobs (the rebuilt ranker):
 MAX_CASE_PICKS = 12    # breadth cap — a multi-solution account needs many proofs
-# Intro decks stay lean in practice (owner-confirmed, 2026-07-20: real hand-built
-# Intro decks for Olam Group and CIBC used 3-4 case studies, never anywhere near
-# 12) — the breadth cap above is for First/Second Meeting, where a multi-solution
-# account genuinely needs more proof points.
-MAX_CASE_PICKS_INTRO = 4
+
+# Intro decks stay lean (owner-confirmed, 2026-07-20: real hand-built Intro decks for
+# Olam Group and CIBC used 3-4 case studies, never anywhere near 12), and the owner's
+# rule of 2026-07-31 states it exactly: cap each SELECTED work type at 3 case studies --
+# a CEILING with a quality gate, never a floor (fewer is fine; nothing is padded back up).
+#
+# THIS CONSTANT IS THE ONE SOURCE OF THAT NUMBER. It lives here, in the matching layer,
+# because both halves of the pick pipeline have to agree on it: web/decks.py enforces it
+# per work type while it is CHOOSING cases, and plan() (below) bounds the deck total.
+# They used to be two unrelated numbers -- decks.py allowed 3 per work type while plan()
+# capped the deck at a flat 4 -- so a Workforce+MS Intro deck legitimately selected 6
+# cases and plan() silently dropped the last 2: no gap, no log, nothing the salesperson
+# could see (owner-reported, 2026-08-04, "it only ever picks 3"). Keep them derived from
+# this one constant; never reintroduce a second, independent Intro ceiling.
+INTRO_WORKTYPE_CAP = 3
+
+
+def intro_case_ceiling(work_types):
+    """How many case studies an Intro deck may carry in total: INTRO_WORKTYPE_CAP for
+    each SELECTED work type. One work type -> 3, Workforce+MS -> 6, all three -> 9."""
+    n = len({str(w).strip().upper() for w in (work_types or []) if str(w).strip()})
+    return INTRO_WORKTYPE_CAP * max(1, n)
+
+
 CASE_FLOOR     = 1.2   # below this relevance a case isn't worth auto-including
 CASE_REL_FLOOR = 0.72  # ...and keep only cases within this fraction of the top score
                        # (so a simple, single-ask meeting gets a few cases, not 12)
@@ -520,7 +542,9 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     composition = composition_of(wanted)
     gcc_text = transcript_raw + " " + research_raw
     lead_wt = _lead_work_type(transcript_raw)   # explicit "lead with X" -> reorders standard blocks
-    case_cap_ceiling = MAX_CASE_PICKS_INTRO if stage == "intro" else MAX_CASE_PICKS
+    # Intro: the per-work-type rule, so this ceiling can never sit BELOW what the pick
+    # pipeline was allowed to choose (see intro_case_ceiling).
+    case_cap_ceiling = intro_case_ceiling(wanted) if stage == "intro" else MAX_CASE_PICKS
 
     # ---- pass 1: always-in, std blocks, and gather candidate case studies ----
     for row in reg:
@@ -630,8 +654,15 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
 
     # 1) the research-matched cases LEAD the deck, in research order (guarantees the
     #    named hooks are proven, e.g. weld-vision, digital-twin).
-    for pid in priority_list:
+    for i, pid in enumerate(priority_list):
         if len(selected_ids) >= case_cap_ceiling:
+            # Each priority pick has ALREADY cleared the coverage bar, the LLM fit check,
+            # the near-twin dedup and the per-work-type cap upstream, so cutting one here
+            # is real content loss -- it must never be silent (owner-reported, 2026-08-04).
+            logger.warning("case ceiling %d reached on a %s deck (%s) -- %d vetted "
+                           "priority pick(s) dropped: %s", case_cap_ceiling,
+                           stage or "proposal/legacy", "/".join(sorted(wanted)) or "-",
+                           len(priority_list) - i, priority_list[i:])
             break
         it = ranked_by_id.get(pid)
         if it is None and pid in row_by_id:            # matched a hook but ranked low

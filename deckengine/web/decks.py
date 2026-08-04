@@ -56,7 +56,11 @@ PRIORITY_DEDUP_SIM = 0.85
 # separate allowance for each pass). Only Intro -- First/Second Meeting and Proposal decks
 # are unaffected. A need capped out this way is NOT shown as a "not in our library" gap
 # (a real case exists for it; there just wasn't room) -- see `capped_needs` below.
-INTRO_WORKTYPE_CAP = 3
+#
+# IMPORTED, not redefined: matcher.plan() bounds the deck total from the SAME constant
+# (matcher.intro_case_ceiling). While these were two independent numbers, a Workforce+MS
+# Intro deck picked 6 cases here and plan() silently threw 2 away (2026-08-04).
+INTRO_WORKTYPE_CAP = matcher.INTRO_WORKTYPE_CAP
 
 # Gap/bet reconciliation (2026-07-31): the cheap embedding pre-filter before asking the
 # LLM whether an already-picked case substantively covers a flagged gap (ai_matcher.
@@ -118,6 +122,7 @@ def _resume_page(reopen_seed=None):
                                   suggestions=[], suggested=[], ai_used=False,
                                   persona_labels=[], rationale=[], missing=[],
                                   research_read=False, research_failed=False, brief_weak=False,
+                                  profile_failed=False, no_research_picks=False,
                                   resume=True, build_id="", reopen_seed=reopen_seed)
     return shell(body, active="new", crumb="<b>New deck</b> / Your deck")
 
@@ -179,8 +184,15 @@ def build():
     research_given = bool(request.files.get("research_file") and
                           getattr(request.files.get("research_file"), "filename", ""))
     research_failed = research_given and not research_text
-    # optional STAKEHOLDER PROFILE (LinkedIn/bio) -> drives function/skill matching
+    # optional STAKEHOLDER PROFILE (LinkedIn/bio) -> drives function/skill matching.
+    # An unreadable one (a scanned/image PDF) is flagged exactly like an unreadable
+    # research file: the profile is usually the ONLY signal on a profile-driven build, so
+    # silently matching on nothing looked identical to "the engine always picks the same
+    # three slides" (owner-reported, 2026-08-04).
     profile_text = research.extract_text(request.files.get("profile_file"))
+    profile_given = bool(request.files.get("profile_file") and
+                         getattr(request.files.get("profile_file"), "filename", ""))
+    profile_failed = profile_given and not profile_text
     # optional AUTO-RESEARCH (the strategic brief from /research_account) -- the
     # salesperson reviewed/edited it client-side before submitting. Combined
     # ADDITIVELY with any uploaded research file text, never replacing it
@@ -294,11 +306,22 @@ def build():
             avoid = brief.get("avoid") or []
             expressed = brief.get("expressed_interest") or []
             needs = brief["needs"]
-            profile_needs = needs                       # names+descriptions for lead_research
-            # expressed-interest topics -> lightweight needs so PRIOR INTEREST is weighted
+            # WHAT THE SALESPERSON TYPED INTO THE CONTEXT BOX (owner-reported, 2026-08-04:
+            # "I can't find anything related to the content I provided"). When a stakeholder
+            # profile is attached, extract_brief's reference priority puts everything from
+            # the notes into expressed_interest and NOTHING from them into `needs` -- so the
+            # topics the client actually raised used to arrive here as nameless stubs with no
+            # description, which then (a) made them ineligible for the gap list, (b) kept them
+            # out of lead_research, and (c) left them to lose every tiebreak to a profile-
+            # inferred need. A topic the client raised OUT LOUD is the strongest buying signal
+            # we get; it is now a first-class need, flagged `expressed` so the three places
+            # that treat it differently (claim order, gaps, the rationale label) can say so.
+            acct_domain = (brief.get("account") or {}).get("industry", "") or ctx.get("industry", "")
             seen_names = {n["name"].lower() for n in needs}
-            all_needs = needs + [{"name": x, "description": "", "domain": "", "use_case": ""}
+            all_needs = needs + [{"name": x, "description": "Raised in your notes for this account.",
+                                  "domain": acct_domain, "use_case": x, "expressed": True}
                                  for x in expressed if x.lower() not in seen_names]
+            profile_needs = all_needs                   # names+descriptions for lead_research
             # cheap shortlist per need — query is the bare CAPABILITY NAME (a crisp capability
             # embeds best; adding the use-case sentence or the client industry drags the match
             # toward the wrong cases). Industry is applied separately as a light boost.
@@ -308,7 +331,6 @@ def build():
                                                    persona_codes=persona_codes)
             sl_by_name = {n["name"]: lst for n, lst in zip(all_needs, shortlists)}
             recs = {r["id"]: r for r in case_library._load()}
-            expressed_lc = {x.lower() for x in expressed}
             # SELECTION is algorithmic (the semantic shortlist ranks capability reliably) --
             # covered -> priority pick; nothing clears the bar -> an honest gap.
             # GLOBAL greedy-by-strength assignment, not list order (owner-reported, 2026-07-23,
@@ -352,7 +374,17 @@ def build():
             # shortlist but lost the pick to an off-vertical BFSI case by 0.03 cosine,
             # because the +0.10 same-vertical boost lived only in adj). cosine stays as
             # the secondary tiebreak so meaning still breaks ties between equal-adj cases.
-            edges.sort(key=lambda e: (-e[2]["adj"], -e[2]["cosine"], -e[2]["title_hits"]))
+            #
+            # FIRST CLAIM FOR WHAT THE CLIENT ACTUALLY RAISED (owner-reported, 2026-08-04):
+            # a topic from the salesperson's own Context notes claims its proof point before
+            # a need merely INFERRED from the stakeholder's profile. This lowers no bar -- an
+            # expressed edge only exists if that case already cleared CAPABILITY_COVER above
+            # -- it only decides who claims a case FIRST when slots are scarce (an Intro deck
+            # allows 3 per work type). Without it, three profile-inferred needs at cosine
+            # ~0.9 took every Intro slot and the capability the client asked about twice
+            # never made the deck.
+            edges.sort(key=lambda e: (0 if e[0].get("expressed") else 1,
+                                      -e[2]["adj"], -e[2]["cosine"], -e[2]["title_hits"]))
             for n, name, item in edges:
                 if name in claimed_needs or item["id"] in priority_ids:
                     continue                            # need already filled, or case already used
@@ -383,17 +415,27 @@ def build():
                                "blurb": rc.get("challenge", ""),
                                "solution": rc.get("solution", ""),
                                "industry": rc.get("industry", ""),
+                               "expressed": bool(n.get("expressed")),
                                "strength": item["cosine"]})
             for n in all_needs:
                 name = n["name"]
                 if (name.strip().lower() in _GENERIC_NEEDS or name in claimed_needs
                         or name in capped_needs):
                     continue
-                if name.lower() not in expressed_lc and n.get("description"):
+                # An expressed-interest topic used to be excluded from this list outright,
+                # so a capability the client raised in the meeting and that our library
+                # cannot prove vanished completely -- not a pick, not a gap, nothing the
+                # salesperson could see or draft against (owner-reported, 2026-08-04). It is
+                # the gap that matters MOST: they asked for it out loud.
+                if n.get("description"):
                     best_cos = max((item["cosine"] for item in sl_by_name.get(name, [])), default=0.0)
                     missing.append({"name": name, "description": n["description"],
                                     "domain": n.get("domain", ""), "use_case": n.get("use_case", ""),
+                                    "expressed": bool(n.get("expressed")),
                                     "sim": round(best_cos, 2)})
+            # what the client RAISED leads the gap list -- it is truncated at 10 below, and
+            # a topic they asked about must never be the one that falls off the end
+            missing.sort(key=lambda m: 0 if m.get("expressed") else 1)
             missing = missing[:10]
             # rich, honest "why this was picked" line per pick (one LLM call; the model only
             # EXPLAINS the already-chosen case, so it cannot mis-pick). Templated fallback.
@@ -422,12 +464,19 @@ def build():
                     missing.append({"name": it["need"], "description": it.get("blurb", ""),
                                     "domain": "", "use_case": "", "sim": round(it["strength"], 2)})
                     continue
-                if r and r.get("reason"):
-                    priority_reasons[it["id"]] = {"why": r["reason"], "signal": r.get("signal", ""),
-                                                  "strength": it["strength"]}
+                # "discussed" over the generic "capability" chip when the need came from the
+                # salesperson's own Context notes -- so the page can SHOW that what was typed
+                # in drove this pick (owner-reported, 2026-08-04: "I can't find anything
+                # related to the content I provided").
+                if it.get("expressed"):
+                    signal = "discussed"          # wins over whatever explain_picks called it
+                elif r and r.get("signal"):
+                    signal = r["signal"]
                 else:
-                    priority_reasons[it["id"]] = {"why": "Proves " + it["need"].lower(),
-                                                  "signal": "capability", "strength": it["strength"]}
+                    signal = "capability"
+                why = (r or {}).get("reason") or ("Proves " + it["need"].lower())
+                priority_reasons[it["id"]] = {"why": why, "signal": signal,
+                                              "strength": it["strength"]}
             missing = missing[:10]
         else:
             # fail-safe: the old name-only extraction path (offline / brief parse failed).
@@ -583,9 +632,25 @@ def build():
             logger.exception("gap/bet reconciliation raised -- gaps kept unreconciled "
                              "(fail-safe: shown, not silently hidden)")
 
-    # research + the profile's crisp focus areas LEAD the ranking; mail is secondary
+    # The research-driven pass ran on real text and came back with a usable brief, yet not
+    # one case cleared the coverage bar -- so the deck below is purely the generic ranker's
+    # (a tight three fill cases), unrelated to any named need. That is a very different
+    # deck from a research-driven one and used to be indistinguishable from it on screen:
+    # the salesperson just saw "three slides again" (owner-reported, 2026-08-04). brief_weak
+    # covers the OTHER degrade (no usable brief at all) and has its own banner.
+    no_research_picks = bool(has_source_text and not priority_ids and not brief_weak)
+
+    # research + the profile's crisp focus areas LEAD the ranking; mail is secondary.
+    # The topics the client RAISED (from the Context box) ride here too, at the same full
+    # weight -- they used to reach the ranker only through the raw transcript, which is
+    # deliberately down-weighted to 0.7, so the salesperson's own notes counted for less
+    # than a capability inferred from a LinkedIn page (owner-reported, 2026-08-04). An
+    # expressed topic contributes its NAME only: its description is a fixed house string
+    # ("Raised in your notes...") that would just add noise to the ranking text.
     lead_research = (research_text + "\n"
-                     + " ".join(f"{n['name']}. {n.get('description','')}" for n in profile_needs)).strip()
+                     + " ".join(n["name"] if n.get("expressed")
+                                else f"{n['name']}. {n.get('description','')}"
+                                for n in profile_needs)).strip()
     result = matcher.plan({**ctx, "transcript": ctx["transcript"], "research": lead_research},
                           use_ai=True, priority_ids=priority_ids, avoid=avoid,
                           prefer_high_impact=bool(brief.get("prefer_high_impact")),
@@ -736,7 +801,8 @@ def build():
                                   gaps=result["gaps"], titles=titles, all_slides=all_slides,
                                   case_lib=case_lib, rationale=rationale, missing=missing,
                                   research_read=research_read, research_failed=research_failed,
-                                  brief_weak=brief_weak,
+                                  brief_weak=brief_weak, profile_failed=profile_failed,
+                                  no_research_picks=no_research_picks,
                                   suggestions=result.get("suggestions", []),
                                   suggested=result.get("suggested", []),
                                   ai_used=result.get("ai_used", False),
