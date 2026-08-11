@@ -18897,7 +18897,7 @@
     "title": "Real-Time Asset-Level Energy Management",
     "raw_title": "Real-Time Asset-Level Energy Management",
     "client_descriptor": "",
-    "domain": "FMCG Manufacturing",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [],
@@ -18977,7 +18977,7 @@
     "title": "Cross-System Savings Opportunity Discovery",
     "raw_title": "Cross-System Savings Opportunity Discovery",
     "client_descriptor": "",
-    "domain": "Food and Beverage Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -19053,7 +19053,7 @@
     "title": "Legacy System Modernization and Process Automation",
     "raw_title": "Legacy System Modernization and Process Automation",
     "client_descriptor": "",
-    "domain": "Banking",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [
@@ -19124,7 +19124,7 @@
     "title": "Agentic Reconciliation Intelligence Layer",
     "raw_title": "Agentic Reconciliation Intelligence Layer",
     "client_descriptor": "",
-    "domain": "Rail and Transit Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -19202,7 +19202,7 @@
     "title": "Close-Orchestration Architecture for Multi-ERP Systems",
     "raw_title": "Close-Orchestration Architecture for Multi-ERP Systems",
     "client_descriptor": "",
-    "domain": "Financial Services",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -19290,7 +19290,7 @@
     "title": "Edge SLM and Cloud-to-Edge Migration for Process Optimization",
     "raw_title": "Edge SLM and Cloud-to-Edge Migration for Process Optimization",
     "client_descriptor": "",
-    "domain": "Industrial Automation",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [],
@@ -19370,7 +19370,7 @@
     "title": "Continuous Learning Engine for Seasonal Workforce",
     "raw_title": "Continuous Learning Engine for Seasonal Workforce",
     "client_descriptor": "",
-    "domain": "BPO and Contact Center Operations",
+    "domain": "",
     "industry": "",
     "function": "TALENT_ACQUISITION",
     "personas": [
@@ -19445,7 +19445,7 @@
     "title": "AI-Powered Call Quality Assurance and Coaching",
     "raw_title": "AI-Powered Call Quality Assurance and Coaching",
     "client_descriptor": "",
-    "domain": "Technology",
+    "domain": "",
     "industry": "",
     "function": "QUALITY_ENG_TESTING",
     "personas": [
@@ -19521,7 +19521,7 @@
     "title": "Voice AI for Automated Query Resolution",
     "raw_title": "Voice AI for Automated Query Resolution",
     "client_descriptor": "",
-    "domain": "Consumer Electronics",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -19592,7 +19592,7 @@
     "title": "Tenant-Resident AI Deployment",
     "raw_title": "Tenant-Resident AI Deployment",
     "client_descriptor": "",
-    "domain": "Technology",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -21169,7 +21169,7 @@
     "title": "Automated LTS Release Orchestration for Axone Platform",
     "raw_title": "Automated LTS Release Orchestration for Axone Platform",
     "client_descriptor": "",
-    "domain": "Healthcare Technology",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -21359,7 +21359,7 @@
     "title": "Integrated Locomotive TCO Model Deployment",
     "raw_title": "Integrated Locomotive TCO Model Deployment",
     "client_descriptor": "",
-    "domain": "Rail Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -21437,196 +21437,9 @@
       }
     ],
     "results": [
-      "Bid-level recalculation now takes under 60 seconds versus 3 days manually.",
+      "TCO model recalculation time reduced from days to seconds.",
       "Tender win rate increased by 15% due to accurate cost projections.",
       "Improved decision confidence with quantified risk assessments."
-    ],
-    "ai_generated": true,
-    "source_row": null
-  },
-  {
-    "id": "MSS135",
-    "work_type": "MS",
-    "work_type_label": "MS Solution",
-    "title": "Integrated Program-to-Production Pipeline for Automotive Electronics",
-    "raw_title": "Integrated Program-to-Production Pipeline for Automotive Electronics",
-    "client_descriptor": "",
-    "domain": "Automotive Electronics",
-    "industry": "",
-    "function": "DEVOPS_CLOUD",
-    "personas": [
-      "ENGINEERING_HEAD",
-      "CIO_CTO"
-    ],
-    "curated_keywords": [],
-    "keywords": [
-      "adas",
-      "ai-driven",
-      "and",
-      "automated",
-      "automotive",
-      "build pipeline",
-      "cd automation",
-      "centre",
-      "ci cd",
-      "ci/cd",
-      "cicd",
-      "command",
-      "connectivity",
-      "continuous delivery",
-      "continuous deployment",
-      "continuous integration",
-      "dashboard",
-      "delivery pipeline",
-      "deployment pipeline",
-      "electric vehicle",
-      "electronics",
-      "erp",
-      "ev",
-      "extraction",
-      "feasibility-scored",
-      "for",
-      "integrated",
-      "mobility",
-      "oem",
-      "parsing",
-      "performance",
-      "pipeline",
-      "planning",
-      "production",
-      "program",
-      "program-to-production",
-      "quoting",
-      "release pipeline",
-      "rfi",
-      "specification",
-      "supplier",
-      "system",
-      "tracking",
-      "unified",
-      "vehicle"
-    ],
-    "challenge": "An automotive electronics supplier managed over a dozen OEM programs simultaneously, each with separate RFIs, BOMs, and SOP dates. Programs moved through eight stages, but data was siloed across PDFs, spreadsheets, and separate systems. This fragmentation led to bottlenecks, often discovered only after delaying SOP dates, risking fixed OEM delivery schedules.",
-    "solution": "J2W implemented a unified pipeline from RFI to SOP, integrating all program stages into a single view. RFIs are auto-parsed into specs, volumes, and prices, while quotes include detailed cost breakdowns and feasibility scores. A Gantt-style tracker and ATP dashboard provide real-time visibility into program status, surfacing bottlenecks early. The system syncs with SAP for seamless data flow and decision-making.",
-    "capabilities": [
-      {
-        "title": "Automated RFI Parsing and Specification Extraction",
-        "body": "Incoming customer documents are auto-extracted into structured specs, target volume, target price, and timeline."
-      },
-      {
-        "title": "Feasibility-Scored Quoting System",
-        "body": "Every quote carries a cost breakdown by category and an AI feasibility score across technical fit, supply chain readiness, capacity, and timeline."
-      },
-      {
-        "title": "Unified Program Tracking Dashboard",
-        "body": "Every active program visible on one board across all eight stages, from RFI received to SOP achieved."
-      },
-      {
-        "title": "Supplier Performance Command Centre",
-        "body": "On-time delivery, quality score, and risk tracked per supplier across the full active base."
-      },
-      {
-        "title": "AI-Driven Production Planning",
-        "body": "Line utilization, a live production queue, and AI-generated calls on batch rebalancing."
-      },
-      {
-        "title": "Integrated ERP Connectivity",
-        "body": "Bi-directional sync with SAP S/4HANA for purchase orders and material master."
-      }
-    ],
-    "results": [
-      "Reduced program delays by 30%, ensuring timely SOP dates.",
-      "Improved supplier coordination, minimizing bottlenecks and risks.",
-      "Enhanced decision-making with real-time program visibility."
-    ],
-    "ai_generated": true,
-    "source_row": null
-  },
-  {
-    "id": "MSS136",
-    "work_type": "MS",
-    "work_type_label": "MS Solution",
-    "title": "Integrated Logistics Network Command Center",
-    "raw_title": "Integrated Logistics Network Command Center",
-    "client_descriptor": "",
-    "domain": "Home Furnishings",
-    "industry": "",
-    "function": "SUPPLY_CHAIN_OPS",
-    "personas": [
-      "PROCUREMENT_OPS"
-    ],
-    "curated_keywords": [],
-    "keywords": [
-      "5g",
-      "aerodynamic",
-      "alerts",
-      "and",
-      "batch",
-      "cad",
-      "cae",
-      "carrier",
-      "center",
-      "centralized",
-      "cfd",
-      "command",
-      "forming simulation",
-      "geometric deep learning",
-      "impact",
-      "integrated",
-      "inventory",
-      "logistics",
-      "maintenance",
-      "management",
-      "network",
-      "nx open",
-      "omniverse",
-      "optimization",
-      "ott",
-      "performance",
-      "predictive",
-      "production",
-      "real-time",
-      "scenario",
-      "scheduling",
-      "scoring",
-      "simulation",
-      "stamping",
-      "telecom",
-      "telecommunications",
-      "visibility"
-    ],
-    "challenge": "A mattress manufacturer with 5 plants and 8 DCs faced shipment halts due to untracked disruptions. Machine failures on foaming lines were detected post-failure, causing delays. Stock imbalances across 45 SKUs led to shortages and dead stock, with no pre-implementation testing for changes.",
-    "solution": "J2W implemented a command center for real-time network visibility and decision simulation. A live map shows plant and DC status, while a scenario builder models potential changes, scoring impact and recovery. IoT sensors predict equipment failures, and route optimization identifies cost savings.",
-    "capabilities": [
-      {
-        "title": "Real-Time Network Visibility",
-        "body": "Live map of plants and DCs with health status and disruptions."
-      },
-      {
-        "title": "Scenario Simulation and Impact Scoring",
-        "body": "Models changes and scores fulfillment, cost, and recovery impact."
-      },
-      {
-        "title": "Predictive Maintenance Alerts",
-        "body": "IoT sensors forecast equipment failures with confidence scores and fixes."
-      },
-      {
-        "title": "Centralized Inventory Management",
-        "body": "Unified view of stock levels with alerts for critical and overstock."
-      },
-      {
-        "title": "Batch Production Scheduling",
-        "body": "Network-wide visibility of plant and line sequencing for capacity planning."
-      },
-      {
-        "title": "Carrier Performance Optimization",
-        "body": "Evaluates carrier cost and on-time performance with savings opportunities."
-      }
-    ],
-    "results": [
-      "Network change decisions scored for impact, reducing errors by 70%.",
-      "Predicted equipment failures reduced downtime by 30%.",
-      "Unified network view improved decision-making confidence across supply chain."
     ],
     "ai_generated": true,
     "source_row": null

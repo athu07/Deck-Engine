@@ -18897,7 +18897,7 @@
     "title": "Real-Time Asset-Level Energy Management",
     "raw_title": "Real-Time Asset-Level Energy Management",
     "client_descriptor": "",
-    "domain": "FMCG Manufacturing",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [],
@@ -18977,7 +18977,7 @@
     "title": "Cross-System Savings Opportunity Discovery",
     "raw_title": "Cross-System Savings Opportunity Discovery",
     "client_descriptor": "",
-    "domain": "Food and Beverage Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -19053,7 +19053,7 @@
     "title": "Legacy System Modernization and Process Automation",
     "raw_title": "Legacy System Modernization and Process Automation",
     "client_descriptor": "",
-    "domain": "Banking",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [
@@ -19124,7 +19124,7 @@
     "title": "Agentic Reconciliation Intelligence Layer",
     "raw_title": "Agentic Reconciliation Intelligence Layer",
     "client_descriptor": "",
-    "domain": "Rail and Transit Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -19202,7 +19202,7 @@
     "title": "Close-Orchestration Architecture for Multi-ERP Systems",
     "raw_title": "Close-Orchestration Architecture for Multi-ERP Systems",
     "client_descriptor": "",
-    "domain": "Financial Services",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -19290,7 +19290,7 @@
     "title": "Edge SLM and Cloud-to-Edge Migration for Process Optimization",
     "raw_title": "Edge SLM and Cloud-to-Edge Migration for Process Optimization",
     "client_descriptor": "",
-    "domain": "Industrial Automation",
+    "domain": "",
     "industry": "",
     "function": null,
     "personas": [],
@@ -19370,7 +19370,7 @@
     "title": "Continuous Learning Engine for Seasonal Workforce",
     "raw_title": "Continuous Learning Engine for Seasonal Workforce",
     "client_descriptor": "",
-    "domain": "BPO and Contact Center Operations",
+    "domain": "",
     "industry": "",
     "function": "TALENT_ACQUISITION",
     "personas": [
@@ -19445,7 +19445,7 @@
     "title": "AI-Powered Call Quality Assurance and Coaching",
     "raw_title": "AI-Powered Call Quality Assurance and Coaching",
     "client_descriptor": "",
-    "domain": "Technology",
+    "domain": "",
     "industry": "",
     "function": "QUALITY_ENG_TESTING",
     "personas": [
@@ -19521,7 +19521,7 @@
     "title": "Voice AI for Automated Query Resolution",
     "raw_title": "Voice AI for Automated Query Resolution",
     "client_descriptor": "",
-    "domain": "Consumer Electronics",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -19592,7 +19592,7 @@
     "title": "Tenant-Resident AI Deployment",
     "raw_title": "Tenant-Resident AI Deployment",
     "client_descriptor": "",
-    "domain": "Technology",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -21169,7 +21169,7 @@
     "title": "Automated LTS Release Orchestration for Axone Platform",
     "raw_title": "Automated LTS Release Orchestration for Axone Platform",
     "client_descriptor": "",
-    "domain": "Healthcare Technology",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -21359,7 +21359,7 @@
     "title": "Integrated Locomotive TCO Model Deployment",
     "raw_title": "Integrated Locomotive TCO Model Deployment",
     "client_descriptor": "",
-    "domain": "Rail Manufacturing",
+    "domain": "",
     "industry": "",
     "function": "DATA_AI_PLATFORM",
     "personas": [
@@ -21451,7 +21451,7 @@
     "title": "Integrated Program-to-Production Pipeline for Automotive Electronics",
     "raw_title": "Integrated Program-to-Production Pipeline for Automotive Electronics",
     "client_descriptor": "",
-    "domain": "Automotive Electronics",
+    "domain": "",
     "industry": "",
     "function": "DEVOPS_CLOUD",
     "personas": [
@@ -21511,27 +21511,27 @@
     "capabilities": [
       {
         "title": "Automated RFI Parsing and Specification Extraction",
-        "body": "Incoming customer documents are auto-extracted into structured specs, target volume, target price, and timeline."
+        "body": ""
       },
       {
         "title": "Feasibility-Scored Quoting System",
-        "body": "Every quote carries a cost breakdown by category and an AI feasibility score across technical fit, supply chain readiness, capacity, and timeline."
+        "body": ""
       },
       {
         "title": "Unified Program Tracking Dashboard",
-        "body": "Every active program visible on one board across all eight stages, from RFI received to SOP achieved."
+        "body": ""
       },
       {
         "title": "Supplier Performance Command Centre",
-        "body": "On-time delivery, quality score, and risk tracked per supplier across the full active base."
+        "body": ""
       },
       {
         "title": "AI-Driven Production Planning",
-        "body": "Line utilization, a live production queue, and AI-generated calls on batch rebalancing."
+        "body": ""
       },
       {
         "title": "Integrated ERP Connectivity",
-        "body": "Bi-directional sync with SAP S/4HANA for purchase orders and material master."
+        "body": ""
       }
     ],
     "results": [
@@ -21549,7 +21549,7 @@
     "title": "Integrated Logistics Network Command Center",
     "raw_title": "Integrated Logistics Network Command Center",
     "client_descriptor": "",
-    "domain": "Home Furnishings",
+    "domain": "",
     "industry": "",
     "function": "SUPPLY_CHAIN_OPS",
     "personas": [

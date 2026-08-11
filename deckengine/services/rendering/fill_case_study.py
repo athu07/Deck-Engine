@@ -85,7 +85,7 @@ _QUALIFIER_RE = re.compile(
 # a unit word immediately AFTER the number belongs WITH it ("5 minutes", "6-9
 # points", "2 crore")
 _TRAIL_UNIT_RE = re.compile(
-    r"\s*(?:percentage\s+points?|points?|pts?|minutes?|mins?|hours?|hrs?|"
+    r"\s*(?:percentage\s+points?|points?|pts?|seconds?|secs?|minutes?|mins?|hours?|hrs?|"
     r"days?|weeks?|months?|years?|yrs?|crores?|lakhs?|lacs?)\b",
     re.I,
 )

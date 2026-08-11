@@ -5037,3 +5037,231 @@ case; raised topics reach the fill ranker via lead_research; an unreadable profi
 All 6 failed before the fix, pass after. Full suite 62 pass / 1 fail -- the 1 failure is
 the PRE-EXISTING stale-master-preview test (run scripts/prerender_master.py and commit
 static/previews/ to clear it); the golden matcher pins are unchanged.
+
+============================================================================
+2026-08-06  Case Study Depth Playbook -- generation standard for Challenge/
+            Solution, in both the Slide Builder AND Draft-with-AI
+============================================================================
+Owner delivered a "Case Study Depth Playbook" distilled from auditing/rewriting all 206
+case studies -- a set of rules for what makes a Challenge/Solution pair read as a real
+situation instead of a specs list. Asked for it as a GENERATION standard (not just a
+one-time content fix) for every NEW case study the engine builds, via either path:
+  - services/content/paste_parser.py + slide_generator.case_from_content (Slide Builder --
+    restructures a user's PASTED, real case-study content)
+  - slide_generator.draft_case_study (deck-builder's "Draft with AI" gap-fill -- SYNTHESIZES
+    a hypothetical, anonymised proof point for a capability we have no real case for)
+Both share ONE rules block (CASE_STUDY_RULES + CASE_FIELDS_SPEC in slide_generator.py), so
+editing it once updates both paths.
+
+SCOPE, per owner's explicit narrowing (asked twice, second time was unambiguous): apply the
+playbook to the CHALLENGE and SOLUTION fields specifically, in BOTH generation paths. Leave
+RESULTS-field generation UNCHANGED (it may still infer a realistic industry-benchmark metric
+when none is provided, exactly as before) -- only Challenge/Solution get the new discipline.
+
+RULES ADDED to CASE_STUDY_RULES (challenge/solution only):
+  - SWAP TEST (sharpens the existing ALIGNMENT rule): if you could swap a sentence between
+    Challenge and Solution and the case study reads the same, they're not connected.
+  - CONSEQUENCE, NOT JUST ABSENCE: at least one Challenge sentence must describe something
+    that HAPPENED (a cost/delay/risk/missed deal), not merely an absent capability.
+  - GENERIC OPENER NEEDS SOMETHING SPECIFIC RIGHT AFTER: a "leading X company" opener is
+    fine; the very next sentence must contain something a competitor couldn't paste
+    unchanged into their own case study.
+  - NUMBERS NEED TWO HOMES: a Results number should also do persuasive work in the
+    Challenge (as the "before") or the Solution (as the proof) -- UNLESS it's a benchmark-
+    inferred Results figure (see below), in which case Challenge/Solution stay qualitative.
+  - NEVER INVENT A NUMBER IN CHALLENGE OR SOLUTION -- EVER (this is the rule that directly
+    CONTRADICTED the prior instruction, which said to "infer realistic metrics from industry
+    benchmarks... never leave a field vague or generic"). A number may appear in Challenge/
+    Solution ONLY if it's genuinely present in the real source material. When none exists,
+    add genuine QUALITATIVE specificity instead (name the actual mechanism), never a
+    fabricated stat. This governs ONLY Challenge/Solution -- Results keeps its existing
+    benchmark-inference allowance untouched, and the qualitative-detail-invention license
+    (for narrative/mechanism specificity, NOT numbers) is preserved.
+  - Also fixed a second, separate instance of the same contradiction living OUTSIDE the
+    shared rules block, inside draft_case_study's own prompt text ("use a realistic
+    industry benchmark... never leave a field vague or generic").
+  - CASE_FIELDS_SPEC: replaced the imprecise "Max 100 words" guidance with the CONFIRMED
+    real template ceilings -- Challenge 540 chars, Solution 598 chars (5.65"x1.48" /
+    6.14"x1.48" boxes, Raleway 11pt, from the live case_study_v2 .pptx).
+  - NEW code-level safety net (_fit_ceiling in slide_generator.py, wired into
+    _normalize_case_study): if the model still overshoots 540/598 despite the prompt, trims
+    to the last full sentence within the ceiling (never mid-word), logs a warning so an
+    overshoot is visible, never silently truncated mid-sentence.
+
+VERIFIED (real gpt-4o-mini, both paths):
+  - case_from_content, source with NO real number anywhere -> Challenge/Solution both stay
+    fully qualitative, zero invented figures (confirmed no stray digits beyond "J2W" itself).
+  - case_from_content, source WITH one real number (9 days -> 2 days) buried in a late
+    sentence -> correctly echoed into Challenge (as the before-state) AND Solution (as the
+    proof), matching Results -- NUMBERS NEED TWO HOMES confirmed working end to end.
+  - draft_case_study (hypothetical/synthesized path), no numbers anywhere in provided
+    research/profile/notes -> Challenge/Solution stay qualitative (zero invented figures);
+    Results STILL produces benchmark-style stats as before ("reduced by 50%", "capacity
+    doubled") -- confirms the owner's narrowed scope (Results untouched) landed correctly.
+  - _fit_ceiling unit-verified: under-ceiling text unchanged; over-ceiling text trims to the
+    last full sentence within the limit; falls back to a word boundary (never mid-word) when
+    no sentence break exists; exactly-at-ceiling text unchanged.
+
+ITEM 2 (Excel + slide-library visibility for newly-built case studies) -- traced and then
+LIVE-VERIFIED, no code change needed, already fully working: both the Slide Builder's
+/builder/download AND the deck-builder's finalize call deck_build.promote_case ->
+case_library.promote_ai_case, which writes the new case to the content-store JSON, the
+in-repo mirror Excel (config.CASE_STUDIES_SOURCE_XLSX -- the correct path, NOT the stale
+Downloads landmine), and generates its embedding immediately (searchable right away, no
+restart needed) -- and invalidates the in-process cache so /library (which reads
+case_library._load() live) shows it immediately. LIVE PROOF: built a real case study through
+/builder/slide + /builder/download end to end -> new record (MSS135) appeared in the JSON
+store, the mirror Excel (as the last row), had its own embedding vector, and showed up on
+/library -- all four confirmed, then FULLY REMOVED afterward (JSON/Excel/embeddings restored
+to exact baseline counts: 207/208/207; test staging record discarded; test .pptx deleted)
+so no test artifact was left in the real, salesperson-facing library.
+
+Tests: 61 passed / 2 deselected (pre-existing preview + flaky staging).
+
+------------------------------------------------------------
+2026-08-06  RESULTS RULES -- Result 1 must contain a real digit
+------------------------------------------------------------
+Follow-up to the locomotive TCO comparison (2 draft case studies built via Slide Builder for
+the same topic): the WEAKER draft's Results were three category labels ("TCO model",
+"Financial", "Tender proposals") with zero numbers anywhere. Root cause traced to
+fill_case_study.split_result -- it correctly extracts a real digit-based metric via regex
+when one exists, but falls back to the sentence's LEADING WORDS as the displayed "headline
+value" when no digit is found. The generation prompt's old RESULTS RULES said Result 1
+should be "most impactful metric (percentage, number, or time contrast)" but the model was
+free to satisfy "time contrast" with a NON-DIGIT phrase like "days to seconds" -- which reads
+like a metric but contains no digit for the renderer to extract, so it silently fell back to
+displaying a category label instead of a number. Confirmed this ALSO affected the WINNING
+draft (already saved as MSS134): its Result 1 was "TCO model recalculation time reduced from
+days to seconds" -- same defect, just less visible since Result 2 (15%, a real percentage)
+carried the slide.
+
+FIX 1 (generation, applies to every future case study): RESULTS RULES in
+slide_generator.py now requires Result 1 to contain an ACTUAL DIGIT the renderer can extract
+(percentage, plain number, ratio, dollar figure, multiplier, or a digit-based before/after
+pair) -- explicitly bans a non-digit time contrast ("days to seconds", "hours to minutes")
+for Result 1, citing this exact confirmed failure. Result 2 now prefers a digit when the
+outcome naturally has one. Result 3 stays intentionally non-numeric (unchanged).
+VERIFIED (real model, 2 runs): regenerating similar TCO content now reliably puts a real
+digit ("under 60 seconds") in Result 1 both times.
+
+FIX 2 (rendering, small and tightly scoped): fill_case_study._TRAIL_UNIT_RE was missing
+"seconds/secs" from its trailing-unit-word list (had minutes/hours/days/weeks/months/years
+but not seconds) -- so even a well-formed "under 60 seconds" claim rendered as headline
+"under 60" with "seconds" orphaned into the caption. Added seconds/secs to the unit list.
+
+FIX 3 (existing content): MSS134 (Integrated Locomotive TCO Model Deployment, the draft that
+DID get saved to the real library -- the OTHER, weaker draft was never committed, confirmed
+via a content-store search) -- Result 1 replaced: "TCO model recalculation time reduced from
+days to seconds" -> "Bid-level recalculation now takes under 60 seconds versus 3 days
+manually." Updated in the JSON store, the mirror Excel, and regenerated its embedding.
+VISUALLY VERIFIED by rendering the actual updated slide: Result 1 now shows headline "under
+60 seconds" / caption "Bid-level recalculation now takes versus 3 days manually" -- clean,
+no rendering artifacts. Backups kept (*.bak-2026-08-06) for both JSON and Excel.
+
+Tests: 61 passed / 2 deselected (pre-existing preview + flaky staging); one additional run
+hit the already-documented flaky test_concurrent_slide_saves_all_succeed (Windows file-lock
+timing), passed in isolation and on a clean re-run -- confirmed unrelated to this change.
+
+------------------------------------------------------------
+2026-08-06  Capability cards shipping with a BLANK body -- detect + repair
+------------------------------------------------------------
+Owner reported an "incomplete" slide from the Slide Builder (automotive-electronics
+program-to-production pipeline case study, saved as MSS135): all 6 "Key Capabilities" cards
+rendered with a bold title and NOTHING underneath. Traced to fill_case_study.split_capability
+-- it splits a capability string on a "Title: description" separator, but falls back to
+(whole_string, "") when NONE of the recognised separators (" - ", " -- ", ": " etc.) is
+present. The generation prompt instructs the model to always include the colon, but for this
+one case the model returned all 6 capabilities as name+description run together with no
+separator at all -- an LLM formatting slip that silently produced a highly visible defect
+with no error anywhere in the pipeline. Confirmed the OTHER case study built in the same
+session (MSS136, mattress/logistics) came out clean -- this was a one-off generation miss,
+not a systemic parser bug, but exactly the kind of silent failure that will recur
+unpredictably for any future case study relying on the model to include one punctuation mark.
+
+FIX (slide_generator.py, applies to case_from_content AND draft_case_study via the shared
+_normalize_case_study step):
+ 1. Strengthened the capabilities prompt instruction with an explicit WRONG/RIGHT example and
+    a "before returning, check each of your 6 capability strings for the literal ': '" self-
+    check -- reduces how often the defect occurs in the first place.
+ 2. NEW safety net: _cap_missing_separator() checks every generated capability string for a
+    real separator (reusing fill_case_study._CAP_SEPS, the same list the renderer itself
+    checks) BEFORE the slide ever gets built. If any is missing, _repair_capabilities() makes
+    ONE targeted repair call asking the model to reformat its OWN output with the required
+    separator, changing nothing but punctuation -- not a guessed heuristic split (unlike
+    Results' digit-based split, there's no reliable structural marker to anchor a blind guess
+    on for capabilities). Fails safe: any error, or a repair that still doesn't fix the
+    separator, ships the original (title-only) capabilities rather than blocking the build.
+    Deliberately did NOT change the underlying data contract (capabilities as colon-separated
+    strings) to structured {title,body} JSON objects, even though that would eliminate the
+    failure class entirely -- the Slide Builder's edit UI (slide_schema.py SCHEMA, the
+    "strings" field type, the browser editor) is hard-wired to the string shape across all
+    content types; changing it would need to touch the editor UI too, well beyond this fix's
+    blast radius.
+VERIFIED: fed the exact broken capability strings from MSS135 through
+_cap_missing_separator() (correctly flagged) and _repair_capabilities() (real gpt-4o-mini
+call) -- all 6 came back correctly split into (title, body) pairs matching the original
+pasted content's intent, confirmed via split_capability().
+
+EXISTING CONTENT FIX: MSS135 (Integrated Program-to-Production Pipeline for Automotive
+Electronics) -- all 6 capability bodies were empty; repaired via the same mechanism and
+applied to the JSON store, the mirror Excel, and regenerated its embedding. VISUALLY VERIFIED
+by rendering the actual updated slide: all 6 capability cards now show both title and body
+text. Backups kept (*.bak-2026-08-06b, JSON + Excel).
+
+Tests: 61 passed / 2 deselected (pre-existing preview + flaky staging).
+
+------------------------------------------------------------
+2026-08-06  Case-study slides shipping with "DOMAIN: -" -- 14 real records fixed
+------------------------------------------------------------
+Owner reported the DOMAIN line on the (just-fixed) MSS135 slide rendering as a bare "-"
+instead of "Automotive Electronics". Traced to a gap between TWO SEPARATE domain-computation
+code paths that both run during the same /builder/download request:
+  - deck_build.ai_to_store_record (used to render the DOWNLOADED .pptx) already had a
+    fallback: when the salesperson leaves the standalone Slide Builder's Industry field
+    blank, it parses "Domain: X" out of the AI's OWN subhead text (which correctly named
+    the domain from the pasted content, e.g. "Automotive Electronics") -- so the downloaded
+    file looked right.
+  - case_library.promote_ai_case (used to SAVE the case into the shared library) computed
+    domain SOLELY from the industry_code parameter -- `domain = (industry_code or
+    "").replace(...).title()` -- with NO fallback, silently discarding the already-correct
+    domain value sitting right there in the `content` dict it received. Its own docstring
+    even asserted the (false, for this path) premise: "No industry inference needed here --
+    Create-with-AI already carries a clean form industry CODE." True for the deck-builder's
+    gap-fill flow (which always has a form industry); false for the standalone Slide Builder,
+    which has its own separate, often-blank Industry field.
+Net effect: the DOWNLOADED FILE showed the right domain; the PERSISTED LIBRARY RECORD (what
+every future build/search/render actually uses) did not -- so the bug only became visible
+the NEXT time that saved case got pulled into a deck.
+
+SCOPE CHECK: searched the whole content store for any record with a blank domain -- found 14,
+ALL ai_generated=True (every AI-drafted/Slide-Builder case ever promoted with no industry
+selected), not a one-off: MSS098, MSS099, MSS102, MSS103, MSS104, MSS114, WFS044-047, MSS132,
+MSS134, MSS135, MSS136.
+
+FIX 1 (code, prevents all future occurrences): case_library.promote_ai_case now falls back to
+`content.get("domain")` when industry_code is blank -- reusing the value ai_to_store_record
+already correctly computed upstream, rather than re-deriving (and losing) it. VERIFIED live:
+rebuilt a case through the real Slide Builder with Industry left blank (mirroring the exact
+reported scenario) -- new record's domain populated correctly ("Aerospace", from the pasted
+content), confirmed then fully cleaned up (test record removed from JSON/Excel/embeddings/
+staging, no pollution left).
+
+FIX 2 (existing content): grounded a specific domain for each of the 14 affected records from
+its own real challenge/solution text (not guessed) -- e.g. MSS102 "global banking group" ->
+Banking; MSS103 "global rail and transit manufacturing group" -> Rail and Transit
+Manufacturing; WFS044's "agents"/"calls"/"nesting" vocabulary -> BPO and Contact Center
+Operations; MSS134/135/136 confirmed from the owner's own stated domains and the original
+downloaded slides' already-correct subheads (Rail Manufacturing / Automotive Electronics /
+Home Furnishings). Applied to the JSON store, the mirror Excel, and regenerated all 14
+embeddings (domain text feeds the search/match embedding). VISUALLY VERIFIED by re-rendering
+MSS135: "CLIENT: Leading Automotive Electronics Enterprise | DOMAIN: Automotive Electronics"
+now renders correctly. Backups kept (*.bak-2026-08-06c, JSON + Excel).
+
+NOTE, scoped out for now: `industry` (the 8-code matching TAXONOMY field, separate from the
+free-text `domain` display field) stays blank on these 14 unless the owner wants a follow-up
+pass inferring it from content too (reusing tagger.INDUSTRY's keyword scoring, the same
+"engine's own brains" pattern _derive_tags already uses for function) -- lower priority since
+it doesn't render visibly broken, it just means these 14 don't get an industry-match boost
+during selection yet.
+
+Tests: 61 passed / 2 deselected (pre-existing preview + flaky staging).

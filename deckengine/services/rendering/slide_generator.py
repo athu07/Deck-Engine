@@ -19,10 +19,13 @@ J2W-designed template slide when ready; keep the same marker tokens + tag.
 
 import copy
 import json
+import logging
 import re
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
+
+logger = logging.getLogger(__name__)
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
@@ -220,25 +223,89 @@ CASE_STUDY_RULES = (
     "'consolidated two ERPs into one platform, ran supplier rationalization alongside the "
     "technical migration, and had spend analytics live from day one of go-live' is what "
     "actually happened.\n"
-    "- ALIGNMENT: the SOLUTION must directly answer EVERY problem raised in the CHALLENGE — "
-    "each pain point in the challenge has a specific, matching response in the solution.\n"
-    "- Every claim is concrete: name specific scale numbers, phases, sites, tools, workflows "
-    "or outcomes. Never vague ('comprehensive framework', 'streamlined processes', 'enhanced "
-    "efficiency', 'improved operations', 'seamless operations', 'phased approach', 'enhanced "
-    "decision-making capabilities', 'leverage the combined scale', 'optimizing resource "
-    "allocation'). Invent realistic, specific details when the input is thin, the way a real "
-    "proof point reads — a fabricated specific detail beats an accurate-but-empty category "
-    "label every time; the anonymisation is what makes this safe, not vagueness.\n"
-    "- Infer realistic metrics from industry benchmarks if none are provided — never omit the "
-    "results section or leave a result as a placeholder.\n"
+    "- ALIGNMENT / SWAP TEST: the SOLUTION must directly answer EVERY problem raised in the "
+    "CHALLENGE — each pain point in the challenge has a specific, matching response in the "
+    "solution, in DIFFERENT language, not the same noun list run in reverse. Self-check: if "
+    "you could swap a sentence between the Challenge and the Solution and the case study "
+    "would still read the same, they are not actually connected -- they're just adjacent. A "
+    "Challenge built only from 'needed X' / 'required Y' followed by a Solution that reads "
+    "'X was delivered' / 'Y was provided' fails this test even though every sentence sounds "
+    "concrete -- same nouns, same order, no pain, and it collapses the moment you cover the "
+    "Solution and ask whether the Challenge still describes a real situation on its own.\n"
+    "- CONSEQUENCE, NOT JUST ABSENCE: at least one Challenge sentence must describe something "
+    "that HAPPENED as a result of the gap -- a cost, a delay, a risk, a missed deal, a "
+    "compliance exposure, a customer complaint -- not merely a capability that was absent. "
+    "'The client needed automated testing across microservices' names an absence; 'every "
+    "release train moved only as fast as the slowest manual security review, and a single "
+    "unreviewed API change risked breaking a live compliance obligation' names a consequence. "
+    "Cover the Solution and read the Challenge alone: if it just lists what the engagement "
+    "eventually delivered, phrased as a need, it fails -- it must describe a real situation "
+    "that existed BEFORE any solution, with something costly or risky already happening in it.\n"
+    "- A GENERIC OPENER NEEDS SOMETHING SPECIFIC RIGHT AFTER IT: 'A leading manufacturing "
+    "company...' or 'A global BFSI institution...' is a fine, standard way to anonymise a "
+    "real client -- that is not itself a weakness. The weakness is when nothing AFTER it gets "
+    "specific. The sentence immediately following a generic opener must contain something a "
+    "competitor could not paste into their own case study unchanged: a named system, a named "
+    "process step, a specific number, a specific team friction -- not another generic clause.\n"
+    "- NUMBERS NEED TWO HOMES: every hard number that ends up in Results must ALSO do "
+    "persuasive work in the Challenge (as the size of the 'before' problem) or the Solution "
+    "(as the delivered proof), not sit only in a bullet list at the bottom of the slide with "
+    "nothing tying it back. If a number is genuinely NOT available for Challenge/Solution use "
+    "(see the NEVER INVENT A NUMBER rule below), it can still appear as a Results bullet on "
+    "its own -- but Challenge and Solution then stay purely qualitative, not padded with a "
+    "restated version of that same unverified figure.\n"
+    "- NEVER INVENT A NUMBER IN THE CHALLENGE OR SOLUTION TEXT. EVER. A number may appear in "
+    "the Challenge or Solution ONLY if it is genuinely present in the real source material "
+    "provided (research, profile, notes, or the user's own pasted content) -- never estimated, "
+    "rounded, or inferred from an industry benchmark to sound plausible. When no real number "
+    "exists for the Challenge or Solution, add genuine QUALITATIVE specificity instead -- name "
+    "the actual mechanism of the failure or the fix using facts already established elsewhere "
+    "in the case study, the way a specific, verifiable-in-principle detail reads without "
+    "leaning on a figure (e.g. 'watching diagnostic delays become routine -- not because "
+    "radiologists were slow, but because the software's own interface made pulling up prior "
+    "scans and case history slower than the read itself' -- specific and concrete, no invented "
+    "stat). A wrong or fabricated number in a live client conversation is worse than an "
+    "honest, specific sentence with no metric in it. This rule governs ONLY the Challenge and "
+    "Solution fields -- it does not change how the separate Results bullets are produced.\n"
+    "- Every claim is concrete: name specific scale numbers (when real, per the rule above), "
+    "phases, sites, tools, workflows or outcomes. Never vague ('comprehensive framework', "
+    "'streamlined processes', 'enhanced efficiency', 'improved operations', 'seamless "
+    "operations', 'phased approach', 'enhanced decision-making capabilities', 'leverage the "
+    "combined scale', 'optimizing resource allocation'). Invent realistic, specific QUALITATIVE "
+    "detail when the input is thin, the way a real proof point reads -- a fabricated specific "
+    "MECHANISM (what didn't connect to what, who did what by hand) beats an accurate-but-empty "
+    "category label every time; the anonymisation is what makes this safe, not vagueness. This "
+    "license to invent covers narrative/mechanism detail ONLY, never a number (see above).\n"
+    "- Infer realistic metrics from industry benchmarks if none are provided for the RESULTS "
+    "section specifically — never omit the results section or leave a result as a placeholder. "
+    "(This benchmark-inference allowance is for Results bullets only; it does NOT license "
+    "writing that same inferred figure into the Challenge or Solution text — see NUMBERS NEED "
+    "TWO HOMES above.)\n"
     "- Tone: straight, professional, executive.\n"
     "RESULTS RULES:\n"
-    "- Result 1: most impactful metric (percentage, number, or time contrast), one punchy line.\n"
-    "- Result 2: operational or financial outcome, one line.\n"
-    "- Result 3: qualitative shift in decision quality, confidence, or leverage, one line.\n"
+    "- Result 1: the most impactful metric, and it MUST contain an actual DIGIT the slide "
+    "renderer can extract and display as the big headline number -- a percentage (70%), a "
+    "plain number (13, 1,200), a ratio (8:1), a dollar figure ($4M), a multiplier (3x), or a "
+    "digit-based before/after pair (3 days to 4 hours; 11 to 3 defects/week). A time or scale "
+    "contrast with NO digit in it -- 'days to seconds', 'hours to minutes', 'weeks to days' -- "
+    "is NOT acceptable for Result 1 even though it sounds like a metric: the renderer looks "
+    "for a real digit to pull out as the headline number, and finding none, falls back to "
+    "displaying the sentence's leading words instead (confirmed failure, 2026-08-06: 'TCO "
+    "model recalculation time reduced from days to seconds' rendered with 'TCO model' as the "
+    "headline metric -- a category label, not a number, because nothing in the sentence had a "
+    "digit). If you're stating a dramatic before/after shift, ALWAYS attach real or realistic-"
+    "benchmark digits to both sides ('reduced from 3 days to under 60 seconds', not 'reduced "
+    "from days to seconds').\n"
+    "- Result 2: operational or financial outcome, one line -- also prefer a digit-bearing "
+    "figure when the outcome naturally has one (a count, a percentage, a dollar figure); a "
+    "purely qualitative Result 2 is acceptable only when Result 1 already carries a strong "
+    "digit-based metric.\n"
+    "- Result 3: qualitative shift in decision quality, confidence, or leverage, one line -- "
+    "this one is INTENTIONALLY non-numeric; do not force a digit into it.\n"
     "- No result exceeds 15 words. No filler words.\n"
-    "- Only use a time contrast when the gap is genuinely significant and specific; "
-    "never a throwaway 'hours to minutes'.\n\n"
+    "- Only use a time contrast when the gap is genuinely significant and specific, AND it "
+    "includes real digits on both sides per the Result 1 rule above; never a throwaway "
+    "non-numeric 'hours to minutes'.\n\n"
     "CONTRASTIVE EXAMPLE — same topic, same facts available, two different registers. Study "
     "the difference in specificity, not the topic itself:\n"
     "BAD (category summary — do NOT write like this): \"A leading FMCG enterprise faced "
@@ -272,10 +339,28 @@ CASE_FIELDS_SPEC = (
     "- subhead: 'Client: <generic descriptor, e.g. Leading Manufacturing Enterprise> | "
     "Domain: <this account's domain> | Function: <the stakeholder's business function>'.\n"
     "- challenge: 3-4 sentences, plain and operational; who the client is (NEVER a real name) "
-    "and what was breaking, specific to this domain. No solution language. Max 100 words.\n"
+    "and what was breaking, specific to this domain. No solution language. HARD CEILING: 540 "
+    "characters (the live template's Challenge box, confirmed from the real .pptx: 5.65in x "
+    "1.48in, Raleway 11pt) -- if you're at the ceiling and still missing the one number/detail "
+    "that matters most, cut adjectives and transition phrases before you cut facts. One sharp, "
+    "specific sentence beats three generic ones.\n"
     "- solution: 3-4 sentences; what J2W deployed, how it works operationally, what the client "
-    "can now do. No bullets. No hype. Max 100 words.\n"
-    "- capabilities: EXACTLY 6, each 'Capability Name: one line max 18 words' (name = business function).\n"
+    "can now do. No bullets. No hype. HARD CEILING: 598 characters (the live template's "
+    "Solution box: 6.14in x 1.48in, Raleway 11pt) -- same tightening discipline as the "
+    "Challenge above.\n"
+    "- capabilities: EXACTLY 6 strings. Each one is a SINGLE-LINE PAIR: a short capability "
+    "name, THEN A LITERAL COLON-SPACE ': ', THEN a one-line description (max 18 words). The "
+    "colon-space is NOT optional decoration -- the slide renderer splits on it to show the "
+    "name as a bold heading and the description as body text below it; a capability string "
+    "with NO ': ' anywhere renders as a bold heading with a BLANK, EMPTY body underneath on "
+    "the actual slide (confirmed failure, 2026-08-06: a real generated case study had all "
+    "six capabilities come back as name-only with no colon, so all six capability cards "
+    "shipped with a title and nothing else -- a highly visible, silent defect). Correct "
+    "shape: 'Feasibility-Scored Quoting: Every quote carries a cost breakdown and an AI "
+    "feasibility score before it goes out.' WRONG (missing the colon -- do not produce "
+    "this): 'Feasibility-Scored Quoting Every quote carries a cost breakdown...'. Before "
+    "returning, check each of your 6 capability strings for the literal ': ' -- if even one "
+    "is missing it, add it before responding.\n"
     "- results: EXACTLY 3, following the RESULTS RULES.\n"
     "Then SELF-REVIEW what you wrote (quality verdict, weakest part, fix).\n"
     'Return ONLY JSON: {"title":"...","subhead":"...","challenge":"...","solution":"...",'
@@ -918,8 +1003,98 @@ def _clean(s):
     return str("" if s is None else s).replace("—", "-").replace("–", "-").strip()
 
 
+# The live case_study_v2 template's real box sizes (confirmed from the .pptx, Raleway
+# 11pt, normAutofit): Challenge 5.65in x 1.48in -> 540 chars; Solution 6.14in x 1.48in
+# -> 598 chars. The generation prompt (CASE_FIELDS_SPEC) already asks for these limits --
+# this is the SAFETY NET for the rare case the model still overshoots, so a slide can
+# never render with text past the box's real capacity regardless of prompt compliance.
+CHALLENGE_CHAR_CEILING = 540
+SOLUTION_CHAR_CEILING = 598
+
+
+def _fit_ceiling(text, ceiling, field_name=""):
+    """Trim `text` to at most `ceiling` chars, cutting at the last full sentence
+    (never mid-word/mid-sentence) so an over-length generation still renders as
+    honest, complete prose instead of a ragged cut-off. Logs when it actually had
+    to trim, so an over-length generation is visible, not silently absorbed."""
+    text = (text or "").strip()
+    if len(text) <= ceiling:
+        return text
+    window = text[:ceiling]
+    cut = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+    if cut == -1 and window.rstrip().endswith((".", "!", "?")):
+        cut = len(window.rstrip()) - 1
+    if cut >= int(ceiling * 0.5):          # a sane sentence boundary, not a near-empty stub
+        trimmed = window[:cut + 1].strip()
+    else:                                  # no good sentence break -- fall back to a word boundary
+        trimmed = window[:window.rfind(" ")].strip()
+    logger.warning("case-study %s overshot the %d-char ceiling (%d chars) -- "
+                   "trimmed to the last full sentence/word (%d chars)",
+                   field_name or "field", ceiling, len(text), len(trimmed))
+    return trimmed
+
+
+def _cap_missing_separator(caps):
+    """True if ANY capability string has no 'Title: body' separator -- the shape
+    fill_case_study.split_capability needs to split it into a heading + body. A
+    string with none of those separators renders as a bold heading with a BLANK
+    body underneath (confirmed failure, 2026-08-06: all 6 capabilities on one
+    real generated case study came back name-only, so every card shipped with an
+    empty body). Checked here, not just documented in the prompt, because a
+    prompt instruction is advisory -- this is the safety net for when it's not
+    followed."""
+    from deckengine.services.rendering.fill_case_study import _CAP_SEPS
+    return any(c and not any(sep in c for sep in _CAP_SEPS) for c in caps)
+
+
+def _repair_capabilities(caps):
+    """One repair call, used ONLY when _cap_missing_separator() finds a real
+    problem: ask the model to reformat its OWN capabilities with the required
+    ': ' separator, changing nothing but the punctuation/split point -- never
+    guessed by a blind word-count heuristic here, since there's no reliable
+    structural marker (like a digit) to anchor a guess on, the way there is for
+    a Results metric. Fails safe: on any error, or if the repaired list doesn't
+    come back as 6 non-empty strings, returns the ORIGINAL caps unchanged (still
+    renders as title-only cards -- imperfect, but never worse than what came
+    in, and never blocks the build)."""
+    try:
+        from deckengine.services.infra import load_env
+        load_env()
+        from openai import OpenAI
+        prompt = (
+            "Each numbered line below is meant to be a 'Capability Name: description' "
+            "pair, but is missing the ': ' separator between the two parts. Reformat EACH "
+            "line by inserting ': ' at the point where the short capability NAME ends and "
+            "its one-line DESCRIPTION begins. Change ONLY punctuation/spacing to insert the "
+            "separator -- never reword, shorten, or add/remove content.\n\n"
+            + "\n".join(f"{i + 1}. {c}" for i, c in enumerate(caps)) + "\n\n"
+            'Return ONLY JSON: {"capabilities":["exactly %d strings, same order, each now '
+            'with the \': \' separator"]}' % len(caps)
+        )
+        resp = OpenAI().chat.completions.create(
+            model=config.GEN_MODEL, temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You fix missing punctuation without "
+                 "changing wording or content. Reply with one JSON object only."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content)
+        fixed = [str(c).strip() for c in (data.get("capabilities") or [])]
+        if len(fixed) == len(caps) and all(fixed) and not _cap_missing_separator(fixed):
+            return fixed
+    except Exception:
+        logger.warning("_repair_capabilities: repair call failed or didn't fix the "
+                       "separator -- shipping the original (title-only) capabilities",
+                       exc_info=True)
+    return caps
+
+
 def _normalize_case_study(data, industry=""):
     caps = [_clean(c) for c in (data.get("capabilities") or []) if _clean(c)][:6]
+    if len(caps) == 6 and _cap_missing_separator(caps):
+        caps = _repair_capabilities(caps)
     while len(caps) < 6:
         caps.append("Capability: to be defined.")
     res = [_clean(r) for r in (data.get("results") or []) if _clean(r)][:3]
@@ -932,8 +1107,8 @@ def _normalize_case_study(data, industry=""):
         "template": "case_study_full",
         "title": _clean(data.get("title")) or "Proposed Case Study",
         "subhead": subhead,
-        "challenge": _clean(data.get("challenge")),
-        "solution": _clean(data.get("solution")),
+        "challenge": _fit_ceiling(_clean(data.get("challenge")), CHALLENGE_CHAR_CEILING, "challenge"),
+        "solution": _fit_ceiling(_clean(data.get("solution")), SOLUTION_CHAR_CEILING, "solution"),
         "capabilities": caps,
         "results": res,
         "review": {"quality": _clean(rev.get("quality")) or "Needs Revision",
@@ -974,9 +1149,12 @@ def draft_case_study(brief, context=None):
         "SYNTHESISE the sources above into a case that mirrors what THIS stakeholder "
         "personally owns and the domain described in the research — an anonymised J2W "
         "engagement in the SAME domain, solving exactly this capability. Ground every "
-        "claim in the provided context. Only where a specific metric is genuinely "
-        "absent from the sources, use a realistic industry benchmark — never leave a "
-        "field vague or generic.\n\n"
+        "claim in the provided context. Never leave a field vague or generic -- where "
+        "specificity is missing, add genuine QUALITATIVE detail (a mechanism, a named "
+        "process step, a specific friction), never a filler phrase. A realistic industry-"
+        "benchmark NUMBER may fill a genuinely-missing Results metric only -- see the "
+        "NEVER INVENT A NUMBER rule below, which governs the Challenge and Solution text "
+        "specifically and is stricter than this general instruction.\n\n"
         "QUALITY BAR — match this level of specificity and note how the solution answers "
         "EACH part of the challenge (this is a DIFFERENT topic; do NOT copy its content):\n"
         "CHALLENGE: A leading global technology hardware company needed to stand up a "

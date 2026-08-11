@@ -218,7 +218,18 @@ def promote_ai_case(content, work_type_code, industry_code):
     solution = content.get("solution", "")
     raw_capabilities = content.get("capabilities") or []
     results = content.get("results") or []
-    domain = (industry_code or "").replace("_", " ").title()
+    # the account's own industry CODE is authoritative when the salesperson set one
+    # (matches deck_build.ai_to_store_record's same priority) -- but when it's blank
+    # (confirmed failure, 2026-08-06: the standalone Slide Builder's Industry field
+    # left empty), fall back to `content["domain"]`, which by the time it reaches
+    # here has ALREADY been through that same fallback once upstream (ai_to_store_
+    # record parses "Domain: X" out of the AI's own subhead) -- reusing it here
+    # instead of re-deriving is what closes the gap; every AI-drafted case promoted
+    # with no industry selected was silently landing with domain="" (renders as a
+    # bare "-" on the live slide) even though the AI had already inferred a real,
+    # specific domain from the content itself and it was sitting right there unused.
+    domain = ((industry_code or "").replace("_", " ").title()
+             or (content.get("domain") or "").strip())
 
     function, persona_codes, keywords = _derive_tags(
         title, challenge, solution, raw_capabilities, results, work_type_code.upper())
