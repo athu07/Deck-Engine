@@ -43,6 +43,15 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 
 
 # ── frozen baseline (captured offline from the current code) ──────────────────
+# RE-FROZEN 2026-08-11, deliberately: matcher.plan's fill loop used to stop at
+# `min(case_cap_ceiling, max(len(priority_picks), 3))`, which acted as a CEILING equal to
+# the priority-pick count and left MAX_CASE_PICKS=12 unreachable -- every deck shipped
+# exactly 3 case studies no matter how much matching content the library held. It now
+# fills to the real ceiling, with breadth controlled by the RELATIVE relevance floor
+# (keep_floor), so a broad ask widens and a narrow one stays tight. Both baselines below
+# therefore carry more case studies than before (3 -> 9 and 3 -> 7); the standard-slide
+# blocks are unchanged. Verified when re-freezing: no pair of cases in either deck is a
+# near-twin (case-to-case cosine >= matcher.NEAR_TWIN_SIM).
 GOLDEN = {
     "ms_manuf": (
         {"client_name": "Schneider Electric", "industry": "MANUFACTURING",
@@ -50,14 +59,16 @@ GOLDEN = {
          "transcript": "We need test automation, predictive maintenance and "
                        "digital twin for our plants."},
         ['CS01', 'CS02', 'CS03', 'CS04', 'CS05', 'CS06', 'CS18', 'CS19', 'CS147',
-         'MSS012', 'MSS005', 'MSS034', 'CS07', 'CS08'],
+         'MSS012', 'MSS005', 'MSS034', 'MSS037', 'MSS038', 'MSS070', 'MSS024',
+         'MSS094', 'MSS069', 'CS07', 'CS08'],
     ),
     "wf_health": (
         {"client_name": "HPE", "industry": "HEALTHCARE",
          "work_types": ["WORKFORCE"], "functions": [], "recipient": "Head of Talent",
          "transcript": "Looking for RPO and cloud migration staffing for healthcare IT."},
         ['CS01', 'CS02', 'CS03', 'CS04', 'CS05', 'CS06', 'CS10', 'CS11', 'CS12',
-         'CS13', 'CS147', 'WFS022', 'WFS004', 'WFS002', 'CS07', 'CS08'],
+         'CS13', 'CS147', 'WFS022', 'WFS004', 'WFS002', 'WFS024', 'WFS012',
+         'WFS023', 'WFS019', 'CS07', 'CS08'],
     ),
 }
 

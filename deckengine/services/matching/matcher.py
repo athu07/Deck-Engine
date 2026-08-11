@@ -86,6 +86,15 @@ CASE_REL_FLOOR = 0.72  # ...and keep only cases within this fraction of the top 
                        # (so a simple, single-ask meeting gets a few cases, not 12)
 DEDUP_GATE     = 0.80  # two cases this similar (cosine) are near-twins...
 DEDUP_WEIGHT   = 10.0  # ...demote the later one so the picks aren't look-alikes
+# ...and above THIS, never include it at all -- a demotion can still be outscored, a
+# hard gate cannot. Calibrated from the real store (2026-07-29): genuine duplicates land
+# at 0.85-0.91 (WFS002/WFS025 workforce-scaling 0.887; identical DevSecOps-open-banking
+# cases 0.91) while genuinely DISTINCT talent picks (RPO vs HTD vs accelerated-hiring)
+# top out at ~0.74. SINGLE SOURCE for both pick paths: web/decks.py imports this for its
+# priority-pick loop rather than keeping its own copy -- while the Intro work-type cap
+# was duplicated across the two, the two numbers silently diverged and picks were thrown
+# away (2026-08-04).
+NEAR_TWIN_SIM  = 0.85
 
 
 def _case_reason(wt, item, notes=""):
@@ -680,18 +689,53 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
         selected_ids.append(sid)
 
     # 2) fill the rest with the top-ranked cases (MMR de-dup vs what's already in).
-    #    Keep the deck TIGHT around the matched needs — a person-specific pitch
-    #    shouldn't be padded with off-function cases. Only fill if we have < 3.
-    pick_cap = min(case_cap_ceiling, max(len(selected_ids), 3))
+    #    Fill up to the stage's real ceiling (MAX_CASE_PICKS, or intro_case_ceiling on
+    #    an Intro deck). BREADTH IS CONTROLLED BY `keep_floor`, NOT BY A COUNT --
+    #    keep_floor is RELATIVE (CASE_REL_FLOOR x the top score), so the pool self-scales
+    #    to how broad the ask actually was: measured on the real library, a single-topic
+    #    ask ("only touchless invoice processing") leaves 2 cases above the floor, while a
+    #    four-domain ask ("AI accelerators across Finance, Supply Chain, Production
+    #    Planning, Manufacturing") leaves 46. A narrow pitch stays tight on its own.
+    #
+    #    WAS: min(case_cap_ceiling, max(len(selected_ids), 3)) -- intended as a FLOOR of 3
+    #    ("only fill if we have < 3"), but because len(selected_ids) already counted the
+    #    research-driven priority picks, it also acted as a CEILING EQUAL TO THE PRIORITY
+    #    COUNT: 3 priority picks -> pick_cap 3 -> the fill loop below ran ZERO times, and
+    #    MAX_CASE_PICKS=12 ("breadth cap -- a multi-solution account needs many proofs")
+    #    was unreachable on every deck where the priority pipeline worked at all.
+    #    Owner-reported, 2026-08-11 (Managed Services / Automotive / Second Meeting, "AI
+    #    accelerators mapped to Finance, Supply Chain, Production Planning and
+    #    Manufacturing"): the deck shipped 3 case studies while 46 cases sat above the
+    #    relevance floor -- including the ranker's OWN top 3 (Predictive Supply Chain
+    #    Intelligence, PlanForge AI Agentic Production Planning, Demand-Driven Material
+    #    Planning), the exact supply-chain/production-planning proof points the
+    #    salesperson said were missing. The ranking was right; the count threw it away.
+    pick_cap = case_cap_ceiling
     pool = [it for it in ranked
             if it["score"] >= keep_floor and it["row"]["slide_id"] not in selected_ids][:60]
     while pool and len(selected_ids) < pick_cap:
         best, best_adj = None, None
+        twins = []
         for it in pool:
             sim = relevance.max_similarity(it["row"]["slide_id"], selected_ids)
+            # HARD near-twin gate, same bar the priority-pick path uses. The soft MMR
+            # demotion below (DEDUP_WEIGHT x the excess over DEDUP_GATE) was sufficient
+            # only while this loop stopped at 3 picks; now that it fills to the real
+            # ceiling it reaches deep enough that a 0.887-similar case still wins a late
+            # slot on score alone -- WFS002 "Zero-Disruption Workforce Scaling" and
+            # WFS025 "Contract-to-Hire Workforce Management", the exact pair already
+            # documented as look-alikes, both landed in one deck. A deck must never show
+            # two versions of the same proof point (2026-08-11).
+            if sim >= NEAR_TWIN_SIM:
+                twins.append(it)
+                continue
             adj = it["score"] - DEDUP_WEIGHT * max(0.0, sim - DEDUP_GATE)
             if best is None or adj > best_adj:
                 best, best_adj = it, adj
+        for it in twins:
+            pool.remove(it)
+        if best is None:
+            break                    # everything left is a look-alike of what's already in
         row = best["row"]
         sid = row["slide_id"]
         wt = (row.get("work_types") or "").upper()

@@ -11,9 +11,11 @@
 <div class="app" id="app">
   <aside class="sidebar">
     <div class="nav-head">
-      {# The logo is dark-on-transparent, drawn for light backgrounds; the sidebar is
-         black. It sits on a white plaque so the brand colours stay true rather than
-         being recoloured or losing the grey tagline. #}
+      {# The logo is dark-on-transparent, drawn for light backgrounds. It used to sit on
+         a white plaque; that was removed on the owner's call (2026-08-11) because the
+         white box read as pasted onto the black sidebar. The artwork is unchanged --
+         see .nav-brand in app.css for the contrast measurement and the one-line
+         filter that would lift it if it ever reads too dim. #}
       <a class="nav-brand" href="/dashboard" aria-label="JoulesToWatts — Dashboard">
         <img src="{{ asset('img/j2w-logo.png') }}" alt="JoulesToWatts">
       </a>
@@ -21,8 +23,10 @@
         <i class="ti ti-layout-sidebar-left-collapse"></i></button>
     </div>
 
-    <a class="nav-cta" href="/new"><i class="ti ti-sparkles"></i><span>New deck</span></a>
-
+    {# "New deck" lives ONCE, under Create (owner's call, 2026-08-11). It used to appear
+       twice -- a teal CTA pinned above Dashboard AND a nav-item here, two controls with
+       the same destination four rows apart. The CTA was the one removed, so New deck
+       now sits with the other navigation, in the section it belongs to. #}
     <nav class="nav-group">
       <a class="nav-item {{ 'active' if active=='home' else '' }}" href="/dashboard">
         <i class="ti ti-layout-dashboard"></i><span>Dashboard</span></a>
@@ -30,7 +34,8 @@
 
     <nav class="nav-group">
       <div class="nav-label">Create</div>
-      <a class="nav-item {{ 'active' if active=='new' else '' }}" href="/">
+      <a class="nav-item {{ 'active' if active=='new' else '' }}" href="/new"
+         {% if active=='new' %}aria-current="page"{% endif %}>
         <i class="ti ti-sparkles"></i><span>New deck</span></a>
       <a class="nav-item {{ 'active' if active=='builder' else '' }}" href="/builder">
         <i class="ti ti-file-text"></i><span>Slide builder</span></a>
@@ -65,6 +70,8 @@
     <main class="page">{{ body|safe }}</main>
   </div>
 </div>
+{# the app's one notification primitive (window.j2wToast) -- available on every page #}
+<script src="{{ asset('js/toast.js') }}"></script>
 <script>
  // The sidebar remembers whether it's collapsed. Nothing else in the chrome is stateful.
  (function(){

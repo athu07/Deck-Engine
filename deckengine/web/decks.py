@@ -20,7 +20,7 @@ from pptx import Presentation
 from deckengine import config
 from deckengine import constants
 from deckengine.constants import (COVERAGE_THRESHOLD, CAPABILITY_COVER, _GENERIC_NEEDS,
-                                  INDUSTRIES, FUNCTIONS, PHASES)
+                                  INDUSTRIES, FUNCTIONS, PHASES, MAX_CASES_PER_NEED)
 from deckengine.services.matching import matcher, relevance, ai_matcher, personas
 from deckengine.services.matching.tagger import INDUSTRY as _BUILTIN_INDUSTRIES
 from deckengine.services.rendering import (skills, staging, deck_build, fill_case_study,
@@ -44,7 +44,11 @@ bp = Blueprint("decks", __name__)
 # DevSecOps-open-banking cases 0.91; WFS002/WFS025 workforce-scaling 0.87), while
 # genuinely DISTINCT talent picks (RPO vs HTD vs accelerated-hiring) top out at ~0.74 --
 # so 0.85 drops only true duplicates, never a real capability.
-PRIORITY_DEDUP_SIM = 0.85
+#
+# IMPORTED, not redefined (2026-08-11): matcher.plan()'s fill loop gates on the SAME
+# number, for the same reason. Keeping two copies is exactly how the Intro work-type cap
+# drifted apart and silently dropped picks (see INTRO_WORKTYPE_CAP below).
+PRIORITY_DEDUP_SIM = matcher.NEAR_TWIN_SIM
 
 # Intro-deck per-work-type cap (owner-spec, 2026-07-31): on an Intro deck, cap each
 # SELECTED work type (Workforce/AI Pods/MS) at this many case studies -- a CEILING with a
@@ -236,15 +240,28 @@ def build():
         "recipient": ctx["recipient"], "functions": ctx["functions"],
         "client_name": ctx["client_name"],
     })
-    # Backstop for the browser's at-least-one-work-type check (e.g. JS disabled).
-    if not ctx["work_types"]:
+    # Backstop for the browser-side mandatory-field check (e.g. JS disabled).
+    # Covers EVERY mandatory field, not just work types (2026-08-11): the form is now
+    # `novalidate` so the missing-field feedback can be the app's own toast rather than
+    # the browser's native bubble (which shows one field at a time, can't be themed, and
+    # has nothing to attach to for "at least one work type"). Suppressing native
+    # validation means the server is the only remaining guard if the JS never runs --
+    # without this, a form posted with no client name and no industry would quietly
+    # build a deck for "Client" with no industry signal at all.
+    _missing = [label for label, ok in (
+        ("at least one work type", bool(ctx["work_types"])),
+        ("a client name", bool(ctx["client_name"])),
+        ("an industry", bool(ctx["industry"])),
+        ("a deck phase", bool(ctx["phase"])),
+    ) if not ok]
+    if _missing:
         try:
             lib_count = len(json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8")))
         except Exception:
             lib_count = 0
         body = render_template("new_form.html", industries=constants.all_industries(), functions=FUNCTIONS,
                                       phases=PHASES, library_count=lib_count,
-                                      error="Please select at least one work type.",
+                                      error="Please provide %s." % ", ".join(_missing),
                                       content_templates=slide_generator.CONTENT_TEMPLATES)
         return shell(body, active="new", crumb="<b>New deck</b> / Context")
     # The DEEP RESEARCH (or the notes) names the account's real interests. Extract
@@ -278,6 +295,14 @@ def build():
     wanted = {w.upper() for w in ctx["work_types"]}
     wt_ids = {c["id"] for c in case_library.all_cases()
              if c.get("work_type", "").upper() in wanted}
+    # How many case studies this deck can actually CARRY -- the same ceiling
+    # matcher.plan() enforces, read from the same functions rather than re-derived, so
+    # the depth pass below never mints picks the assembler will only throw away again
+    # (2026-08-11: MAX_CASES_PER_NEED produced 18 picks on a 12-case deck, and all 18
+    # were sent through the explain_picks LLM call to keep 12).
+    _stage = matcher.stage_of(ctx.get("phase"))
+    case_ceiling = (matcher.intro_case_ceiling(wanted) if _stage == "intro"
+                    else matcher.MAX_CASE_PICKS)
     acct_fns = matcher._account_functions(set(ctx.get("functions", [])), match_notes)
     # role resonance (owner-spec, 2026-07-20): a detected persona (e.g. HR/Talent
     # Head) previously only nudged the FALLBACK rank_cases() path -- once profile/
@@ -302,6 +327,18 @@ def build():
         # use-case), mismatch flags, expressed interest, account (honours the reference
         # priority: research primary, transcript = prior interest, profile-only otherwise).
         brief = ai_matcher.extract_brief(research_text, profile_text, ctx["transcript"])
+        # THE FORM INDUSTRY IS GROUND TRUTH, AND IT MUST WIN *BEFORE* NEEDS ARE BUILT
+        # (owner-reported, 2026-08-11). This override already existed, but it ran ~160
+        # lines further down -- after selection, just before explain_picks -- so every
+        # step that actually CHOSE the cases still saw the model's guess. On the reported
+        # build the salesperson picked AUTOMOTIVE on the form and typed one line about AI
+        # accelerators; extract_brief inferred account.industry = "Finance" (and a
+        # "Financial Manager" role) from that single sentence, and that guess became the
+        # `domain` stamped on every expressed need below and the industry every shortlist
+        # was weighted by. Hoisted here so the salesperson's own pick governs selection,
+        # not just the explanation of it.
+        if brief and ctx.get("industry"):
+            brief.setdefault("account", {})["industry"] = ctx["industry"]
         if brief and brief.get("needs"):
             avoid = brief.get("avoid") or []
             expressed = brief.get("expressed_interest") or []
@@ -317,10 +354,27 @@ def build():
             # we get; it is now a first-class need, flagged `expressed` so the three places
             # that treat it differently (claim order, gaps, the rationale label) can say so.
             acct_domain = (brief.get("account") or {}).get("industry", "") or ctx.get("industry", "")
+            # ONE EXPRESSED TOPIC PER AREA THE SALESPERSON NAMED (owner-reported,
+            # 2026-08-11). An expressed_interest string that ENUMERATES several areas
+            # ("AI accelerators mapped to Finance, Supply Chain, Production Planning and
+            # Manufacturing") used to arrive as ONE need, so it could claim ONE case for
+            # the whole list -- the deck proved Finance and silently dropped the other
+            # three areas the salesperson explicitly asked for. extract_brief's prompt now
+            # asks for these separately; split_enumerated_interest is the deterministic
+            # backstop for when the model still returns the sentence whole (it fires only
+            # on the unambiguous "A, B, C and D" shape, else returns [] and the original
+            # string is kept as-is).
+            expanded = []
+            for x in expressed:
+                expanded.extend(ai_matcher.split_enumerated_interest(x) or [x])
             seen_names = {n["name"].lower() for n in needs}
-            all_needs = needs + [{"name": x, "description": "Raised in your notes for this account.",
-                                  "domain": acct_domain, "use_case": x, "expressed": True}
-                                 for x in expressed if x.lower() not in seen_names]
+            all_needs = list(needs)
+            for x in expanded:
+                if x.lower() in seen_names:
+                    continue
+                seen_names.add(x.lower())
+                all_needs.append({"name": x, "description": "Raised in your notes for this account.",
+                                  "domain": acct_domain, "use_case": x, "expressed": True})
             profile_needs = all_needs                   # names+descriptions for lead_research
             # cheap shortlist per need — query is the bare CAPABILITY NAME (a crisp capability
             # embeds best; adding the use-case sentence or the client industry drags the match
@@ -346,7 +400,7 @@ def build():
             # simple, auditable, and provably no worse than list-order (which had no
             # relationship to fit quality at all).
             picked = []                       # [{need,id,title,blurb}] for the explainer
-            claimed_needs = set()
+            need_counts = {}                  # need name -> how many cases it has claimed
             # capped_needs: needs whose only reason for going unfilled was the Intro
             # per-work-type cap (a real case existed; there just wasn't room for it) --
             # excluded from the "not in our library" gap list below, since that gap means
@@ -385,41 +439,58 @@ def build():
             # never made the deck.
             edges.sort(key=lambda e: (0 if e[0].get("expressed") else 1,
                                       -e[2]["adj"], -e[2]["cosine"], -e[2]["title_hits"]))
-            for n, name, item in edges:
-                if name in claimed_needs or item["id"] in priority_ids:
-                    continue                            # need already filled, or case already used
-                # MECHANISM-DEDUP: skip a case that is a near-TWIN (case-to-case cosine
-                # >= PRIORITY_DEDUP_SIM) of one already picked, so the deck doesn't show
-                # two look-alike proof points (e.g. WFS002 Zero-Disruption Scaling and
-                # WFS025 Contract-to-Hire, cos 0.87; two identical DevSecOps-open-banking
-                # cases, cos 0.91). A different, differentiated candidate can still fill
-                # this need on a later edge; if none exists it stays an honest gap. The
-                # 0.85 gate is calibrated ABOVE the ~0.74 max seen among genuinely
-                # DISTINCT talent picks (RPO vs HTD vs accelerated-hiring), so it never
-                # drops a real capability -- only true duplicates (2026-07-29).
-                if relevance.max_similarity(item["id"], priority_ids) >= PRIORITY_DEDUP_SIM:
-                    continue
-                rc = recs.get(item["id"], {})
-                if apply_worktype_cap:
-                    wt = (rc.get("work_type") or "").upper()
-                    if wt and wt_pick_counts.get(wt, 0) >= INTRO_WORKTYPE_CAP:
-                        capped_needs.add(name)      # a real case existed -- just no room
+            # TWO PASSES, breadth before depth (owner-reported, 2026-08-11). A need used
+            # to claim EXACTLY ONE case and every other qualifying case for it was thrown
+            # away: on the reported build, 14 (need, case) pairs cleared CAPABILITY_COVER
+            # and six cases cleared it on the single need carrying what the salesperson
+            # actually typed -- MSS032/MSS025/MSS002/MSS125/MSS076/MSS075, all genuinely
+            # distinct proof points -- of which five were discarded purely because the
+            # need was already filled. Pass 1 still gives every need its single best case
+            # FIRST (so breadth across needs is never sacrificed for depth on one need);
+            # pass 2 then re-walks the SAME strength-sorted edges letting a need take up
+            # to MAX_CASES_PER_NEED. Every existing gate still applies unchanged in both
+            # passes -- coverage bar, avoid-flags, near-twin dedup, Intro work-type cap --
+            # so this widens the deck only with cases that were already fully vetted.
+            for limit in (1, MAX_CASES_PER_NEED):
+                for n, name, item in edges:
+                    # pass 1 (breadth, one per need) is never truncated -- every need must
+                    # get its best proof point; only the DEPTH pass respects the ceiling
+                    if limit > 1 and len(priority_ids) >= case_ceiling:
+                        break
+                    if need_counts.get(name, 0) >= limit or item["id"] in priority_ids:
+                        continue                            # need at its limit, or case already used
+                    # MECHANISM-DEDUP: skip a case that is a near-TWIN (case-to-case cosine
+                    # >= PRIORITY_DEDUP_SIM) of one already picked, so the deck doesn't show
+                    # two look-alike proof points (e.g. WFS002 Zero-Disruption Scaling and
+                    # WFS025 Contract-to-Hire, cos 0.87; two identical DevSecOps-open-banking
+                    # cases, cos 0.91). A different, differentiated candidate can still fill
+                    # this need on a later edge; if none exists it stays an honest gap. The
+                    # 0.85 gate is calibrated ABOVE the ~0.74 max seen among genuinely
+                    # DISTINCT talent picks (RPO vs HTD vs accelerated-hiring), so it never
+                    # drops a real capability -- only true duplicates (2026-07-29).
+                    if relevance.max_similarity(item["id"], priority_ids) >= PRIORITY_DEDUP_SIM:
                         continue
-                claimed_needs.add(name)
-                priority_ids.append(item["id"])
-                if apply_worktype_cap:
-                    wt = (rc.get("work_type") or "").upper()
-                    if wt:
-                        wt_pick_counts[wt] = wt_pick_counts.get(wt, 0) + 1
-                picked.append({"need": name, "id": item["id"], "title": rc.get("title", ""),
-                               "blurb": rc.get("challenge", ""),
-                               "solution": rc.get("solution", ""),
-                               "industry": rc.get("industry", ""),
-                               "expressed": bool(n.get("expressed")),
-                               "strength": item["cosine"]})
+                    rc = recs.get(item["id"], {})
+                    if apply_worktype_cap:
+                        wt = (rc.get("work_type") or "").upper()
+                        if wt and wt_pick_counts.get(wt, 0) >= INTRO_WORKTYPE_CAP:
+                            capped_needs.add(name)      # a real case existed -- just no room
+                            continue
+                    need_counts[name] = need_counts.get(name, 0) + 1
+                    priority_ids.append(item["id"])
+                    if apply_worktype_cap:
+                        wt = (rc.get("work_type") or "").upper()
+                        if wt:
+                            wt_pick_counts[wt] = wt_pick_counts.get(wt, 0) + 1
+                    picked.append({"need": name, "id": item["id"], "title": rc.get("title", ""),
+                                   "blurb": rc.get("challenge", ""),
+                                   "solution": rc.get("solution", ""),
+                                   "industry": rc.get("industry", ""),
+                                   "expressed": bool(n.get("expressed")),
+                                   "strength": item["cosine"]})
             for n in all_needs:
                 name = n["name"]
-                if (name.strip().lower() in _GENERIC_NEEDS or name in claimed_needs
+                if (name.strip().lower() in _GENERIC_NEEDS or need_counts.get(name, 0)
                         or name in capped_needs):
                     continue
                 # An expressed-interest topic used to be excluded from this list outright,
@@ -446,15 +517,13 @@ def build():
             # lexical collision on "demand"). explain_picks() now sees the case's real
             # SOLUTION text (not just a title) and can say fit=false; a rejected pick is
             # dropped back to an honest gap rather than kept with glossy reasoning.
-            # the FORM industry is authoritative over the one extract_brief inferred: when an
-            # account is described only through a finance stakeholder's profile + a logistics
-            # mail (neither says what the COMPANY sells), the model guesses the account's
-            # industry as "Finance" for what is really a retailer -- and the business-model fit
-            # check below needs the account's REAL industry to reject investor / finance-
-            # institution cases (ARKO, 2026-07-27). The salesperson's picked industry is ground
-            # truth; use it.
-            if ctx.get("industry"):
-                brief.setdefault("account", {})["industry"] = ctx["industry"]
+            # NOTE: the FORM-industry override that used to sit here (authoritative over the
+            # industry extract_brief inferred -- ARKO, 2026-07-27: a retailer described only
+            # through a finance stakeholder's profile got guessed as "Finance", and this fit
+            # check needs the account's REAL industry to reject investor/finance-institution
+            # cases) now runs immediately after extract_brief, so SELECTION sees it too and
+            # not just this explanation step. brief["account"]["industry"] is already the
+            # salesperson's own pick by the time it reaches here.
             ex = ai_matcher.explain_picks(brief, picked, profile_text, research_text)
             for it in picked:
                 r = ex.get(it["id"])

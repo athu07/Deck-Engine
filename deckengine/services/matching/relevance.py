@@ -51,6 +51,8 @@ W_LEXICAL  = 2.5     # word/phrase overlap (0..1 normalised)
 W_TITLE    = 0.7     # a topic named in the case TITLE strongly implies it's about it
 TITLE_CAP  = 3
 W_INDUSTRY = 1.5     # the account's OWN industry is preferred
+W_INDUSTRY_FAMILY = 0.9   # ...an ADJACENT vertical (see _VERTICAL_FAMILIES) counts too,
+                          # but below an exact match so a true same-vertical case wins
 W_FUNCTION = 0.8     # a case matching the stakeholder's function
 W_PERSONA  = 0.3     # multiplier on personas.score_boost
 W_METRIC   = 0.4     # a CXO gets a nudge toward business-outcome proof points
@@ -74,9 +76,58 @@ MAIL_WEIGHT = 0.7
 # industry case (high cosine) still survives -- this DEMOTES, it does not exclude.
 W_SHORT_IND_MATCH    = 0.10   # case is in the account's own industry
 W_SHORT_IND_MISMATCH = 0.10   # case is in a different, specific vertical -> demote
+# Persona weight ON THE SHORTLIST SCALE (owner-reported, 2026-08-11). shortlist_cases
+# scores on COSINE (0..1, realistically 0.2-0.6); rank_cases scores on a 0..10+ scale.
+# Reusing rank_cases' W_PERSONA (0.3) here meant persona contributed up to 0.3 x 4 =
+# 1.2 -- two to three times the entire semantic signal it was supposed to be a mere
+# tiebreak on, against tiebreaks of 0.10-0.36 for everything else. The code's own
+# comment calls meaning "the primary signal" and personas.score_boost's cap is
+# documented as ensuring persona "never dominates"; on this scale neither was true.
+# 0.03 x 4 = 0.12 puts persona in line with the other shortlist tiebreaks and leaves
+# cosine the largest single term again. W_PERSONA is left alone for rank_cases, where
+# it is correctly calibrated for that scale.
+W_SHORT_PERSONA      = 0.03
 # domains that are a business FUNCTION, not a vertical: relevant to any industry's
 # finance department, so never penalised as a "wrong industry".
 _HORIZONTAL_DOMAINS = {"FINANCE_OPS"}
+
+# ── vertical FAMILIES: verticals close enough that a proof point in one is a
+#    legitimate proof point in another (owner-reported, 2026-08-11) ─────────────
+# The store tags a case with the vertical it was SOLD into, and that vocabulary is
+# finer-grained than the 8-code form taxonomy (PROCESS_MFG, PHARMA, LOGISTICS,
+# PRIVATE_EQUITY... are all real tags). Without a notion of adjacency, the graded
+# industry term treated every one of those as a "different, specific vertical" and
+# demoted it: on the reported Automotive / Managed-Services build, NONE of the 125 MS
+# cases is tagged AUTOMOTIVE (all 3 AUTOMOTIVE cases in the store are other work
+# types), so no case could earn the +0.10 match, every correctly-tagged MANUFACTURING
+# and PROCESS_MFG case took the -0.10 demotion, and the only records left un-demoted
+# were the ones with NO industry tag at all -- an inversion that made missing data an
+# advantage. Concretely: MSS136 (blank industry, cosine 0.224) outranked MSS051 --
+# literally titled "AI-Powered Financial Reconciliation", cosine 0.521 -- on the
+# "Financial Reconciliation" need.
+# Grouped by real business adjacency, not guessed similarity; membership is symmetric
+# and derived below so a code can never be listed in one direction only.
+_VERTICAL_FAMILIES = (
+    # discrete + process industry: an automotive OEM IS a discrete manufacturer, and a
+    # plant-floor/production proof point carries straight across these
+    {"MANUFACTURING", "AUTOMOTIVE", "PROCESS_MFG", "AVIATION", "CONSTRUCTION"},
+    {"PHARMA", "HEALTHCARE"},                       # life sciences
+    {"FMCG", "RETAIL", "LOGISTICS"},                # consumer goods + the chain serving it
+    {"BFSI", "FINANCE_OPS", "PRIVATE_EQUITY"},      # financial services
+    {"TECH_IT", "PROF_SERVICES", "EDTECH", "MEDIA", "TELECOM"},   # tech / services
+)
+_RELATED_VERTICALS = {}
+for _fam in _VERTICAL_FAMILIES:
+    for _code in _fam:
+        _RELATED_VERTICALS.setdefault(_code, set()).update(_fam - {_code})
+
+
+def _same_family(account_industry, case_industry):
+    """True if the two verticals are close enough that a case in one is a fair proof
+    point for the other (see _VERTICAL_FAMILIES). False for either side missing."""
+    if not account_industry or not case_industry:
+        return False
+    return case_industry in _RELATED_VERTICALS.get(account_industry, ())
 
 # Explicit aliases: a salesperson-typed custom industry (services/content/
 # industries.py's "Other" field) that is really a named specialization of one
@@ -379,12 +430,20 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
                 domain_toks = _tokens(row.get("domain", "") + " " + row.get("keywords", ""))
                 row["_domain_tokens"] = domain_toks
             ind_hit = bool(custom_industry_terms & (title_toks | domain_toks))
+            family_hit = False
         else:
-            ind_hit = bool(industry and (row.get("primary_industry") or "").upper() == industry)
+            row_ind = (row.get("primary_industry") or "").upper()
+            ind_hit = bool(industry and row_ind == industry)
+            # ADJACENT VERTICAL (owner-reported, 2026-08-11): an exact code match is the
+            # only thing that used to count, so an AUTOMOTIVE account got ZERO industry
+            # signal from 48 MANUFACTURING + 18 PROCESS_MFG cases -- the plant-floor proof
+            # points that are exactly what an automotive manufacturer should be shown.
+            # Scored BELOW an exact match, so a true same-vertical case still wins.
+            family_hit = bool(industry and not ind_hit and _same_family(industry, row_ind))
         fn_hit = bool(functions and (row.get("primary_function") or "").upper() in functions)
-        # same-industry cases are always eligible; a cross-industry case only if its
-        # CONTENT match is strong (meaning or a solid title/keyword overlap)
-        eligible = ind_hit or sem >= CROSS_INDUSTRY_MIN or weighted >= LEX_FULL
+        # same-industry (or adjacent-vertical) cases are always eligible; a cross-industry
+        # case only if its CONTENT match is strong (meaning or a solid title/keyword overlap)
+        eligible = ind_hit or family_hit or sem >= CROSS_INDUSTRY_MIN or weighted >= LEX_FULL
         p_boost, p_why = personas.score_boost(persona_codes, row)
         metric = W_METRIC if (cxo and _has_outcome_metrics(row)) else 0.0
         impact = W_METRIC_PREF * _metric_strength(row) if prefer_high_impact else 0.0
@@ -392,7 +451,7 @@ def rank_cases(transcript, rows, *, industry="", functions=None,
         score = (W_SEMANTIC * sem
                  + W_LEXICAL * lex_norm
                  + title_boost
-                 + (W_INDUSTRY if ind_hit else 0.0)
+                 + (W_INDUSTRY if ind_hit else W_INDUSTRY_FAMILY if family_hit else 0.0)
                  + (W_FUNCTION if fn_hit else 0.0)
                  + W_PERSONA * p_boost
                  + metric
@@ -571,6 +630,17 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
     if not qv:
         return [[] for _ in texts]
     rows = _rows_by_id() if persona_codes else {}
+    # Only demote a wrong vertical when this candidate pool actually CONTAINS something
+    # better to prefer -- i.e. at least one case in the account's own vertical or its
+    # family. When the account's industry has no representation at all in the selected
+    # work types (AUTOMOTIVE across the 125 Managed-Services cases, 2026-08-11), the
+    # -0.10 is not "prefer the right vertical", it is a flat penalty on every case that
+    # bothered to carry a tag, handing the ranking to the untagged records. Neutral for
+    # everyone is the honest reading of "we have no industry signal here".
+    has_vertical_signal = bool(industry) and any(
+        (meta.get(cid, ("", "", set()))[0] == industry
+         or _same_family(industry, meta.get(cid, ("", "", set()))[0]))
+        for cid in (embs if allowed_ids is None else (allowed_ids & set(embs))))
     out = []
     for text, v in zip(texts, qv):
         need = specific_terms(text)                   # discriminating words of the need
@@ -588,7 +658,7 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
                 row = rows.get(cid)
                 if row is not None:
                     boost, _why = personas.score_boost(persona_codes, row)
-                    p_boost = W_PERSONA * boost
+                    p_boost = W_SHORT_PERSONA * boost      # shortlist scale, not rank scale
             # graded industry term: boost same-vertical, demote a wrong vertical,
             # stay neutral for a horizontal function-domain (FINANCE_OPS) or an
             # unknown industry on either side (never penalise a cross-industry
@@ -597,7 +667,11 @@ def shortlist_cases(texts, industry="", functions=None, allowed_ids=None, top_n=
             if industry and ind:
                 if ind == industry:
                     ind_term = W_SHORT_IND_MATCH
-                elif ind not in _HORIZONTAL_DOMAINS:
+                elif _same_family(industry, ind):
+                    ind_term = 0.0          # adjacent vertical -> fair proof point, no demote
+                elif ind in _HORIZONTAL_DOMAINS:
+                    ind_term = 0.0          # a business function, relevant to any vertical
+                elif has_vertical_signal:
                     ind_term = -W_SHORT_IND_MISMATCH
             adj = (c                                   # meaning (capability) is the primary signal
                    + 0.12 * min(3, direct)             # literal term = mild tiebreak

@@ -15,6 +15,7 @@ Provider: OpenAI (per project owner's choice). Key read from .env.
 
 import json
 import logging
+import re
 
 from deckengine.services.infra import load_env
 
@@ -420,6 +421,70 @@ def extract_asks(transcript):
     return out[:6]
 
 
+# Words that end the LEAD-IN of an enumeration and introduce the list itself
+# ("AI accelerators mapped to <list>", "automation across <list>"). Stripped off the
+# right-hand end of the lead-in so the rebuilt need reads as a capability, not a
+# sentence fragment ("AI accelerators mapped" -> "AI accelerators").
+_ENUM_CONNECTORS = {"to", "for", "across", "in", "at", "on", "around", "over", "covering",
+                    "spanning", "including", "mapped", "applied", "aligned", "focused",
+                    "targeting", "supporting", "throughout", "within", "of"}
+# an enumerated item is a short NAME (a function/domain), not a clause
+_ENUM_ITEM_MAX_WORDS = 4
+
+
+def split_enumerated_interest(text):
+    """'AI accelerators mapped to Finance, Supply Chain, Production Planning, and
+    Manufacturing.' -> ['AI accelerators for Finance', 'AI accelerators for Supply
+    Chain', 'AI accelerators for Production Planning', 'AI accelerators for
+    Manufacturing'].
+
+    The DETERMINISTIC backstop for the 'every area the salesperson named gets its own
+    need' prompt rule in extract_brief (owner-reported, 2026-08-11). A prompt rule is
+    advisory; this is the part that cannot be talked out of it. It fires only on the
+    unambiguous 'A, B, C and D' shape where every item is a short NAME rather than a
+    clause -- anything else returns [] and the caller keeps the original single string,
+    so a normal prose sentence is never chopped up.
+
+    Pure/no I/O, so it runs on the offline fail-safe path too."""
+    raw = (text or "").strip().rstrip(".").strip()
+    if not raw or not ("," in raw or re.search(r"\s+(?:and|&)\s+", raw)):
+        return []
+    # normalise a trailing "..., and X" / "... & X" into one more comma-separated item
+    normalised = re.sub(r",?\s+(?:and|&)\s+", ", ", raw)
+    chunks = [c.strip() for c in normalised.split(",") if c.strip()]
+    if len(chunks) < 2:
+        return []
+    # The FIRST chunk still carries the lead-in ("AI accelerators mapped to Finance");
+    # every later chunk is a bare item. Split the first on its last connector word.
+    # NO connector means we cannot tell where the lead-in ends and the first item
+    # begins -- and ordinary prose joined by "and" ("they want predictive maintenance
+    # and better uptime") looks exactly like a 2-item list from here -- so bail out
+    # rather than invent a need out of a sentence fragment.
+    head_words = chunks[0].split()
+    cut = None
+    for i, w in enumerate(head_words):
+        if w.lower().strip(":") in _ENUM_CONNECTORS:
+            cut = i
+    if cut is None:
+        return []
+    lead_words, first_item = head_words[:cut], head_words[cut + 1:]
+    if not first_item:
+        return []
+    items = [" ".join(first_item)] + chunks[1:]
+    # every item must look like a short NAME; one long clause means this is prose
+    if any(len(it.split()) > _ENUM_ITEM_MAX_WORDS or not it for it in items):
+        return []
+    # trim any connector/participle left dangling on the lead-in ("mapped")
+    while lead_words and lead_words[-1].lower().strip(":") in _ENUM_CONNECTORS:
+        lead_words.pop()
+    lead = " ".join(lead_words).strip()
+    # a 1-word lead is a verb/adjective ("Interested in X, Y"), not a capability noun
+    # phrase -- prefixing it produces junk ("Interested for RPO"), so use bare areas
+    if len(lead.split()) < 2 or len(lead.split()) > 6:
+        return items                       # no usable shared context -> the bare areas
+    return ["%s for %s" % (lead, it) for it in items]
+
+
 def extract_brief(research="", profile="", transcript=""):
     """Structured matching brief from the deep-research brief + stakeholder profile +
     transcript — the signals the ranker uses DIRECTLY (not just descriptive text):
@@ -633,6 +698,31 @@ def extract_brief(research="", profile="", transcript=""):
         "not just the account happening to already use a large vendor.\n"
         "Both default false; only set true from a genuine signal in the sources, never "
         "guessed from the account being large or enterprise-sized alone.\n"
+        "- EVERY AREA THE SALESPERSON NAMED GETS ITS OWN NEED. When the notes/transcript "
+        "ENUMERATE several business functions, domains or capability areas ('AI accelerators "
+        "mapped to Finance, Supply Chain, Production Planning and Manufacturing'; 'looking at "
+        "quality, maintenance and logistics'), EACH named area MUST produce at least one need "
+        "of its own, carrying the shared lead-in as context ('AI accelerators for Supply "
+        "Chain', 'AI accelerators for Production Planning', ...). NEVER return a set of needs "
+        "that all sit inside ONE of the named areas while the others get nothing -- the "
+        "salesperson typed that list precisely because they want proof across all of it. "
+        "Confirmed miss (owner-reported, 2026-08-11): a Managed-Services / Automotive build "
+        "whose entire notes field read 'AI accelerators mapped to Finance, Supply Chain, "
+        "Production Planning, and Manufacturing' returned FOUR needs -- Financial Budgeting "
+        "and Forecasting, Financial Reconciliation, Accounts Payable Automation, Month-End "
+        "Close -- every one of them Finance. Supply Chain, Production Planning and "
+        "Manufacturing produced no need at all, so the library's supply-chain and "
+        "production-planning proof points were never even looked for, and the deck came back "
+        "invoice-and-reconciliation flavoured for an automotive manufacturer.\n"
+        "- NOTES WITHOUT A PROFILE ARE A TOPIC LIST, NOT A PERSON. When there is NO "
+        "stakeholder profile and NO research brief -- only the salesperson's typed notes -- "
+        "do NOT invent a stakeholder role, a seniority, or a career history to hang needs "
+        "off, and do NOT infer the ACCOUNT's industry from the topics named. Read the notes "
+        "as a list of what to prove, nothing more; leave account.role empty and "
+        "account.industry empty rather than guessing. In the confirmed miss above, that one "
+        "sentence produced account={industry:'Finance', role:'Financial Manager'} and needs "
+        "phrased as a CV ('Skilled in managing the month-end close process...') for an "
+        "account the salesperson had explicitly marked AUTOMOTIVE on the form.\n"
         "Reference priority: if a deep-research brief is present treat it as PRIMARY and "
         "the transcript as prior-interest only; if only a profile is present, derive needs "
         "from the role and company context.\n"

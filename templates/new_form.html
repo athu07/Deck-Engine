@@ -38,7 +38,12 @@
 
 <div class="or-divider"><span>or build a full deck from context</span></div>
 
-<form id="deckForm" method="post" action="/build" class="form-layout" enctype="multipart/form-data">
+{# novalidate: every missing field is reported through the app's own toast instead of
+   the browser's native bubble -- see static/js/new-form.js. The `required` attributes
+   below are KEPT as the semantic marker (they are what the validator reads, and they
+   still describe the field to assistive tech); only the native UI is suppressed. #}
+<form id="deckForm" method="post" action="/build" class="form-layout"
+      enctype="multipart/form-data" novalidate>
   <input type="hidden" name="content_slide_ids" id="content-slide-ids">
   <div>
     <!-- 1 · WORK TYPE (the primary choice, first) -->

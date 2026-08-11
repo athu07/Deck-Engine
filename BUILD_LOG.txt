@@ -5265,3 +5265,228 @@ it doesn't render visibly broken, it just means these 14 don't get an industry-m
 during selection yet.
 
 Tests: 61 passed / 2 deselected (pre-existing preview + flaky staging).
+
+------------------------------------------------------------
+2026-08-11  "It only picked 4 case studies" -- five separate mechanisms, all discarding
+            correct matches. Managed Services / Automotive / Second Meeting
+------------------------------------------------------------
+Owner-reported: a New-deck build (client name dummy, industry AUTOMOTIVE, phase Second
+Meeting, work type Managed Services, Context notes = "AI accelerators mapped to Finance,
+Supply Chain, Production Planning, and Manufacturing") returned ~4 case studies. Her point:
+the library HAS plenty of matching content and the deck should not be limited to
+automotive-TAGGED cases -- it should understand the ask and pull the related finance /
+supply-chain / production-planning proof points too.
+
+REPRODUCED end-to-end (the exact form POST): 3 case studies. Measured against the engine's
+OWN generic ranker on the same notes, 46 of 125 MS cases sat above the relevance floor and
+its top three were MSS125 Predictive Supply Chain Intelligence, MSS075 PlanForge AI Agentic
+Production Planning and MSS002 Demand-Driven Material Planning -- precisely the content she
+said was missing. THE RANKING WAS ALREADY RIGHT; five gates downstream threw it away.
+
+ROOT CAUSE 1 -- the fill loop was capped at the priority-pick count (matcher.plan).
+`pick_cap = min(case_cap_ceiling, max(len(selected_ids), 3))` was written as a FLOOR of 3
+("only fill if we have < 3") but selected_ids already held the research-driven priority
+picks, so it also acted as a CEILING EQUAL TO THE PRIORITY COUNT: 3 picks -> pick_cap 3 ->
+the fill loop ran ZERO times, and MAX_CASE_PICKS = 12 ("breadth cap -- a multi-solution
+account needs many proofs") was unreachable on every deck where the priority pipeline
+worked at all. Deck size was literally "number of needs matched", never more.
+FIX: pick_cap = case_cap_ceiling. Breadth is controlled by keep_floor, which is RELATIVE
+(CASE_REL_FLOOR x top score) and therefore self-scaling -- measured on the real library, a
+single-topic ask leaves 2 cases above the floor while this four-domain ask leaves 46. A
+narrow pitch still stays tight; verified by a new test.
+
+ROOT CAUSE 2 -- one case per need, hard 1:1 (web/decks.py). Each need claimed exactly one
+case; 14 (need, case) pairs cleared CAPABILITY_COVER on this build and six cleared it on the
+single need carrying her actual sentence (MSS032/MSS025/MSS002/MSS125/MSS076/MSS075, all
+genuinely distinct) -- five discarded purely because the need was already filled.
+FIX: two passes over the same strength-sorted edges -- pass 1 breadth (every need gets its
+best case first), pass 2 depth (up to constants.MAX_CASES_PER_NEED = 3). Every existing gate
+still applies in both passes. The depth pass stops at the deck's real case ceiling so it no
+longer mints picks the assembler only discards (it was sending 18 picks through the
+explain_picks LLM call to keep 12).
+
+ROOT CAUSE 3 -- extract_brief rewrote a four-domain ask as pure Finance. On her notes it
+returned needs "Financial Budgeting and Forecasting / Financial Reconciliation / Accounts
+Payable Automation / Month-End Close" -- ALL Finance -- plus account {industry:"Finance",
+role:"Financial Manager"} invented from one sentence, for an account she had explicitly
+marked AUTOMOTIVE on the form. Supply Chain, Production Planning and Manufacturing produced
+no need at all, so those proof points were never even looked for.
+FIX (three parts): (a) new prompt rule -- every area the salesperson ENUMERATES gets its own
+need carrying the shared lead-in; never return needs that all sit inside one named area.
+(b) new prompt rule -- notes with no profile/research are a TOPIC LIST, not a person: do not
+invent a role or infer the account's industry from them. (c) deterministic backstop
+ai_matcher.split_enumerated_interest(), the code half of the pattern this codebase already
+uses for prompt rules -- it fires only on the unambiguous "A, B, C and D" shape where every
+item is a short NAME, and returns [] on prose so a normal sentence is never chopped up.
+ALSO: the FORM-industry override (already present) ran ~160 lines too late -- after
+selection, just before explain_picks -- so every step that actually CHOSE cases still saw
+the model's guess. Hoisted to immediately after extract_brief.
+
+ROOT CAUSE 4 -- the industry term inverted itself (relevance.py). NONE of the 125 MS cases
+is tagged AUTOMOTIVE (all 3 AUTOMOTIVE cases in the store are other work types), so no case
+could earn the +0.10 same-vertical boost, every correctly-tagged MANUFACTURING (48) and
+PROCESS_MFG (18) case took the -0.10 wrong-vertical demotion, and the ONLY records left
+un-demoted were the ones with no industry tag at all -- missing data became an advantage.
+Concretely: MSS136 (blank industry, cosine 0.224) outranked MSS051, literally titled
+"AI-Powered Financial Reconciliation", cosine 0.521, on the Financial Reconciliation need.
+FIX: _VERTICAL_FAMILIES -- verticals adjacent enough that a proof point in one is fair for
+the other (an automotive OEM IS a discrete manufacturer). An adjacent vertical is no longer
+demoted in the shortlist and earns W_INDUSTRY_FAMILY (0.9, below the 1.5 exact match) in
+rank_cases, and counts toward eligibility. PLUS: the wrong-vertical demotion now only
+applies when the candidate pool actually CONTAINS something better to prefer (a case in the
+account's vertical or its family) -- with no industry representation at all, "neutral for
+everyone" is the honest reading, not a flat penalty on every case that carried a tag.
+NOT changed: the store's industry tags themselves (11 values outside the 8-code form
+taxonomy: PROCESS_MFG, PHARMA, LOGISTICS, PRIVATE_EQUITY, RETAIL, MEDIA, EDTECH,
+PROF_SERVICES, CONSTRUCTION, FINANCE_OPS, FMCG). Re-tagging 209 records is data work with a
+much wider blast radius than this fix; the family map makes the existing tags work.
+
+ROOT CAUSE 5 -- persona outweighed meaning in the shortlist (relevance.py). shortlist_cases
+scores on COSINE (0..1, realistically 0.2-0.6) but reused rank_cases' W_PERSONA = 0.3 against
+a boost capped at 4 -> up to 1.2, i.e. two to three times the entire semantic signal it was
+meant to be a tiebreak on, versus 0.10-0.36 for every other tiebreak. The code's own comment
+calls meaning "the primary signal" and score_boost's cap is documented as ensuring persona
+"never dominates"; on this scale neither was true. It also decided top-8 shortlist
+membership, so a strong semantic match could be pushed out before it ever reached the
+coverage gate.
+FIX: separate W_SHORT_PERSONA = 0.03 for the shortlist scale (0.03 x 4 = 0.12, in line with
+the other tiebreaks). W_PERSONA is untouched for rank_cases, where it is correctly
+calibrated.
+
+DEFECT found while fixing the above (NOT in the original report): raising the fill ceiling
+made matcher.plan ship look-alike slides. The soft MMR demotion (DEDUP_WEIGHT x excess over
+DEDUP_GATE) was sufficient only while the loop stopped at 3 picks; filling to the real
+ceiling reached deep enough that a 0.887-similar case won a late slot on score alone --
+WFS002 "Zero-Disruption Workforce Scaling" and WFS025 "Contract-to-Hire Workforce
+Management", the exact pair already documented in this file as near-twins, both landed in
+one deck. FIX: hard near-twin gate in the fill loop at the same bar the priority path uses,
+now a SINGLE constant (matcher.NEAR_TWIN_SIM) that web/decks.py imports instead of keeping
+its own copy -- the same duplication that let the Intro work-type cap drift apart on
+2026-08-04.
+
+ALSO FIXED (carried over from the codebase review, unrelated to the report): the committed
+master-deck previews were stale. The master deck was swapped on 2026-08-04 (content hash
+3c7ceb2aa3) but static/previews/ still held the 2026-07-13 set under hash 90ae730e5e, so ALL
+39 previews missed and /review showed no slide images on any host without LibreOffice.
+Re-ran scripts/prerender_master.py (39 previews, 1.8 MB); it removed the stale set itself.
+test_master_previews_ship_and_serve_without_libreoffice -- which had been deselected as
+"pre-existing" -- now passes.
+
+RESULT on the reported build, same form input: 3 case studies -> 12, and all four domains
+she named are represented -- Supply Chain (MSS125, MSS136, MSS032, MSS002), Production
+Planning (MSS075, MSS003), Manufacturing (MSS004, MSS025, MSS024), Finance (MSS051, MSS015,
+MSS103). No near-twin pair in the deck. MSS055 "Generation and Grid Forecasting Intelligence"
+-- an ENERGY grid case that used to be the only candidate clearing the bar for "Financial
+Budgeting and Forecasting", a pure lexical collision on "forecasting" -- no longer appears.
+
+Tests: 70 passed (63 before + 7 new regression tests, one per mechanism plus a guard that a
+NARROW single-topic ask still produces a tight deck rather than being padded to 12). The two
+smoke-test golden baselines were RE-FROZEN deliberately: both now carry more case studies
+(3 -> 9 and 3 -> 7) with the standard-slide blocks unchanged and no near-twin pairs. Each new
+test was verified to FAIL with its fix reverted.
+
+------------------------------------------------------------
+2026-08-11  UI tweaks: missing-field toasts, the off-theme search box, the logo plaque
+------------------------------------------------------------
+1. MISSING MANDATORY FIELD -> A TOAST, TOP RIGHT. New shared primitive: static/js/toast.js
+(window.j2wToast(message, kind)), loaded for every page from _shell.html, styled in
+app.css off the same surface/line/shadow tokens as the cards. The New-deck form is now
+`novalidate` and reports each missing field itself -- "Please fill up the Client name
+field" -- because the browser's native bubble shows ONE field at a time, cannot be themed,
+and has nothing to attach to for the work-type checkboxes (`required` on a checkbox means
+"this one must be ticked", not "at least one of the set"). The `required` attributes are
+KEPT as the semantic marker for assistive tech; only the native UI is suppressed. Fields
+checked in page order: Work type, Client name, Industry (including "Other..." picked but
+left blank), Deck phase. The first missing field is focused and each is outlined via a new
+.is-invalid class, replacing an inline style.borderColor the JS used to set directly.
+SERVER BACKSTOP WIDENED to match: /build already refused a post with no work type (the
+"JS disabled" guard); suppressing native validation made the server the ONLY remaining
+guard, so it now checks client name, industry and phase too -- otherwise a JS-less post
+would quietly build a deck for "Client" with no industry signal at all. Verified each
+field individually and all four together.
+
+2. THE CASE-STUDY SEARCH BOX ON /build looked pasted in because it was: inline-styled with
+its own hardcoded border (#d7d7d3), its own padding/font-size, no hover or focus state,
+and a literal magnifying-glass EMOJI in the placeholder -- sitting in the same card as
+.input fields that share none of that. Now a real .input inside a .search-field wrapper
+with a proper inset Tabler ti-search icon, inheriting the same border, radius, hover and
+teal focus ring as every other field in the app; the icon tints teal on focus. Styles moved
+out of the template into app.css, per the repo's own rule.
+
+3. THE WHITE PLAQUE BEHIND THE SIDEBAR LOGO removed (owner's call). The PNG is already
+transparent -- 56,485 of its 77,600 pixels -- so this was purely a CSS background, and the
+artwork is untouched (git confirms no change under static/img/). The hover state became a
+faint white wash so the link affordance survives on the dark sidebar.
+MEASURED, and left as the owner asked: against the #111110 sidebar the wordmark's red
+(rgb 168,24,48, its largest colour block at 8,178px) sits at 2.55:1 -- below the WCAG
+3.0:1 minimum for a graphic. The teal is 3.67:1 and passes, the grey 3.00:1. If it ever
+needs to read harder without editing the artwork, a filter on .nav-brand img (e.g.
+brightness(1.6)) lifts it over the bar at the cost of shifting the brand colours lighter;
+noted in the CSS next to the rule.
+
+Tests: 70 passed.
+
+------------------------------------------------------------
+2026-08-11  UI: full-width layout + real responsive breakpoints, bigger toast,
+            the duplicated "New deck", the search icon chip
+------------------------------------------------------------
+1. THE BLANK GUTTERS DOWN BOTH SIDES. `.page` was `width:min(1600px,100%);margin:0 auto`
+-- a hard 1600px cap, centred -- so every pixel past 1600 became empty margin. On a
+~2400px-wide viewport (a wide monitor, or the window zoomed out, which is exactly how the
+owner hit it) that is ~280px of nothing on EACH side. Now `width:100%` with side padding
+that scales, `clamp(16px,2.2vw,40px)`; `.topbar` uses the identical clamp so the
+breadcrumb stays aligned with the content column at every width. Long-form text is still
+protected where it matters -- .page-sub and .lede keep their own 78ch cap -- and
+.form-layout's rail is now `clamp(300px,21vw,400px)` instead of a fixed 320px, so the form
+and the "How it works" card grow together rather than the form stretching alone.
+
+2. THE SIDEBAR HAD NO RESPONSIVE BEHAVIOUR AT ALL -- a flat 240px at every width, so on a
+small laptop or a half-screen window it ate a quarter of the viewport. Two new
+breakpoints: below 1024px it takes the icon-only form automatically (and the manual
+toggle, which has nothing to toggle to at that width, is hidden); below 620px it becomes a
+horizontal strip across the top, with the active-item brand bar rotated to sit under the
+icon instead of beside it, so the page gets the full width. These DUPLICATE the
+.nav-collapsed rules rather than reusing the class on purpose: that class is user state
+persisted to localStorage, and a media query must neither depend on whether the
+salesperson collapsed the sidebar nor overwrite that choice when the window widens again.
+
+3. TOAST made larger and heavier: 14.5px/500 text (was 13px/400), 15x18 padding (was
+11x13), a 4px accent rule, a real two-layer drop shadow instead of the card shadow, and
+the icon now sits in the same soft-teal chip the work-type cards use (red-tinted on an
+error). Wrap widened to 440px.
+
+4. "NEW DECK" APPEARED TWICE IN THE SIDEBAR -- once as the teal CTA (href /new) and again
+as a plain nav-item under "Create" (href /), two controls with the same destination four
+rows apart. Removed the nav-item; the CTA is the primary action of the app and now carries
+the active state (a soft ring + aria-current="page") that the nav-item used to provide.
+"Create" keeps Slide builder.
+
+5. SEARCH ICON now sits in a soft-teal chip -- var(--teal-soft) background, teal glyph,
+9px radius -- the same treatment .wt-card .wt-ic gives the work-type icons, so the two
+read as one family. On focus it fills to solid teal exactly as a work-type card does when
+selected.
+
+Tests: 70 passed. CSS verified brace- and comment-balanced; sidebar verified to render
+"New deck" exactly once on /new, /dashboard and /builder.
+
+------------------------------------------------------------
+2026-08-11  Sidebar: "New deck" moved under Create, logo sized up again
+------------------------------------------------------------
+Follow-up to the duplicate-nav fix earlier today. That pass kept the teal CTA and dropped
+the nav-item; the owner wanted the opposite -- New deck belongs with the rest of the
+navigation, under Create. So the CTA is gone and New deck is the first item under Create,
+above Slide builder, carrying the active state + aria-current="page".
+.nav-cta's CSS was REMOVED with it (the base rule, the hover, the collapsed overrides and
+the two references inside the new responsive breakpoints) rather than being left behind as
+dead styles for a component nothing renders any more. Nothing else used the class --
+grepped across templates/ and static/js/ before deleting.
+
+LOGO sized up a second time: max-width 158px -> 200px, and .nav-brand's padding cut from
+14px/16px to 10px/4px. The side padding existed to hold the mark off the edge of the white
+plaque; with the plaque gone it was just shrinking the logo. The sidebar is 240px with 12px
+of its own padding, so 216px is usable and the wordmark now takes ~200px of it. The
+collapsed and narrow-window variants went up in proportion (44 -> 50px, and 38 -> 42px on
+the <=620px horizontal strip).
+
+Verified: the sidebar renders "New deck" exactly once, in the Create group, on /new,
+/dashboard, /builder and /library. CSS brace- and comment-balanced. Tests: 70 passed.

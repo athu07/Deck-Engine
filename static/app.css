@@ -65,12 +65,25 @@ a{color:inherit;text-decoration:none}
 .sidebar{width:var(--side);background:var(--black);color:#fff;display:flex;flex-direction:column;
   padding:16px 12px;position:sticky;top:0;height:100vh;transition:width .16s ease;flex-shrink:0}
 .app.nav-collapsed .sidebar{width:var(--side-collapsed);padding:16px 10px}
-/* The logo is the brand mark: centred, on a white plaque, big enough to read. */
+/* The logo is the brand mark: centred, big enough to read.
+   The white plaque behind it was removed (owner's call, 2026-08-11) -- it read as a
+   pasted-on white box against the black sidebar. The PNG is already transparent
+   (56k of its 77k pixels), so this is purely the removal of a CSS background; the
+   logo file itself is untouched.
+   NOTE, measured: against the #111110 sidebar the wordmark's red (rgb 168,24,48 --
+   its largest colour block) sits at 2.55:1, under the WCAG 3.0:1 minimum for a
+   graphic; the teal is 3.67:1 and passes. If it ever needs to read harder without
+   editing the artwork, add a filter here (e.g. brightness(1.6)) -- that lifts it
+   above the bar at the cost of shifting the brand colours lighter. */
 .nav-head{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
-.nav-brand{display:grid;place-items:center;width:100%;background:#fff;border-radius:var(--r-md);
-  padding:14px 16px;transition:.15s}
-.nav-brand:hover{background:#f4f4f2}
-.nav-brand img{display:block;width:100%;max-width:158px;height:auto}
+/* Sized up twice on the owner's call (2026-08-11). With the white plaque gone there is
+   no box to sit inside, so the side padding that used to hold it off the plaque edge
+   was just shrinking the mark: the sidebar is 240px with 12px of its own padding, so
+   216px is available and the wordmark now uses ~200px of it. */
+.nav-brand{display:grid;place-items:center;width:100%;background:transparent;
+  border-radius:var(--r-md);padding:10px 4px;transition:.15s}
+.nav-brand:hover{background:rgba(255,255,255,.06)}
+.nav-brand img{display:block;width:100%;max-width:200px;height:auto}
 .nav-toggle{width:100%;height:28px;border-radius:var(--r-sm);border:0;background:transparent;
   color:#6f6f6b;display:grid;place-items:center;cursor:pointer}
 .nav-toggle:hover{background:#1d1d1b;color:#fff}
@@ -78,14 +91,11 @@ a{color:inherit;text-decoration:none}
    tall -- the shape and the colours read, the "Time Matters" tagline does not. A square
    monogram would be the honest fix; we don't have one. */
 .app.nav-collapsed .nav-brand{padding:5px 4px;border-radius:var(--r-sm)}
-.app.nav-collapsed .nav-brand img{max-width:44px}
+.app.nav-collapsed .nav-brand img{max-width:50px}
 
-.nav-cta{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-md);
-  background:var(--teal);color:#fff;font-weight:600;font-size:13.5px;margin-bottom:20px;
-  white-space:nowrap;overflow:hidden;transition:.15s}
-.nav-cta:hover{background:var(--teal-300);color:#08110f}
-.app.nav-collapsed .nav-cta{justify-content:center;padding:10px 0}
-.app.nav-collapsed .nav-cta span{display:none}
+/* (.nav-cta -- the teal "New deck" button that used to sit here -- was removed with its
+   markup on 2026-08-11: it duplicated the New deck nav-item, which now lives under
+   Create where it belongs. Its rules went with it rather than being left as dead CSS.) */
 
 .nav-group{margin-bottom:16px}
 .nav-label{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#5d5d59;
@@ -107,9 +117,45 @@ a{color:inherit;text-decoration:none}
 .app.nav-collapsed .nav-item.active::before{left:0}
 .nav-sp{flex:1}
 
+/* NARROW WINDOWS: the sidebar had no responsive behaviour at all -- a flat 240px at
+   every width, so on a small laptop or a half-screen window it ate a quarter of the
+   viewport and squeezed the content it is meant to serve. Below 1024px it takes the
+   icon-only form automatically, whatever the manual toggle says; below 620px it drops
+   to a horizontal strip along the top so the page gets the full width.
+   These duplicate the .nav-collapsed rules rather than reusing the class because the
+   class is user state (persisted to localStorage) -- a media query must not depend on
+   whether the salesperson happened to collapse it, and must not overwrite that choice
+   when the window widens again. */
+@media(max-width:1024px){
+  .sidebar{width:var(--side-collapsed);padding:16px 10px}
+  .nav-brand{padding:5px 4px;border-radius:var(--r-sm)}
+  .nav-brand img{max-width:50px}
+  .nav-item span{display:none}
+  .nav-item{justify-content:center;padding:0}
+  .nav-label{opacity:0;height:6px;margin:0;overflow:hidden}
+  .nav-toggle{display:none}          /* nothing to toggle to at this width */
+}
+@media(max-width:620px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;flex-direction:row;align-items:center;
+    gap:4px;padding:8px 10px;overflow-x:auto}
+  .nav-head{flex-direction:row;margin:0 8px 0 0;gap:0}
+  .nav-brand{width:auto;padding:2px 4px}
+  .nav-brand img{max-width:42px}
+  .nav-group{margin:0;display:flex;gap:2px}
+  .nav-label,.nav-sp{display:none}
+  .nav-item{height:36px;width:40px;flex-shrink:0}
+  .nav-item.active::before{top:auto;bottom:0;left:6px;right:6px;width:auto;height:3px;
+    border-radius:2px 2px 0 0;
+    background:linear-gradient(90deg,var(--brand-red) 0 66.7%,var(--brand-teal) 66.7% 100%)}
+  .topbar,.page{padding-left:16px;padding-right:16px}
+}
+
 /* ---- main + header bar ---- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.topbar{display:flex;align-items:center;gap:16px;padding:14px 32px 0;position:sticky;top:0;
+/* same fluid side padding as .page below, so the breadcrumb stays aligned with the
+   content column at every width */
+.topbar{display:flex;align-items:center;gap:16px;padding:14px clamp(16px,2.2vw,40px) 0;position:sticky;top:0;
   background:rgba(242,242,240,.86);backdrop-filter:blur(10px);z-index:10}
 .crumb{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px}
 .crumb b{color:var(--ink);font-weight:600}
@@ -118,7 +164,14 @@ a{color:inherit;text-decoration:none}
 .tab.active{background:var(--black);color:#fff}
 .top-sp{flex:1}
 
-.page{padding:6px 32px 48px;width:min(1600px,100%);margin:0 auto}
+/* The page FILLS the space next to the sidebar (owner-reported, 2026-08-11: wide or
+   zoomed-out windows showed a blank gutter down both sides). It used to be
+   `width:min(1600px,100%);margin:0 auto` -- a hard 1600px cap, centred, so every pixel
+   past 1600 became empty margin: on a ~2400px-wide viewport that is ~280px of nothing
+   on each side. Now it uses the full width with padding that scales with the viewport.
+   Line length is still protected where it actually matters -- .page-sub and .lede carry
+   their own 78ch cap, and .form-layout below keeps the form column from stretching. */
+.page{padding:6px clamp(16px,2.2vw,40px) 48px;width:100%;margin:0}
 
 /* The page header bar. Replaces the eyebrow + 46px display title + 560px lede block that
    opened all 13 templates and ate ~200px of vertical before the first control. */
@@ -355,7 +408,10 @@ select optgroup{color:var(--muted);font-style:normal;font-weight:600;font-size:1
   display:grid;place-items:center;font-size:13px;font-weight:600;flex-shrink:0}
 .step .st{font-size:13px;color:var(--muted);line-height:1.45}
 .step .st b{color:var(--ink);font-weight:500;display:block}
-.form-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+/* the "How it works" rail scales with the window instead of staying a fixed 320px --
+   on a wide screen the form no longer stretches alone while the rail stays narrow */
+.form-layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,21vw,400px);
+  gap:18px;align-items:start}
 @media(max-width:1100px){.form-layout{grid-template-columns:1fr}}
 .form-layout > *{min-width:0}
 .side-card{position:sticky;top:76px}
@@ -657,3 +713,51 @@ textarea.ed-generic{min-height:44px}
 .rr-text{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 @keyframes j2wspin{to{transform:rotate(360deg)}}
+
+/* ---- toasts (top-right) ------------------------------------------------- *
+   Used for form-validation feedback on the New-deck page: the browser's native
+   validation bubble is one-at-a-time, unstyled, and cannot say anything about the
+   work-type checkboxes (which have no `required` attribute to hang it on), so the
+   form is `novalidate` and every missing field is reported here instead.
+   Same surface/line/shadow tokens as the cards, so it reads as part of the app. */
+.toast-wrap{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;
+  gap:10px;pointer-events:none;max-width:min(440px,calc(100vw - 40px))}
+.toast{display:flex;align-items:center;gap:12px;background:var(--surface);color:var(--ink);
+  border:1px solid var(--line-2);border-left:4px solid var(--teal);border-radius:var(--r-md);
+  box-shadow:0 4px 10px rgba(17,17,16,.08),0 12px 32px rgba(17,17,16,.14);
+  padding:15px 18px;font-size:14.5px;font-weight:500;line-height:1.45;pointer-events:auto;
+  animation:j2wtoastin .18s ease both}
+.toast.is-error{border-left-color:var(--neg)}
+/* the icon sits in the same soft chip the work-type cards use */
+.toast i{font-size:19px;line-height:1;flex-shrink:0;color:var(--teal);width:32px;height:32px;
+  border-radius:9px;background:var(--teal-soft);display:grid;place-items:center}
+.toast.is-error i{color:var(--neg);background:rgba(194,80,60,.12)}
+.toast-msg{min-width:0}
+.toast.is-out{animation:j2wtoastout .16s ease both}
+@keyframes j2wtoastin{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes j2wtoastout{from{opacity:1;transform:none}to{opacity:0;transform:translateX(12px)}}
+@media (prefers-reduced-motion:reduce){
+  .toast,.toast.is-out{animation:none}
+}
+
+/* invalid form field -- paired with the toast on the New-deck form. Replaces an
+   inline style.borderColor the JS used to set directly. Clears on next input. */
+.is-invalid,.input.is-invalid,select.is-invalid{border-color:var(--neg)}
+.is-invalid:focus,.input.is-invalid:focus,select.is-invalid:focus{
+  border-color:var(--neg);box-shadow:0 0 0 3px rgba(194,80,60,.14)}
+
+/* ---- search field (the "add a slide" box on /build) ---------------------- *
+   Was inline-styled with its own hardcoded border (#d7d7d3), its own padding and a
+   literal magnifying-glass EMOJI in the placeholder -- so it sat visibly outside the
+   design system next to the .input fields it shares a card with. Now it is a real
+   .input with a proper Tabler icon inset, and inherits the same hover/focus states
+   as every other field.
+   The icon sits in the same soft-teal chip the work-type cards use for theirs
+   (.wt-card .wt-ic), so the two read as one family; it fills to solid teal on focus,
+   exactly like a work-type card does when it is selected. */
+.search-field{position:relative;display:block}
+.search-field > .ti{position:absolute;left:7px;top:50%;transform:translateY(-50%);
+  width:30px;height:30px;border-radius:9px;background:var(--teal-soft);color:var(--teal);
+  font-size:17px;display:grid;place-items:center;pointer-events:none;transition:.15s}
+.search-field .input{padding-left:45px}
+.search-field:focus-within > .ti{background:var(--teal);color:#fff}

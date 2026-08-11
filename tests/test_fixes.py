@@ -1246,3 +1246,140 @@ def test_an_unreadable_profile_file_warns_instead_of_matching_on_nothing(tmp_pat
                       profile_file=(io.BytesIO(b"%PDF-1.4 not really a pdf"), "profile.pdf"))
     assert "couldn't read any text from the stakeholder profile" in out["html"].lower(), \
         "no warning shown for an unreadable profile file"
+
+
+# ── 2026-08-11: the "only 3 case studies for a 4-domain ask" report ────────────
+# One salesperson build (Managed Services / AUTOMOTIVE / Second Meeting, notes = "AI
+# accelerators mapped to Finance, Supply Chain, Production Planning, and Manufacturing")
+# came back with 3 case studies while 46 MS cases sat above the relevance floor. Five
+# separate mechanisms each threw away correct matches; one test per mechanism.
+
+def test_fill_loop_is_not_capped_by_the_priority_pick_count():
+    """`pick_cap = min(ceiling, max(len(priority), 3))` read as a floor of 3 but ALSO
+    acted as a ceiling equal to the priority count: with 3 priority picks the fill loop
+    ran zero times and MAX_CASE_PICKS=12 was unreachable on every research-driven deck."""
+    _chdir()
+    from deckengine.services.matching import matcher
+    ctx = {"client_name": "Acme", "industry": "MANUFACTURING", "phase": "Second Meeting",
+           "work_types": ["MS"], "functions": [], "recipient": "CTO",
+           "transcript": "We need test automation, predictive maintenance and digital "
+                         "twin across our plants."}
+    picks = matcher.plan(ctx, use_ai=False, priority_ids=["MSS012", "MSS005", "MSS034"])["picks"]
+    cases = [p["slide_id"] for p in picks if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
+    assert len(cases) > 3, f"fill loop still capped at the priority count: {cases}"
+    assert len(cases) <= matcher.MAX_CASE_PICKS, cases
+
+
+def test_a_narrow_ask_still_produces_a_tight_deck():
+    """The counterpart to the test above: lifting the cap must NOT pad every deck to 12.
+    Breadth is controlled by the RELATIVE relevance floor, so a single-topic ask stays
+    tight on its own."""
+    _chdir()
+    from deckengine.services.matching import matcher
+    ctx = {"client_name": "Acme", "industry": "MANUFACTURING", "phase": "Second Meeting",
+           "work_types": ["MS"], "functions": [], "recipient": "CFO",
+           "transcript": "We are only interested in touchless invoice processing."}
+    picks = matcher.plan(ctx, use_ai=False)["picks"]
+    cases = [p["slide_id"] for p in picks if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
+    assert len(cases) <= 6, f"a single-topic ask was padded out to {len(cases)} cases: {cases}"
+
+
+def test_fill_loop_never_ships_two_near_twin_cases():
+    """The soft MMR demotion was enough only while the fill loop stopped at 3 picks;
+    filling to the real ceiling let a 0.887-similar case win a late slot on score alone
+    (WFS002 Zero-Disruption Scaling + WFS025 Contract-to-Hire in one deck)."""
+    _chdir()
+    import itertools
+    from deckengine.services.matching import matcher, relevance
+    ctx = {"client_name": "HPE", "industry": "HEALTHCARE", "phase": "Second Meeting",
+           "work_types": ["WORKFORCE"], "functions": [], "recipient": "Head of Talent",
+           "transcript": "Looking for RPO and cloud migration staffing for healthcare IT."}
+    picks = matcher.plan(ctx, use_ai=False)["picks"]
+    cases = [p["slide_id"] for p in picks if p["slide_id"][:3] in ("AIP", "WFS", "MSS")]
+    twins = [(a, b) for a, b in itertools.combinations(cases, 2)
+             if relevance.max_similarity(a, [b]) >= matcher.NEAR_TWIN_SIM]
+    assert not twins, f"deck ships look-alike proof points: {twins}"
+
+
+def test_one_need_can_claim_more_than_one_case(tmp_path, monkeypatch):
+    """A need claimed exactly one case, so every other case that cleared the coverage
+    bar for it was discarded -- six cleared it on the reported build, five were dropped."""
+    _chdir()
+    import app as appmod
+    from deckengine.constants import MAX_CASES_PER_NEED
+    seen = _hermetic_build(monkeypatch, tmp_path,
+                           brief=_brief(["Supply Chain Optimization"]),
+                           shortlists={"Supply Chain Optimization": [
+                               _cand("MSS125"), _cand("MSS032"), _cand("MSS002"),
+                               _cand("MSS025")]})
+    _post_build(appmod.app.test_client(), phase="Second Meeting",
+                transcript="They asked about supply chain optimization.")
+    # assert on the PRIORITY picks -- the need-claiming path this fix changed. (The deck
+    # itself can legitimately carry more: matcher.plan's generic fill loop adds
+    # top-ranked cases on top, and that is a separate, independently-capped mechanism.)
+    claimed = seen["priority_ids"]
+    assert len(claimed) > 1, f"one need still claims only one case: {claimed}"
+    assert len(claimed) <= MAX_CASES_PER_NEED, claimed
+
+
+def test_every_area_the_salesperson_enumerated_becomes_its_own_need():
+    """'AI accelerators mapped to Finance, Supply Chain, Production Planning and
+    Manufacturing' arrived as ONE expressed topic, so it could claim ONE case for the
+    whole list -- the deck proved Finance and silently dropped the other three areas."""
+    _chdir()
+    from deckengine.services.matching.ai_matcher import split_enumerated_interest as split
+    got = split("AI accelerators mapped to Finance, Supply Chain, Production Planning, "
+                "and Manufacturing.")
+    assert got == ["AI accelerators for Finance", "AI accelerators for Supply Chain",
+                   "AI accelerators for Production Planning",
+                   "AI accelerators for Manufacturing"], got
+    # a bare list with no usable shared lead-in -> the areas on their own
+    assert split("Interested in RPO, hire-train-deploy, and high-volume hiring") == [
+        "RPO", "hire-train-deploy", "high-volume hiring"]
+    # ordinary prose must NEVER be chopped into needs
+    assert split("They want predictive maintenance and better uptime") == []
+    assert split("We had a long conversation about their plans, and they mentioned "
+                 "that the current ERP is failing them badly.") == []
+    assert split("They want predictive maintenance") == []
+    assert split("") == []
+
+
+def test_an_adjacent_vertical_is_not_demoted_as_a_wrong_industry():
+    """No Managed-Services case is tagged AUTOMOTIVE, so an automotive account could
+    earn the industry boost from nothing while every correctly-tagged MANUFACTURING case
+    took the wrong-vertical demotion -- leaving UNTAGGED records the only un-demoted
+    ones, i.e. missing data became an advantage."""
+    _chdir()
+    from deckengine.services.matching import relevance
+    assert relevance._same_family("AUTOMOTIVE", "MANUFACTURING")
+    assert relevance._same_family("AUTOMOTIVE", "PROCESS_MFG")
+    assert not relevance._same_family("AUTOMOTIVE", "BFSI")
+    rows = [
+        {"slide_id": "MFG", "title": "Production Scheduling", "keywords": "production planning",
+         "primary_industry": "MANUFACTURING", "primary_function": "", "work_types": "MS",
+         "search_text": "ai production scheduling across plants"},
+        {"slide_id": "UNTAGGED", "title": "Production Scheduling", "keywords": "production planning",
+         "primary_industry": "", "primary_function": "", "work_types": "MS",
+         "search_text": "ai production scheduling across plants"},
+    ]
+    ranked = relevance.rank_cases("ai production planning", rows, industry="AUTOMOTIVE",
+                                  wanted={"MS"}, use_semantic=False)
+    by_id = {it["row"]["slide_id"]: it for it in ranked}
+    assert by_id["MFG"]["score"] > by_id["UNTAGGED"]["score"], \
+        "an untagged case still outranks the same case correctly tagged as an adjacent vertical"
+    assert by_id["MFG"]["eligible"], "adjacent-vertical case is not even eligible"
+
+
+def test_persona_boost_cannot_outweigh_meaning_in_the_shortlist():
+    """shortlist_cases scores on COSINE (0..1) but reused rank_cases' persona weight
+    (0.3 x up to 4 = 1.2), so persona was 2-3x the entire semantic signal it was meant
+    to be a tiebreak on -- a 0.224-cosine case outranked a 0.521-cosine exact match."""
+    _chdir()
+    from deckengine.services.matching import relevance
+    from deckengine.services.matching.personas import score_boost
+    max_persona = relevance.W_SHORT_PERSONA * 4          # score_boost caps at 4
+    other_tiebreaks = 0.12 * 3 + 0.10 * 2 + 0.10 + relevance.W_SHORT_IND_MATCH
+    assert max_persona <= other_tiebreaks / 2, (
+        "persona still dominates the shortlist tiebreaks", max_persona, other_tiebreaks)
+    assert max_persona < 0.30, "persona can still outweigh a typical cosine gap"
+    assert score_boost(("PROCUREMENT_OPS",), {"slide_id": "X"})[0] <= 4

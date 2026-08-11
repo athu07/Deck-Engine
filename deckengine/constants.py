@@ -21,6 +21,17 @@ COVERAGE_THRESHOLD = 0.50
 # is the bare capability, so genuine matches land a touch lower.
 CAPABILITY_COVER = 0.42
 
+# How many case studies ONE extracted need may claim (owner-reported, 2026-08-11).
+# A need used to claim exactly one case, so every other case that cleared
+# CAPABILITY_COVER for it was discarded -- on the reported Managed-Services build, six
+# distinct cases cleared the bar on the one need carrying the salesperson's own typed
+# notes and five were thrown away. Picks are made breadth-first (every need gets its
+# single best case before any need takes a second), so this only ever ADDS depth on
+# top of full coverage. 3 keeps a genuinely multi-solution need well-proven without
+# letting one broad need crowd the deck; the near-twin dedup (PRIORITY_DEDUP_SIM) still
+# guarantees the extra picks are differentiated proof points, not look-alikes.
+MAX_CASES_PER_NEED = 3
+
 # generic management labels that aren't a case-study TOPIC — never pick or flag them.
 # A NEED with one of these names matches dozens of unrelated cases equally (no
 # discrimination), so the wrong one wins on a tiebreak — the ARKO/Deepak failure

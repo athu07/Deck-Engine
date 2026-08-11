@@ -37,9 +37,12 @@
       </ul>
       <div id="resume-empty" style="display:none;color:#6b7280;padding:6px 2px">No deck in progress yet. <a href="/new">Start a new deck</a>, or browse the <a href="/library">library</a> and add slides.</div>
       <div class="addbar" style="flex-wrap:wrap">
-        <input id="addsearch" type="text" oninput="filterAdd(this.value)"
-               placeholder="🔍 Search a case study by name or ID (CS…, AIP…, WFS…, MSS…)"
-               style="flex:1 1 100%;padding:8px 10px;font-size:14px;border:1px solid #d7d7d3;border-radius:8px;margin-bottom:8px">
+        <label class="search-field" style="flex:1 1 100%;margin-bottom:8px">
+          <i class="ti ti-search" aria-hidden="true"></i>
+          <input id="addsearch" class="input" type="text" oninput="filterAdd(this.value)"
+                 aria-label="Search a case study by name or ID"
+                 placeholder="Search a case study by name or ID (CS…, AIP…, WFS…, MSS…)">
+        </label>
         <select id="addsel" style="flex:1 1 auto">
           <optgroup label="Master deck slides">
           {% for sid, t in all_slides %}<option value="{{ sid }}">{{ sid }} — {{ t }}</option>{% endfor %}

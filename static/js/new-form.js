@@ -23,30 +23,70 @@ function indChanged(){
 (function(){
   var f = document.getElementById('deckForm');
   if(!f) return;
+
+  // The mandatory fields, in the order they appear on the page, with the label the
+  // salesperson actually sees. `get` returns the field's current value ('' = missing)
+  // and `el` the thing to focus/outline. Reported through the app's toast (top right)
+  // rather than the browser's native bubble: the native one shows a single field at a
+  // time, can't be themed, and has nothing to attach to for "at least one work type"
+  // (a set of checkboxes, where `required` would wrongly mean "all of them").
+  function missingFields(){
+    var sel   = document.getElementById('ind-select');
+    var other = document.getElementById('ind-other');
+    var name  = f.querySelector('[name="client_name"]');
+    var phase = f.querySelector('[name="phase"]');
+    var wt    = f.querySelector('input[name="work_types"]');
+    var out = [];
+    if(!f.querySelectorAll('input[name="work_types"]:checked').length)
+      out.push({label:'Work type', el:wt, group:true});
+    if(name && !name.value.trim())   out.push({label:'Client name', el:name});
+    if(sel && !sel.value)            out.push({label:'Industry', el:sel});
+    // "Other…" picked but nothing typed is a missing Industry too, not a valid one
+    else if(sel && sel.value === '__OTHER__' && !(other && other.value.trim()))
+      out.push({label:'Industry', el:other});
+    if(phase && !phase.value)        out.push({label:'Deck phase', el:phase});
+    return out;
+  }
+
+  function markInvalid(el){
+    if(!el) return;
+    el.classList.add('is-invalid');
+    var clear = function(){
+      el.classList.remove('is-invalid');
+      el.removeEventListener('input', clear);
+      el.removeEventListener('change', clear);
+    };
+    el.addEventListener('input', clear);
+    el.addEventListener('change', clear);
+  }
+
   f.addEventListener('submit', function(e){
+    var missing = missingFields();
+    var warn = document.getElementById('wt-warn');
+    if(missing.length){
+      e.preventDefault();
+      missing.forEach(function(m){
+        if(window.j2wToast) window.j2wToast('Please fill up the ' + m.label + ' field', 'error');
+        if(!m.group) markInvalid(m.el);
+      });
+      // keep the inline work-type note in step with the toast
+      if(warn) warn.style.display =
+        missing.some(function(m){ return m.group; }) ? 'block' : 'none';
+      if(missing[0].el && missing[0].el.focus) missing[0].el.focus();
+      return;
+    }
+    if(warn) warn.style.display = 'none';
+
+    // a free-typed "Other…" industry rides to the server as the industry itself
     var sel = document.getElementById('ind-select');
     var other = document.getElementById('ind-other');
     if(sel && sel.value === '__OTHER__'){
-      var val = other ? other.value.trim() : '';
-      if(!val){
-        e.preventDefault();
-        if(other){ other.style.borderColor = '#c0392b'; other.focus(); }
-        return;
-      }
       var opt = document.createElement('option');
-      opt.value = val; opt.text = val; opt.selected = true;
+      opt.value = other.value.trim(); opt.text = opt.value; opt.selected = true;
       sel.appendChild(opt);
     }
-    var checked = f.querySelectorAll('input[name="work_types"]:checked').length;
-    var warn = document.getElementById('wt-warn');
-    if(checked === 0){
-      e.preventDefault();
-      if(warn) warn.style.display = 'block';
-    } else {
-      if(warn) warn.style.display = 'none';
-      var ld = document.getElementById('loader');
-      if(ld) ld.style.display = 'flex';
-    }
+    var ld = document.getElementById('loader');
+    if(ld) ld.style.display = 'flex';
   });
 })();
 // "Any function" = no specific function (optional). Highlighting it clears the
