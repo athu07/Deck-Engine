@@ -214,6 +214,48 @@ def _has_gcc_signal(text):
     return False
 
 
+# "Global presence" trigger (Slide 4 / CS150, "Global Footprint & Industries We
+# Serve" -- redesigned and repositioned 2026-08-12; replaces the old CS137).
+# Deliberately SEPARATE from _GCC_TERMS/_has_gcc_signal: a client simply
+# describing their own international footprint ("we operate across 12
+# countries") is a fair trigger for this slide even with no GCC-build intent
+# at all, so -- unlike the GCC signal -- no same-sentence build-intent verb is
+# required here. Owner-spec 2026-08-12: extend this list, don't invent a
+# smarter matcher (same discipline as _GCC_TERMS above).
+_GLOBAL_PRESENCE_TERMS = [
+    "global presence", "international presence", "global footprint",
+    "international footprint", "global operations", "global delivery",
+    "worldwide operations", "multiple countries", "multi-country",
+    "multiple locations", "global expansion", "expanding internationally",
+    "cross-border operations", "operate globally", "operating globally",
+]
+_GLOBAL_PRESENCE_RE = re.compile(
+    r"\b(" + "|".join(re.escape(t) for t in _GLOBAL_PRESENCE_TERMS) + r")\b", re.I)
+
+
+def _has_global_presence_signal(text):
+    return bool(_GLOBAL_PRESENCE_RE.search(text or ""))
+
+
+# "Data CoE" trigger (Slide 40 / CS151, "Data CoE Framework"). Deliberately
+# MULTI-WORD phrases only -- a bare "data" would match almost any business
+# transcript ("our data shows...", "data-driven decisions") without meaning a
+# Data CoE ask, the exact fragility already documented for a bare "coe" above
+# (Kimberly-Clark false-positive, 2026-07-23). Owner-spec 2026-08-12.
+_DATA_TERMS = [
+    "data coe", "data center of excellence", "data centre of excellence",
+    "data strategy", "data engineering", "data platform", "data governance",
+    "master data management", "data warehouse", "data lake", "data pipeline",
+    "data modernization", "data modernisation", "data architecture",
+    "data quality framework", "data management framework",
+]
+_DATA_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in _DATA_TERMS) + r")\b", re.I)
+
+
+def _has_data_signal(text):
+    return bool(_DATA_RE.search(text or ""))
+
+
 # Explicit "lead with X" priority phrases -- swaps which work type's standard
 # block leads the deck when the notes clearly state one (owner-spec, 2026-07-20:
 # real CIBC notes said "position our Managed Services offering first ... As a
@@ -550,6 +592,13 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
     stage = stage_of(context.get("phase"))
     composition = composition_of(wanted)
     gcc_text = transcript_raw + " " + research_raw
+    # "is_gcc_deck" is the explicit /new form toggle (owner-spec 2026-08-12): an
+    # OR with the inferred text signal, never a replacement for it -- ticking it
+    # guarantees the GCC block even when the notes don't happen to phrase a
+    # build-intent sentence; leaving it off falls back to today's inference.
+    gcc_signal = bool(context.get("is_gcc_deck")) or _has_gcc_signal(gcc_text)
+    global_signal = _has_global_presence_signal(gcc_text)
+    data_signal = _has_data_signal(gcc_text)
     lead_wt = _lead_work_type(transcript_raw)   # explicit "lead with X" -> reorders standard blocks
     # Intro: the per-work-type rule, so this ceiling can never sit BELOW what the pick
     # pipeline was allowed to choose (see intro_case_ceiling).
@@ -601,7 +650,11 @@ def plan(context, top_n=3, use_ai=False, priority_ids=None, avoid=None, prefer_h
             continue
         if comp == "mixed" and composition != "mixed":
             continue
-        if trig == "gcc" and not _has_gcc_signal(gcc_text):
+        if trig == "gcc" and not gcc_signal:
+            continue
+        if trig == "gcc_or_global" and not (gcc_signal or global_signal):
+            continue
+        if trig == "data" and not data_signal:
             continue
         if trig == "asked":
             phrases = _ASKED_KEYWORDS.get(sid, [])

@@ -7,6 +7,7 @@ from flask import Blueprint, render_template
 
 from deckengine import config
 from deckengine.services.content import case_library
+from deckengine.services.matching import matcher
 from .view_helpers import shell, legacy_case_ids
 
 bp = Blueprint("library", __name__)
@@ -23,18 +24,29 @@ def library():
         recs = json.load(open(config.TAGGED_LIBRARY_JSON, encoding="utf-8"))
     except Exception:
         recs = []
+    # The card heading should read as the slide's NAME, not whatever text build_
+    # library.build() happened to pull from the first shape it found -- for any
+    # slide whose visible text starts with a number/photo/label rather than a
+    # title (e.g. CS09 = "01", CS61 = "Photo", CS140 = "BOT"), that auto-extract
+    # is noise, not a name. The Slide Registry's own `title` column is the
+    # human-curated name every one of these slides already has (owner-spec,
+    # 2026-08-13) -- prefer it, falling back to the auto-extracted text only if
+    # a slide somehow has no registry row or a blank title there.
+    registry_titles = {row["slide_id"]: (row.get("title") or "").strip()
+                       for row in matcher.load_registry()}
     for r in recs:
         if r["slide_id"] in legacy:
             continue
         t = r.get("tags", {})
+        title = registry_titles.get(r["slide_id"]) or r.get("title", "")
         slides.append({
-            "id": r["slide_id"], "title": r.get("title", ""),
+            "id": r["slide_id"], "title": title,
             "wt": t.get("work_type", {}).get("value") or "",
             "kind": t.get("kind", {}).get("value") or "",
             "ind": t.get("industry", {}).get("value") or "",
             "fn": t.get("function", {}).get("value") or "",
             "kw": r.get("keywords", [])[:6],
-            "search": (r["slide_id"] + " " + r.get("title", "") + " " +
+            "search": (r["slide_id"] + " " + title + " " + r.get("title", "") + " " +
                        " ".join(r.get("keywords", []))).lower(),
         })
     # 2) every content-store case study — these download/add as the NEW branded

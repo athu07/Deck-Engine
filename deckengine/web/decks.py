@@ -179,6 +179,9 @@ def build():
         "recipient": request.form.get("recipient", "").strip(),
         "salesperson": current_salesperson(),
         "transcript": request.form.get("transcript", "").strip(),
+        # explicit "this is a GCC deck" toggle (owner-spec 2026-08-12) -- ORs with
+        # matcher's own text-inferred GCC signal, see matcher.plan's gcc_signal.
+        "is_gcc_deck": request.form.get("is_gcc_deck") == "on",
     }
     # a free-typed "Other" industry (not in the built-in taxonomy) is remembered
     # so it shows up in the dropdown for every build after this one

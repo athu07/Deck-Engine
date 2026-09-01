@@ -21630,5 +21630,2752 @@
     ],
     "ai_generated": true,
     "source_row": null
+  },
+  {
+    "id": "MSS137",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "AgentShield - Build-Time AI Governance Program",
+    "raw_title": "AgentShield - Build-Time AI Governance Program",
+    "client_descriptor": "",
+    "domain": "Technology",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "adversarial",
+      "agentshield",
+      "and",
+      "assessment",
+      "audit",
+      "build-time",
+      "cards",
+      "certification",
+      "classification",
+      "compliance",
+      "documentation",
+      "evidence",
+      "fda",
+      "gdpr",
+      "governance",
+      "guardrail",
+      "hipaa",
+      "inventory",
+      "iso 27001",
+      "library",
+      "pack",
+      "policy",
+      "program",
+      "regulatory",
+      "risk",
+      "soc 2",
+      "suite",
+      "system",
+      "testing",
+      "use-case",
+      "vendor"
+    ],
+    "challenge": "A leading enterprise faced a backlog of AI agents ready for deployment but lacked a governance framework to certify them. Security and compliance teams were unable to approve agents without a testing methodology, classification baseline, or evidence format. This resulted in shadow AI usage, increasing risk without oversight.",
+    "solution": "J2W implemented AgentShield, a comprehensive build-time AI governance program. It inventories AI use cases, tests agents against adversarial attacks, and documents them with system cards. The program produces a certification evidence pack, signed by the CISO, integrating certification gates into the deployment pipeline, ensuring consistent agent certification.",
+    "capabilities": [
+      {
+        "title": "Adversarial Testing Suite",
+        "body": "Continuous red-team campaigns against candidate agents using a maintained attack library."
+      },
+      {
+        "title": "Use-Case Inventory and Classification",
+        "body": "Comprehensive inventory and risk classification of all AI use cases and tools."
+      },
+      {
+        "title": "Guardrail Policy Library",
+        "body": "Authored, versioned policies that manage AI agent permissions and conditions."
+      },
+      {
+        "title": "System Cards and Documentation",
+        "body": "Generated system cards documenting purpose, limits, and risks with compliance alignment."
+      },
+      {
+        "title": "AI Vendor Risk Assessment",
+        "body": "Examination of third-party AI models for lineage, training-data posture, and governance practices."
+      },
+      {
+        "title": "Certification Evidence Pack",
+        "body": "Comprehensive pack with test results, policies, and assessments, signed by CISO and risk leadership."
+      }
+    ],
+    "results": [
+      "Certification evidence pack produced in 24 weeks, reducing deployment backlog.",
+      "Shadow AI usage reduced, improving compliance and risk management.",
+      "Deployment pipeline streamlined with consistent certification process, enhancing operational efficiency."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS138",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "AssetIQ - Asset Integrity Judgement Layer",
+    "raw_title": "AssetIQ - Asset Integrity Judgement Layer",
+    "client_descriptor": "",
+    "domain": "Asset Management",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "aerodynamic",
+      "aiops",
+      "and",
+      "asset",
+      "assetiq",
+      "audit",
+      "cad",
+      "cae",
+      "cfd",
+      "compliance",
+      "drafting",
+      "escalations",
+      "failure-mode",
+      "fda",
+      "forming simulation",
+      "gdpr",
+      "geometric deep learning",
+      "governance",
+      "hipaa",
+      "integrity",
+      "iso 27001",
+      "it operations",
+      "judgement",
+      "l1 l2 l3 support",
+      "layer",
+      "managed service",
+      "managed services",
+      "monitoring",
+      "noc",
+      "nx open",
+      "observability",
+      "omniverse",
+      "pre-dispatch",
+      "regulatory",
+      "signal",
+      "simulation",
+      "soc 2",
+      "stamping",
+      "tracking",
+      "trail",
+      "validation",
+      "work-order"
+    ],
+    "challenge": "A leading heavy-industry operator faced overwhelming signal noise in their asset-integrity program. The historian and predictive platforms generated more anomalies than the reliability team could interpret, leading to missed genuine alerts. Work orders were drafted under pressure, often inheriting errors from unchecked manuals, and change impacts were traced manually, risking unplanned downtime and compliance issues.",
+    "solution": "J2W deployed AssetIQ, a judgement layer that integrates with existing systems to streamline signal interpretation and work order accuracy. AssetIQ monitors telemetry, service bulletins, and integrity codes, producing structured advisories and validated work orders. It simulates failure-mode impacts across fleets, ensuring compliance and reducing manual errors. Reliability engineers now focus on decision-making rather than paperwork, improving response times and operational efficiency.",
+    "capabilities": [
+      {
+        "title": "Signal Monitoring",
+        "body": "Ingests telemetry alerts and bulletins, producing structured advisories with confidence scores."
+      },
+      {
+        "title": "Work-Order Drafting",
+        "body": "Converts approved advisories into work orders with attached source documents for accuracy."
+      },
+      {
+        "title": "Pre-Dispatch Validation",
+        "body": "Checks work-order packs against code regimes, identifying inconsistencies and suggesting remediations."
+      },
+      {
+        "title": "Failure-Mode Simulation",
+        "body": "Maps proposed changes' impacts across fleets, predicting site-specific risks and documentation needs."
+      },
+      {
+        "title": "Compliance Tracking",
+        "body": "Provides a weighted compliance scorecard and audit-readiness packages for statutory and preventive maintenance."
+      },
+      {
+        "title": "Audit Trail and Escalations",
+        "body": "Records every action and decision, ensuring traceability and compliance posture readiness."
+      }
+    ],
+    "results": [
+      "Reduced anomaly interpretation time by 34%, improving response to genuine alerts.",
+      "Decreased manual work-order errors, lifting readiness scores from 74 to 86 before dispatch.",
+      "Enhanced decision-making confidence with structured advisories and failure-mode simulations."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS139",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "CausalQ - Agentic Quality Management Platform",
+    "raw_title": "CausalQ - Agentic Quality Management Platform",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agent",
+      "agentic",
+      "agentic ai",
+      "agents",
+      "ai agent",
+      "ai agents",
+      "aiops",
+      "audit",
+      "autonomous agent",
+      "causalq",
+      "compliance",
+      "data-fabric",
+      "evaluator",
+      "fda",
+      "gdpr",
+      "governance",
+      "hipaa",
+      "iso 27001",
+      "it operations",
+      "l1 l2 l3 support",
+      "managed service",
+      "managed services",
+      "management",
+      "monitoring",
+      "multi agent",
+      "multi-agent",
+      "noc",
+      "observability",
+      "platform",
+      "quality",
+      "regulatory",
+      "remediation",
+      "root-cause",
+      "soc 2"
+    ],
+    "challenge": "A leading manufacturing company faced prolonged root-cause analysis, taking weeks due to manual data assembly from disparate systems. Corrective actions were often closed on paperwork rather than effect, leading to recurring defects. Supplier actions lacked evidence discipline, and engineering changes were scattered across emails, causing re-litigation of settled evidence.",
+    "solution": "J2W deployed CausalQ, an agentic platform that automates quality investigations. It orchestrates specialist agents to join records, monitor signals, propose hypotheses, and draft actions. The system ensures approved actions are written back into operational systems, and effectiveness is verified, reducing recurrence and audit readiness scramble.",
+    "capabilities": [
+      {
+        "title": "Data-Fabric Agent",
+        "body": "Joins records across systems on VIN, serial, lot, and part keys."
+      },
+      {
+        "title": "Monitoring Agents",
+        "body": "Watch control charts, claims, telematics, and inspection imagery for anomalies."
+      },
+      {
+        "title": "Root-Cause Agent",
+        "body": "Proposes and ranks causal hypotheses with supporting and refuting evidence."
+      },
+      {
+        "title": "Evaluator Agent",
+        "body": "Hunts for counter-evidence to adjust confidence in hypotheses."
+      },
+      {
+        "title": "Remediation Agent",
+        "body": "Drafts containment and corrective actions with full causal chain attached."
+      },
+      {
+        "title": "Governance Agent",
+        "body": "Records every step against policy, ensuring compliance and audit readiness."
+      }
+    ],
+    "results": [
+      "Root-cause analysis time reduced from weeks to hours.",
+      "Corrective actions verified for effectiveness, reducing recurrence.",
+      "Supplier and engineering actions based on solid evidence, improving decision confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS140",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Collections Call AI - Automated Collections and Compliance Monitoring",
+    "raw_title": "Collections Call AI - Automated Collections and Compliance Monitoring",
+    "client_descriptor": "",
+    "domain": "Financial Services",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "after-call",
+      "aiops",
+      "and",
+      "audit",
+      "automated",
+      "call",
+      "collections",
+      "compliance",
+      "coverage",
+      "fda",
+      "full",
+      "gdpr",
+      "governance",
+      "hipaa",
+      "iso 27001",
+      "it operations",
+      "l1 l2 l3 support",
+      "line",
+      "live",
+      "managed service",
+      "managed services",
+      "monitoring",
+      "noc",
+      "observability",
+      "per-account",
+      "regulatory",
+      "self-service",
+      "sentiment",
+      "soc 2",
+      "strategy",
+      "transcription",
+      "treatment",
+      "voice",
+      "work"
+    ],
+    "challenge": "A leading financial institution faced challenges in collections operations, with collectors spending a third of their shifts on after-call work and compliance verified only on sampled calls. This led to inefficiencies and regulatory risks, as hardship signals were often missed mid-call, resulting in complaints and potential legal issues.",
+    "solution": "J2W deployed Collections Call AI, integrating with the client's dialler and core systems. The platform transcribes every call, monitors live sentiment, and automates after-call work, ensuring compliance on all conversations. Collectors now focus on negotiation, with routine calls handled by a self-service voice line, reducing manual workload and enhancing compliance.",
+    "capabilities": [
+      {
+        "title": "Live Call Transcription",
+        "body": "Every call is transcribed in real-time, ensuring full compliance and accurate records."
+      },
+      {
+        "title": "Sentiment Monitoring",
+        "body": "Live sentiment analysis flags distress signals, allowing collectors to adjust their approach."
+      },
+      {
+        "title": "Automated After-Call Work",
+        "body": "Drafts summaries and updates systems automatically, reducing manual workload by a third."
+      },
+      {
+        "title": "Self-Service Voice Line",
+        "body": "Handles routine balance and payment calls, freeing skilled collectors for complex cases."
+      },
+      {
+        "title": "Per-Account Treatment Strategy",
+        "body": "Scores accounts and assigns tailored treatment paths based on risk and behavior."
+      },
+      {
+        "title": "Full Compliance Coverage",
+        "body": "Transcribes and checks every call for required disclosures, eliminating sampling errors."
+      }
+    ],
+    "results": [
+      "After-call work time reduced by 66%, freeing collectors for more strategic tasks.",
+      "Compliance coverage expanded from sample-based to 100% of calls, reducing regulatory risk.",
+      "Enhanced decision-making with real-time sentiment insights, improving customer interactions."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS141",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Continuum - Predictive Maintenance and Intervention Platform",
+    "raw_title": "Continuum - Predictive Maintenance and Intervention Platform",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "anomaly",
+      "automation",
+      "communication",
+      "continuum",
+      "detection",
+      "engine",
+      "failure",
+      "funnel",
+      "graph",
+      "identity",
+      "integration",
+      "intervention",
+      "maintenance",
+      "models",
+      "platform",
+      "playbook",
+      "policy",
+      "prediction",
+      "predictive",
+      "proactive"
+    ],
+    "challenge": "A leading manufacturing enterprise struggled with reactive maintenance for its connected product fleet. Failures were treated as emergencies, and early interventions were deemed unjustifiable. The lack of a proactive system resulted in costly downtime and customer dissatisfaction.",
+    "solution": "J2W deployed Continuum, an intelligence platform that predicts failures 30-60 days in advance. It automates interventions by reserving parts, scheduling visits, and confirming outcomes. This proactive approach resolves issues before customers notice, improving reliability and trust.",
+    "capabilities": [
+      {
+        "title": "Anomaly Detection Funnel",
+        "body": "Converts telemetry data into actionable predictions and interventions, visualized as a conversion funnel."
+      },
+      {
+        "title": "Failure Prediction Models",
+        "body": "Provides mode, confidence, and days-to-failure metrics for each prediction."
+      },
+      {
+        "title": "Intervention Playbook",
+        "body": "Generates costed interventions like firmware updates and proactive visits, optimizing for net benefit."
+      },
+      {
+        "title": "Identity Graph Integration",
+        "body": "Links each unit to its household and service records, ensuring accurate intervention targeting."
+      },
+      {
+        "title": "Automation Policy Engine",
+        "body": "Decides which interventions execute automatically versus those needing approval."
+      },
+      {
+        "title": "Proactive Communication",
+        "body": "Uses templated messaging to inform customers through their preferred channels."
+      }
+    ],
+    "results": [
+      "Failure prediction lead time extended to 30-60 days, preventing customer-experienced failures.",
+      "Proactive interventions justified, reducing emergency maintenance costs significantly.",
+      "Increased customer trust and satisfaction through proactive communication and issue resolution."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS142",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "DataCrystal - Unified Data Control for Regulatory Compliance",
+    "raw_title": "DataCrystal - Unified Data Control for Regulatory Compliance",
+    "client_descriptor": "",
+    "domain": "Data Management",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "audit",
+      "automation",
+      "catalog",
+      "compliance",
+      "control",
+      "conversational",
+      "creation",
+      "data",
+      "datacrystal",
+      "detection",
+      "evidence",
+      "explorer",
+      "fda",
+      "for",
+      "gdpr",
+      "golden",
+      "governance",
+      "governed",
+      "hipaa",
+      "incident",
+      "inventory",
+      "iso 27001",
+      "mapping",
+      "metric",
+      "quality",
+      "record",
+      "regulatory",
+      "soc 2",
+      "unified"
+    ],
+    "challenge": "A leading Indian enterprise struggled with fragmented data across lakehouses, warehouses, and record systems. This fragmentation led to multiple versions of customer records, inconsistent metrics, and manual regulatory evidence compilation. Quality issues were discovered by affected users, and lineage knowledge was siloed within teams.",
+    "solution": "J2W deployed DataCrystal, a unified data control plane, integrating lakehouses, warehouses, and record systems. It harmonized customer records, standardized metrics, and automated quality checks. Regulatory evidence is now generated on demand, and data lineage is transparent, reducing manual effort and improving compliance.",
+    "capabilities": [
+      {
+        "title": "Data Inventory Mapping",
+        "body": "Identifies and catalogs data across systems, ensuring comprehensive visibility and control."
+      },
+      {
+        "title": "Golden Record Creation",
+        "body": "Unifies customer records through deterministic and probabilistic methods, reducing duplicates."
+      },
+      {
+        "title": "Governed Metric Catalog",
+        "body": "Standardizes business metrics with clear definitions and lineage, ensuring consistency."
+      },
+      {
+        "title": "Quality Incident Detection",
+        "body": "Automates quality checks and anomaly detection, preventing issues before they impact users."
+      },
+      {
+        "title": "Regulatory Evidence Automation",
+        "body": "Generates compliance evidence packs on demand, streamlining regulatory submissions."
+      },
+      {
+        "title": "Conversational Data Explorer",
+        "body": "Provides AI-driven insights with source citation and metric definitions for informed decision-making."
+      }
+    ],
+    "results": [
+      "Data consolidation reduced from 5 records to 1 per customer, improving accuracy and trust.",
+      "Regulatory evidence generation time cut by 70%, enhancing compliance efficiency.",
+      "Unified metrics and data governance improved decision-making and operational confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS143",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Field Intelligence Loop - Real-Time Field Workforce Optimization",
+    "raw_title": "Field Intelligence Loop - Real-Time Field Workforce Optimization",
+    "client_descriptor": "",
+    "domain": "Retail",
+    "industry": "",
+    "function": "DEVOPS_CLOUD",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "access",
+      "analysis",
+      "build pipeline",
+      "cd automation",
+      "ci cd",
+      "ci/cd",
+      "cicd",
+      "cohort",
+      "consultants",
+      "continuous delivery",
+      "continuous deployment",
+      "continuous integration",
+      "delivery pipeline",
+      "deployed talent",
+      "deployment pipeline",
+      "effectiveness",
+      "field",
+      "integration",
+      "intelligence",
+      "intervention",
+      "loop",
+      "models",
+      "optimization",
+      "pipeline",
+      "predictive",
+      "real-time",
+      "release pipeline",
+      "resource augmentation",
+      "role-based",
+      "scoring",
+      "staff augmentation",
+      "system",
+      "team augmentation",
+      "workforce"
+    ],
+    "challenge": "A leading retail enterprise struggled with field workforce effectiveness. Aggregate scores were opaque, making coaching instinctive rather than data-driven. Training lacked targeting, and interventions were unverified, leading to persistent attrition and ramp-up surprises.",
+    "solution": "J2W deployed the Field Intelligence Loop, integrating with existing systems to measure, diagnose, and intervene in field operations. A composite Field Effectiveness Score was introduced, decomposing into operational metrics. Interventions were tracked and verified, providing clear verdicts on their effectiveness.",
+    "capabilities": [
+      {
+        "title": "Field Effectiveness Scoring",
+        "body": "Computes scores across six dimensions, decomposing into sixteen operational metrics."
+      },
+      {
+        "title": "Cohort Analysis",
+        "body": "Differentiates person problems from system issues using tenure, pathway, and region data."
+      },
+      {
+        "title": "Intervention Pipeline",
+        "body": "Tracks interventions with target metrics and expected improvements, providing clear effectiveness verdicts."
+      },
+      {
+        "title": "Predictive Workforce Models",
+        "body": "Forecasts attrition risk, onboarding velocity, and seasonal readiness."
+      },
+      {
+        "title": "System Integration",
+        "body": "Connects to SFA, DMS, CRM, LMS, and other platforms for comprehensive data flow."
+      },
+      {
+        "title": "Role-Based Access",
+        "body": "Ensures secure data handling with manager-approved intervention assignments."
+      }
+    ],
+    "results": [
+      "First value milestone achieved in 9 weeks, with effectiveness scores now attributable.",
+      "Coaching targeted based on data, reducing instinctive assignments and improving intervention success.",
+      "Capability spend is now auditable, with structural defects receiving targeted fixes."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS144",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Forecast Studio - Unified Forecasting Across Business Functions",
+    "raw_title": "Forecast Studio - Unified Forecasting Across Business Functions",
+    "client_descriptor": "",
+    "domain": "Cross-Industry",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "accuracy",
+      "across",
+      "anomaly",
+      "anomaly detection",
+      "business",
+      "cash",
+      "commentary",
+      "demand",
+      "demand forecasting",
+      "detection",
+      "drafting",
+      "driver-based",
+      "forecast",
+      "forecasting",
+      "functions",
+      "integration",
+      "kpi",
+      "planning",
+      "predictive analytics",
+      "predictive maintenance",
+      "studio",
+      "tracking",
+      "unified",
+      "variance",
+      "week"
+    ],
+    "challenge": "The client operated with three disconnected forecasting systems: demand at SKU/location, cash on a 13-week horizon, and FP&A plans. This fragmentation led to inefficiencies, with cash forecasts relying on spreadsheets and scenarios taking a week to run. Anomalies were often missed, and commentary required significant manual effort, leaving forecast accuracy unverified.",
+    "solution": "J2W implemented Forecast Studio, integrating demand, cash, and FP&A forecasts into a single system. Demand forecasting at SKU/location used internal and external data, while cash forecasts rolled forward weekly with variances explained. FP&A plans became driver-based, allowing quick scenario modeling. KPI anomalies were auto-flagged with root-cause analysis, and commentary was drafted with traceable figures.",
+    "capabilities": [
+      {
+        "title": "Demand Forecasting Integration",
+        "body": "Unified demand forecasts at SKU/location using internal and external data signals."
+      },
+      {
+        "title": "13-Week Cash Forecasting",
+        "body": "Automated cash forecasts with weekly variance explanations and stress-testing capabilities."
+      },
+      {
+        "title": "Driver-Based Planning",
+        "body": "FP&A plans built on drivers for coherent propagation and scenario modeling."
+      },
+      {
+        "title": "KPI Anomaly Detection",
+        "body": "Automatic anomaly detection with root-cause hypotheses and supporting data cuts."
+      },
+      {
+        "title": "Variance Commentary Drafting",
+        "body": "Plain-language commentary with traceable figures for budget-to-actual variances."
+      },
+      {
+        "title": "Forecast Accuracy Tracking",
+        "body": "Published accuracy metrics per horizon and series with logged and scored overrides."
+      }
+    ],
+    "results": [
+      "Forecast accuracy improved by 30% with integrated demand, cash, and FP&A forecasts.",
+      "Scenario modeling time reduced from 1 week to 20 minutes, enhancing decision agility.",
+      "Commentary process transformed into a review task, freeing up key personnel for strategic work."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS145",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "LabelSense - Regulatory and Documentation Assurance Workbench",
+    "raw_title": "LabelSense - Regulatory and Documentation Assurance Workbench",
+    "client_descriptor": "",
+    "domain": "Medical Devices",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "assurance",
+      "audit",
+      "audit-ready",
+      "authoring",
+      "cited",
+      "compliance",
+      "contradiction",
+      "corpus",
+      "detection",
+      "document",
+      "documentation",
+      "evidence",
+      "extraction",
+      "fda",
+      "gdpr",
+      "governance",
+      "hipaa",
+      "iso 27001",
+      "labeling",
+      "labelsense",
+      "layer",
+      "matrix",
+      "obligation",
+      "reading",
+      "regulatory",
+      "soc 2",
+      "standards",
+      "verification",
+      "workbench"
+    ],
+    "challenge": "The client faced challenges with serial document reviews, leading to missed mandatory elements and unsupported claims. Updates relied on memory, causing propagation gaps. Standards obligations were implicit, and evidence was assembled only at audit time, risking compliance issues.",
+    "solution": "J2W deployed LabelSense, which reads the entire document set simultaneously, authoring labeling with citations on every line. It verifies requirements against cited content, extracts obligations from standards, and identifies cross-document contradictions. Outputs move through draft, in-review, and approved states, ensuring human approval and audit readiness.",
+    "capabilities": [
+      {
+        "title": "Document Corpus Reading",
+        "body": "Reads entire document sets simultaneously to ensure comprehensive analysis and coverage."
+      },
+      {
+        "title": "Cited Labeling Authoring",
+        "body": "Drafts labeling with citations on every line for traceable and verifiable content."
+      },
+      {
+        "title": "Contradiction Detection",
+        "body": "Identifies cross-document contradictions, presenting conflicts with severity and adjudication controls."
+      },
+      {
+        "title": "Verification Matrix",
+        "body": "Scores labeling requirements against documents, opening statuses to evidence for transparency."
+      },
+      {
+        "title": "Standards Obligation Extraction",
+        "body": "Decomposes standards into obligations, confirmed or rejected before becoming tracked requirements."
+      },
+      {
+        "title": "Audit-Ready Evidence Layer",
+        "body": "Provides a trace matrix and exportable audit-ready evidence pack for compliance."
+      }
+    ],
+    "results": [
+      "First value milestone achieved in 10 weeks, surfacing cross-document defects internally.",
+      "Unsupported claims eliminated, and labeling drafts arrive grounded with evidence.",
+      "Audit readiness becomes a standing state, improving compliance confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS146",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Capability Platform - Personalized Skill Development and Impact Measurement",
+    "raw_title": "Capability Platform - Personalized Skill Development and Impact Measurement",
+    "client_descriptor": "",
+    "domain": "Learning and Development",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "architecture",
+      "assistant",
+      "bilingual",
+      "capability",
+      "centre",
+      "command",
+      "console",
+      "development",
+      "domain-agnostic",
+      "field",
+      "impact",
+      "ingestion",
+      "intervention",
+      "knowledge",
+      "lifecycle",
+      "management",
+      "measurement",
+      "personalized",
+      "platform",
+      "practice",
+      "roleplay",
+      "signal",
+      "skill"
+    ],
+    "challenge": "A leading FMCG enterprise struggled with generic training that didn't address individual skill gaps. Field representatives practiced on real customers, risking poor performance. Field data and learning data were siloed, preventing impact verification.",
+    "solution": "J2W deployed a capability platform that ingests field signals to detect skill gaps at individual levels. It prescribes targeted micro-interventions and allows reps to rehearse scenarios with AI characters. Business impact is measured and fed back, closing the loop.",
+    "capabilities": [
+      {
+        "title": "Field Signal Ingestion",
+        "body": "Continuously collects data to identify skill gaps at individual, team, and regional levels."
+      },
+      {
+        "title": "AI Roleplay Practice",
+        "body": "Enables reps to rehearse scenarios against AI characters in typed, voice, and video modes."
+      },
+      {
+        "title": "Bilingual Knowledge Assistant",
+        "body": "Provides instant answers to product and process questions in English and Hindi."
+      },
+      {
+        "title": "Command Centre Console",
+        "body": "Offers leaders workforce KPIs, regional heat maps, and intervention tracking."
+      },
+      {
+        "title": "Intervention Lifecycle Management",
+        "body": "Governs interventions from recommendation to impact verification, with business metrics."
+      },
+      {
+        "title": "Domain-Agnostic Architecture",
+        "body": "Supports various industries with FMCG field sales as the reference configuration."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 10 weeks, accelerating skill gap closure.",
+      "ROI band projected between US$1.8M and US$5.2M, demonstrating financial impact.",
+      "Improved decision-making with real-time skill gap insights and targeted interventions."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS147",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Loopback - Field-to-Factory Quality Platform",
+    "raw_title": "Loopback - Field-to-Factory Quality Platform",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "cause",
+      "containment",
+      "design",
+      "feedback",
+      "field-to-factory",
+      "gate",
+      "human",
+      "integrated",
+      "intelligence",
+      "investigation",
+      "loop",
+      "loopback",
+      "platform",
+      "quality",
+      "response",
+      "root",
+      "signal",
+      "validation"
+    ],
+    "challenge": "A leading manufacturing enterprise struggled with long delays in addressing field defects, taking over a year to resolve issues from customer reports to factory fixes. Signals from service tickets, telemetry, and consumer channels were siloed, leading to uncorroborated data and debated root causes. This lack of integration caused containment scope guesses and delayed design feedback, impacting product quality and customer satisfaction.",
+    "solution": "J2W deployed Loopback, a platform reducing defect resolution time to 16 days by integrating service tickets, telemetry, and consumer data into a real-time feed. The system conducts agentic investigations, presenting ranked causes with evidence, while human validation launches corrective actions. Design Intelligence translates findings into actionable insights, improving component health and design decisions. This approach ensures precise containment and informed design updates.",
+    "capabilities": [
+      {
+        "title": "Signal Intelligence",
+        "body": "Integrates service tickets, telemetry, and consumer data into a real-time feed for pattern detection."
+      },
+      {
+        "title": "Root Cause Investigation",
+        "body": "Conducts investigations with ranked causes and evidence, aiding in precise problem identification."
+      },
+      {
+        "title": "Human Validation Gate",
+        "body": "Ensures human oversight in launching corrective actions, maintaining accountability and accuracy."
+      },
+      {
+        "title": "Design Intelligence",
+        "body": "Translates validated causes into engineering insights, driving component health and design improvements."
+      },
+      {
+        "title": "Containment and Response",
+        "body": "Launches corrective actions and containment measures based on validated findings, reducing defect impact."
+      },
+      {
+        "title": "Integrated Feedback Loop",
+        "body": "Closes the loop by feeding field learnings into design, enhancing future product development."
+      }
+    ],
+    "results": [
+      "Loop closure time reduced from over a year to 16 days, improving defect resolution speed.",
+      "First value milestone achieved in 10 weeks, accelerating time to benefit realization.",
+      "Design decisions now informed by consolidated field learnings, enhancing product quality."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS148",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Macro Studio - Managed Automation for Engineering Departments",
+    "raw_title": "Macro Studio - Managed Automation for Engineering Departments",
+    "client_descriptor": "",
+    "domain": "Engineering Automation",
+    "industry": "",
+    "function": "ENGINEERING_DESIGN",
+    "personas": [
+      "ENGINEERING_HEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "aerodynamic",
+      "ai-assisted",
+      "approval",
+      "audit",
+      "automation",
+      "cad",
+      "cae",
+      "catalog",
+      "cfd",
+      "compliance",
+      "comprehensive",
+      "creation",
+      "departments",
+      "engineering",
+      "execution",
+      "fda",
+      "for",
+      "forming simulation",
+      "gdpr",
+      "geometric deep learning",
+      "governance",
+      "governed",
+      "hipaa",
+      "hosts",
+      "integration",
+      "iso 27001",
+      "logging",
+      "macro",
+      "managed",
+      "nx open",
+      "omniverse",
+      "regulatory",
+      "script",
+      "simulation",
+      "soc 2",
+      "stamping",
+      "studio",
+      "system",
+      "tiered",
+      "workflow"
+    ],
+    "challenge": "A leading manufacturing enterprise struggled with ungoverned engineering scripts scattered across workstations, leading to unreviewed code running against released geometry. This lack of oversight meant outputs were not recorded in the product record, and engineers were occupied with manual execution, risking errors and inefficiencies.",
+    "solution": "J2W implemented Macro Studio, transforming the script estate into a managed catalog with version control and lifecycle management. Execution moved to managed hosts, freeing engineers from manual tasks. Workflows were created for repeatable procedures, and AI-assisted governance ensured all actions were logged and approved. This enabled auditable, efficient automation.",
+    "capabilities": [
+      {
+        "title": "Managed Script Catalog",
+        "body": "Centralized repository with version control, ownership, and lifecycle management for engineering scripts."
+      },
+      {
+        "title": "Governed Execution Hosts",
+        "body": "Scripts executed on managed hosts, reducing manual intervention and improving reliability."
+      },
+      {
+        "title": "AI-Assisted Workflow Creation",
+        "body": "AI recommends workflows from repeated sequences, enhancing efficiency and governance."
+      },
+      {
+        "title": "Comprehensive Audit Logging",
+        "body": "Every action logged with AI model details, ensuring transparency and accountability."
+      },
+      {
+        "title": "Tiered Approval System",
+        "body": "Single-approver writes and dual-approver for released parts, ensuring policy compliance."
+      },
+      {
+        "title": "CAD Integration",
+        "body": "Seamless connection with CAD applications, ensuring outputs are recorded in the product record."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 9 weeks, transforming shadow IT into auditable capability.",
+      "Recovered workstation and license resources, freeing engineers from manual script execution.",
+      "Enhanced governance and transparency with AI-mediated audit logs, improving decision confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS149",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Orchestrate AI - Field-Service Orchestration Platform",
+    "raw_title": "Orchestrate AI - Field-Service Orchestration Platform",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agents",
+      "audit",
+      "autonomy",
+      "compliance",
+      "diagnosis",
+      "disruption",
+      "execution",
+      "fda",
+      "field-service",
+      "gdpr",
+      "governance",
+      "hipaa",
+      "iso 27001",
+      "optimisation",
+      "orchestrate",
+      "orchestration",
+      "platform",
+      "policy",
+      "regulatory",
+      "sensing",
+      "soc 2",
+      "trail"
+    ],
+    "challenge": "A leading manufacturing company faced disruptions in field service operations. Dispatch relied on outdated plans, and first visits often failed due to missing parts or information. Partner updates were delayed, leading to SLA breaches discovered post-fact. Parts forecasts ignored the installed base, causing inefficiencies.",
+    "solution": "J2W deployed Orchestrate AI, a coordination layer over field service systems. It senses disruptions, diagnoses them across existing systems, and pauses for human approval before executing decisions. The platform improves dispatch, routing, and first-time-fix rates, forecasts aftermarket parts, and normalizes multi-partner service networks.",
+    "capabilities": [
+      {
+        "title": "Disruption Sensing",
+        "body": "Agents detect disruptions before they impact operations, allowing proactive management."
+      },
+      {
+        "title": "Diagnosis Agents",
+        "body": "Pull context from systems in parallel to provide comprehensive disruption analysis."
+      },
+      {
+        "title": "Optimisation Agents",
+        "body": "Generate and simulate ranked options for decision-making with simulated impacts."
+      },
+      {
+        "title": "Execution Agents",
+        "body": "Write approved decisions back into systems, ensuring seamless integration and reversibility."
+      },
+      {
+        "title": "Autonomy Policy",
+        "body": "Defines what actions run automatically, need approval, or require multi-party sign-off."
+      },
+      {
+        "title": "Audit Trail",
+        "body": "Logs every action with trust indicators, ensuring transparency and reversibility."
+      }
+    ],
+    "results": [
+      "Supply disruption response time reduced to 4 hours 12 minutes.",
+      "First value milestone achieved in 12 weeks.",
+      "SLA management shifted from post-mortem to prevention, enhancing service quality."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS150",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "PLM Copilot - Conversational Interface for Product Lifecycle Management",
+    "raw_title": "PLM Copilot - Conversational Interface for Product Lifecycle Management",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "access",
+      "aerodynamic",
+      "approval",
+      "audit",
+      "cad",
+      "cae",
+      "cfd",
+      "change",
+      "compliance",
+      "conversational",
+      "copilot",
+      "data",
+      "fda",
+      "for",
+      "forming simulation",
+      "gdpr",
+      "geometric deep learning",
+      "governance",
+      "governed",
+      "hipaa",
+      "hub",
+      "integration",
+      "interface",
+      "iso 27001",
+      "knowledge",
+      "lifecycle",
+      "logging",
+      "management",
+      "nx open",
+      "omniverse",
+      "plm",
+      "product",
+      "regulatory",
+      "result",
+      "reuse",
+      "simulation",
+      "soc 2",
+      "stamping",
+      "system"
+    ],
+    "challenge": "A leading manufacturing enterprise struggled with fragmented product data across parts, BOMs, and engineering changes. Engineers often repeated designs due to lack of accessible knowledge, and simulation validity was unmanaged, leading to potential design errors. Acting on insights required manual intervention, delaying decision-making and increasing the risk of errors.",
+    "solution": "J2W deployed PLM Copilot, integrating a conversational layer over existing PLM systems. This solution enabled engineers to query product data in plain English, with real-time access to parts, BOMs, and simulation results. Proposed changes were governed by a three-tier approval policy, ensuring all actions were logged and auditable. The system facilitated knowledge reuse and improved decision-making speed and accuracy.",
+    "capabilities": [
+      {
+        "title": "Conversational Product Data Access",
+        "body": "Enables plain-English queries across parts, BOMs, and engineering changes for immediate insights."
+      },
+      {
+        "title": "Simulation Result Management",
+        "body": "Links simulation results to design revisions, catching invalid analyses mid-answer."
+      },
+      {
+        "title": "Knowledge Reuse System",
+        "body": "Searches materials data, standards, and archives, returning ranked reuse candidates."
+      },
+      {
+        "title": "Governed Change Approval",
+        "body": "Proposes changes with dry-run previews, requiring multi-approver confirmation for structural changes."
+      },
+      {
+        "title": "Audit Logging",
+        "body": "Logs every action in an append-only audit trail with conversation context and metadata."
+      },
+      {
+        "title": "Integration Hub",
+        "body": "Connects to Siemens Teamcenter, NX, LS-Dyna, Abaqus, Granta MI, Polarion, SAP S/4HANA, and Microsoft 365."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 9 weeks, accelerating project timelines.",
+      "Operational efficiency improved with reduced design duplication and faster decision-making.",
+      "Enhanced decision confidence with governed actions and comprehensive audit trails."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS151",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "PM Assist - Multi-Project Services Intelligence Layer",
+    "raw_title": "PM Assist - Multi-Project Services Intelligence Layer",
+    "client_descriptor": "",
+    "domain": "Technology",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "aiops",
+      "analytics",
+      "assist",
+      "automated",
+      "automation",
+      "bi",
+      "business intelligence",
+      "continuous",
+      "dashboards",
+      "delivery",
+      "drafting",
+      "dynamic",
+      "headcount",
+      "hiring",
+      "insights",
+      "integration",
+      "intelligence",
+      "it operations",
+      "l1 l2 l3 support",
+      "layer",
+      "managed service",
+      "managed services",
+      "matrix",
+      "monitoring",
+      "multi-project",
+      "noc",
+      "observability",
+      "real-time",
+      "recommendations",
+      "recruiting",
+      "recruitment",
+      "reporting",
+      "services",
+      "skill",
+      "sourcing",
+      "sow",
+      "staffing",
+      "system",
+      "talent acquisition",
+      "talent pipeline",
+      "talent sourcing",
+      "unified",
+      "utilisation"
+    ],
+    "challenge": "A services business was managing multiple projects across PSA, CRM, and billing systems without integration. Staffing decisions relied on memory, utilisation was only discovered quarterly, and progress was misrepresented by hours burned. The skill matrix was outdated, and SOWs consumed excessive time.",
+    "solution": "J2W deployed PM Assist, integrating PSA, CRM, and billing systems into a unified thread. It automated staffing recommendations, SOW drafting, and delivery monitoring. The system provided real-time utilisation insights and maintained an updated skill matrix, enhancing decision-making and efficiency.",
+    "capabilities": [
+      {
+        "title": "Unified System Integration",
+        "body": "Connects PSA, CRM, and billing tools into a single operational thread."
+      },
+      {
+        "title": "Automated Staffing Recommendations",
+        "body": "Scores consultants on skills, availability, and history for optimal staffing."
+      },
+      {
+        "title": "Real-Time Utilisation Insights",
+        "body": "Provides weekly variance reports with redistribution proposals."
+      },
+      {
+        "title": "SOW Drafting Automation",
+        "body": "Generates SOWs from live calls for same-day approval."
+      },
+      {
+        "title": "Continuous Delivery Monitoring",
+        "body": "Tracks health status, budget variance, and critical items with manual overrides."
+      },
+      {
+        "title": "Dynamic Skill Matrix",
+        "body": "Updates skills based on completed work, confirmed with one tap."
+      }
+    ],
+    "results": [
+      "SOW turnaround reduced to 0.8 days, improving project initiation speed.",
+      "Project manager hours saved weekly: 11.5 hours, enhancing productivity.",
+      "Staffing decisions are now data-driven, reducing reliance on memory."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS152",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "ProofStack - Document Intelligence and Decision Platform for Banking",
+    "raw_title": "ProofStack - Document Intelligence and Decision Platform for Banking",
+    "client_descriptor": "",
+    "domain": "BFSI",
+    "industry": "",
+    "function": null,
+    "personas": [
+      "CIO_CTO",
+      "FINANCE_HEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "banking",
+      "bfsi",
+      "capital markets",
+      "complete",
+      "contradiction",
+      "data",
+      "decision",
+      "decisioning",
+      "document",
+      "evidence",
+      "finance",
+      "financial services",
+      "fintech",
+      "for",
+      "hash-chained",
+      "insurance",
+      "intake",
+      "intelligence",
+      "ledger",
+      "masking",
+      "platform",
+      "policy-aligned",
+      "proofstack",
+      "provenance",
+      "resolution",
+      "sensitive",
+      "tracking",
+      "unified"
+    ],
+    "challenge": "A leading banking institution struggled with document intake across 12 channels, causing data silos and decision delays. Fields lacked provenance, making them unreliable under supervisory scrutiny. Contradictory documents were resolved invisibly, and decisions couldn't be reconstructed, risking compliance failures.",
+    "solution": "J2W deployed ProofStack, integrating 12 document intake channels into a unified platform. It ensures complete provenance for every decision-relevant field and surfaces contradictions for human resolution. Decisions are aligned with written policy, and all actions are logged in a hash-chained evidence ledger, ensuring compliance and traceability.",
+    "capabilities": [
+      {
+        "title": "Unified Document Intake",
+        "body": "Integrates 12 channels including email, branch scans, and digital infrastructure."
+      },
+      {
+        "title": "Complete Provenance Tracking",
+        "body": "Ensures every field has document, page, and confidence data."
+      },
+      {
+        "title": "Contradiction Resolution",
+        "body": "Surfaces document disagreements for human resolution, preventing silent overrides."
+      },
+      {
+        "title": "Policy-Aligned Decisioning",
+        "body": "Runs decisions against written policy with clause-by-clause transparency."
+      },
+      {
+        "title": "Hash-Chained Evidence Ledger",
+        "body": "Logs all actions in an append-only, traceable ledger."
+      },
+      {
+        "title": "Sensitive Data Masking",
+        "body": "Masks identity numbers before downstream processing to protect privacy."
+      }
+    ],
+    "results": [
+      "Decision-relevant fields with full provenance increased to 100%.",
+      "First value milestone achieved in 10 weeks, enhancing operational efficiency.",
+      "Supervisory requests are resolved in minutes, improving compliance confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS153",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "RecruitAssist - AI-Driven Recruiting Enhancement",
+    "raw_title": "RecruitAssist - AI-Driven Recruiting Enhancement",
+    "client_descriptor": "",
+    "domain": "Recruitment Technology",
+    "industry": "",
+    "function": "TALENT_ACQUISITION",
+    "personas": [
+      "TALENT_HR_HEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "ai-driven",
+      "analysis",
+      "analytics",
+      "and",
+      "automated",
+      "autonomous",
+      "bi",
+      "business intelligence",
+      "call",
+      "coaching",
+      "dashboards",
+      "enhancement",
+      "funnel",
+      "headcount",
+      "hiring",
+      "insights",
+      "live",
+      "quality",
+      "recruitassist",
+      "recruiter",
+      "recruiting",
+      "recruitment",
+      "reporting",
+      "screeners",
+      "sentiment",
+      "sourcing",
+      "staffing",
+      "summarization",
+      "talent acquisition",
+      "talent pipeline",
+      "talent sourcing",
+      "tools",
+      "transcription",
+      "voice"
+    ],
+    "challenge": "Recruiters in India faced inefficiencies with manual call documentation and inconsistent screening quality. Conversations in Hinglish were not effectively captured, leading to unmeasured screening quality and generic coaching. Routine calls consumed skilled recruiters' time, and client visibility was limited to weekly emails.",
+    "solution": "J2W implemented RecruitAssist, an AI-native platform capturing live call data with transcription and sentiment analysis. It automates call summaries, scoring, and updates prospect status without telephony integration. Recruiters use existing phones, and the system provides coaching and analytics, improving screening quality and operational efficiency.",
+    "capabilities": [
+      {
+        "title": "Live Call Transcription",
+        "body": "Captures and transcribes recruiter-candidate conversations in real-time, supporting Hinglish language."
+      },
+      {
+        "title": "Automated Call Summarization",
+        "body": "Generates detailed call summaries and updates prospect status without manual input."
+      },
+      {
+        "title": "AI-Driven Sentiment Analysis",
+        "body": "Analyzes acoustic sentiment during calls to provide immediate feedback and scoring."
+      },
+      {
+        "title": "Recruiter Coaching Tools",
+        "body": "Offers roleplay practice and coaching based on specific call performance metrics."
+      },
+      {
+        "title": "Autonomous Voice Screeners",
+        "body": "Conducts routine calls, freeing recruiters for more complex tasks."
+      },
+      {
+        "title": "Funnel and Quality Analytics",
+        "body": "Provides insights into recruitment funnel performance and quality metrics."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 15 weeks, enhancing recruiting efficiency.",
+      "Routine calls automated, allowing skilled recruiters to focus on complex tasks.",
+      "Improved screening quality and targeted coaching based on specific performance metrics."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS154",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "ResolvAI - Autonomous AI Support Platform",
+    "raw_title": "ResolvAI - Autonomous AI Support Platform",
+    "client_descriptor": "",
+    "domain": "Customer Support",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agent",
+      "audit",
+      "autonomous",
+      "compliance",
+      "console",
+      "copilot",
+      "customer",
+      "fda",
+      "gdpr",
+      "governance",
+      "graph",
+      "hipaa",
+      "identity",
+      "inbox",
+      "interaction",
+      "iso 27001",
+      "management",
+      "operations",
+      "platform",
+      "queue",
+      "regulatory",
+      "resolvai",
+      "soc 2",
+      "studio",
+      "support",
+      "unified",
+      "voice"
+    ],
+    "challenge": "A leading AI-native support platform struggled with fragmented customer interactions across channels, resulting in inconsistent service and compliance challenges. Each channel operated independently, making it difficult to measure AI containment and ensure compliance. The chatbot deflected issues rather than resolving them, leading to escalations without context and inefficient human intervention.",
+    "solution": "J2W implemented ResolvAI to unify all customer interactions into a single queue, where AI agents handle initial resolutions and escalate with full context if needed. The platform includes a three-panel inbox with an AI copilot, a customer 360 identity graph, and an agent studio for chat, voice, and vision agents. Compliance and data residency are managed per workspace, ensuring sectoral compliance and data protection.",
+    "capabilities": [
+      {
+        "title": "Unified Interaction Queue",
+        "body": "All inbound messages and calls land in one queue for AI-first resolution."
+      },
+      {
+        "title": "AI Copilot Inbox",
+        "body": "Three-panel inbox with AI support for efficient customer interaction management."
+      },
+      {
+        "title": "Customer 360 Identity Graph",
+        "body": "Resolves customer identity across phone, email, social, and CRM."
+      },
+      {
+        "title": "Agent Studio",
+        "body": "Tools for chat, voice, and vision agents with version history and evaluation runs."
+      },
+      {
+        "title": "Compliance Management",
+        "body": "Sectoral compliance, data residency, and PII redaction handled per workspace."
+      },
+      {
+        "title": "Voice Operations Console",
+        "body": "Dedicated console with live call grid, barge-in/whisper, and call review."
+      }
+    ],
+    "results": [
+      "Containment rate improved to 70%, reducing human intervention significantly.",
+      "Operational efficiency increased, with routine volumes resolved before human escalation.",
+      "Enhanced decision-making with full context provided for escalated interactions."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS155",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "RiskLens AI - Design Failure Mode Analysis System",
+    "raw_title": "RiskLens AI - Design Failure Mode Analysis System",
+    "client_descriptor": "",
+    "domain": "Healthcare",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "analysis",
+      "automated",
+      "classification",
+      "connected",
+      "design",
+      "drafting",
+      "engineer",
+      "existing",
+      "failure",
+      "fmea",
+      "integration",
+      "mode",
+      "override",
+      "real-time",
+      "review",
+      "risk",
+      "risklens",
+      "system",
+      "systems",
+      "traceability",
+      "with",
+      "workflow"
+    ],
+    "challenge": "The client relied on hand-maintained spreadsheets for design FMEA, causing outdated risk files and subjective occurrence scores. Detection scores ignored test plans, and traceability was rebuilt for every audit. Engineers spent time transcribing instead of making informed judgments, leading to inefficiencies and compliance risks.",
+    "solution": "J2W deployed RiskLens AI, transforming FMEA into a live, connected system. It integrates with PLM, quality systems, and regulatory databases, providing drafted failure modes with scores and reasoning. Engineers review and update these modes, ensuring real-time traceability and compliance. The system flags design changes, prompting necessary re-evaluations.",
+    "capabilities": [
+      {
+        "title": "Connected FMEA System",
+        "body": "Integrates PLM, quality systems, and regulatory databases for real-time risk analysis."
+      },
+      {
+        "title": "Automated Failure Mode Drafting",
+        "body": "Provides drafted failure modes with severity, occurrence, and detection scores."
+      },
+      {
+        "title": "Engineer Review Workflow",
+        "body": "Engineers can accept, edit, reject, or flag failure modes, ensuring accuracy and compliance."
+      },
+      {
+        "title": "Real-Time Traceability",
+        "body": "Maintains a live risk file, automatically updating with design changes and audit requirements."
+      },
+      {
+        "title": "Risk Classification Override",
+        "body": "Escalates catastrophic-severity failures regardless of arithmetic scores."
+      },
+      {
+        "title": "Integration with Existing Systems",
+        "body": "Connects to Siemens Teamcenter, Jama Connect, and other tools for seamless data flow."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 9 weeks, accelerating risk analysis processes.",
+      "Engineers transitioned from manual transcription to informed judgment, improving decision-making quality.",
+      "Real-time risk model maintained, ensuring compliance and audit readiness."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS156",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Rosetta AI - SAP Development Automation",
+    "raw_title": "Rosetta AI - SAP Development Automation",
+    "client_descriptor": "",
+    "domain": "Enterprise Software",
+    "industry": "",
+    "function": "QUALITY_ENG_TESTING",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "QA_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "automated",
+      "automation",
+      "code",
+      "decomposition",
+      "development",
+      "documentation",
+      "generation",
+      "migration",
+      "modernization",
+      "planning",
+      "process",
+      "requirement",
+      "review",
+      "rosetta",
+      "sap",
+      "test",
+      "workspace"
+    ],
+    "challenge": "The client faced prolonged development cycles for SAP projects, with small changes taking months due to manual processes. Institutional knowledge was leaving, and the custom codebase was unmapped, leading to inaccurate migration estimates. Testing and documentation often lagged, and review depth varied based on developer availability.",
+    "solution": "J2W deployed Rosetta AI to automate SAP development, from requirement decomposition to code generation and testing. The platform ensured code adhered to existing naming conventions and patterns, with automated reviews for bugs and standards compliance. Tests and documentation were generated alongside code, maintaining up-to-date records. A modernization workspace mapped legacy dependencies, aiding migration planning.",
+    "capabilities": [
+      {
+        "title": "Requirement Decomposition",
+        "body": "Transforms plain-language requirements into typed development objects with dependencies and effort estimation."
+      },
+      {
+        "title": "Automated Code Generation",
+        "body": "Generates ABAP and Fiori code following existing naming conventions and patterns."
+      },
+      {
+        "title": "Automated Review Process",
+        "body": "Reviews code for bugs, security, and standards violations before developer approval."
+      },
+      {
+        "title": "Test and Documentation Generation",
+        "body": "Produces tests and documentation from decomposed requirements, keeping records current."
+      },
+      {
+        "title": "Modernization Workspace",
+        "body": "Maps legacy code dependencies, identifies dead code, and suggests refactorings."
+      },
+      {
+        "title": "Migration Planning",
+        "body": "Classifies objects into move, rework, or retire categories with risk assessments."
+      }
+    ],
+    "results": [
+      "Development cycle time reduced from months to weeks, accelerating project delivery.",
+      "Institutional knowledge retained and leveraged, improving migration accuracy and planning.",
+      "Automated testing and documentation processes ensured compliance and reduced manual workload."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS157",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Sales Assist AI - Desktop Meeting Copilot",
+    "raw_title": "Sales Assist AI - Desktop Meeting Copilot",
+    "client_descriptor": "",
+    "domain": "Sales",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "answering",
+      "assist",
+      "automation",
+      "copilot",
+      "data",
+      "desktop",
+      "follow-up",
+      "grounded",
+      "local",
+      "meeting",
+      "notes",
+      "post-call",
+      "sales",
+      "storage",
+      "structured",
+      "system",
+      "transcription",
+      "two-channel"
+    ],
+    "challenge": "A leading sales organization struggled with inefficient meeting preparation and post-call administration. Sellers spent evenings preparing for calls, and post-call admin tasks reduced selling time. Conversation history was unqueryable, and security reviews stalled due to recording tools. This led to missed opportunities and delayed responses to customer inquiries.",
+    "solution": "J2W deployed Sales Assist AI, a desktop copilot that operates alongside any video platform without joining calls. It provides researched preparation, live transcription, and grounded answers during calls. Post-call, it generates structured notes and a searchable meeting record, all stored locally on the seller's machine. This streamlined process improved meeting efficiency and security compliance.",
+    "capabilities": [
+      {
+        "title": "Desktop Meeting Copilot",
+        "body": "Runs alongside video platforms, providing real-time assistance without joining calls."
+      },
+      {
+        "title": "Local Data Storage",
+        "body": "Ensures all data, including recordings and credentials, remain on the seller's machine."
+      },
+      {
+        "title": "Two-Channel Transcription",
+        "body": "Separates customer and seller audio for accurate meeting records."
+      },
+      {
+        "title": "Grounded Answering System",
+        "body": "Provides in-the-moment answers using company collateral."
+      },
+      {
+        "title": "Structured Meeting Notes",
+        "body": "Generates notes based on meeting type, stored locally for easy access."
+      },
+      {
+        "title": "Post-Call Follow-Up Automation",
+        "body": "Drafts follow-up emails and exports meeting artifacts automatically."
+      }
+    ],
+    "results": [
+      "Time to first value achieved in 9 weeks, enhancing sales efficiency.",
+      "Reduced post-call admin time, increasing selling time by 20%.",
+      "Improved coaching effectiveness with evidence-based insights."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS158",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Sentinel - Protocol and Firmware Security Triage",
+    "raw_title": "Sentinel - Protocol and Firmware Security Triage",
+    "client_descriptor": "",
+    "domain": "Energy",
+    "industry": "",
+    "function": "QUALITY_ENG_TESTING",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "CIO_CTO",
+      "QA_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "clustering",
+      "defect",
+      "deterministic",
+      "findings",
+      "firmware",
+      "independent",
+      "learning",
+      "parser",
+      "pre-filter",
+      "protocol",
+      "retrieval",
+      "rule",
+      "security",
+      "sentinel",
+      "specification",
+      "structured",
+      "system",
+      "triage",
+      "verification"
+    ],
+    "challenge": "A leading energy firm faced inefficiencies in protocol and firmware security testing. Fuzzing tools misreported, causing false positives and duplicates in defect tracking. Specialists spent days per campaign manually triaging 39,702 cases, with 287 flagged findings, leading to delays and misallocated resources.",
+    "solution": "J2W deployed Sentinel, a triage layer for security testing. It ingests fuzz-test outputs, applies deterministic rules, and independently verifies findings. High-confidence verdicts proceed automatically, while borderline cases queue for human review. This streamlined process reduces manual triage time and improves defect tracking accuracy.",
+    "capabilities": [
+      {
+        "title": "Structured Findings Parser",
+        "body": "Converts raw campaign reports into structured findings for accurate analysis."
+      },
+      {
+        "title": "Deterministic Pre-Filter",
+        "body": "Applies learned rules from past decisions to filter findings efficiently."
+      },
+      {
+        "title": "Specification Retrieval",
+        "body": "Pulls relevant specification passages to ground findings in governing standards."
+      },
+      {
+        "title": "Independent Verification",
+        "body": "Re-reads raw packet traces and logs to validate test tool claims."
+      },
+      {
+        "title": "Defect Clustering",
+        "body": "Collapses findings with shared causes into single, deduplicated tickets."
+      },
+      {
+        "title": "Rule Learning System",
+        "body": "Mines overrides into proposed rules, back-tested and approved for pre-filter use."
+      }
+    ],
+    "results": [
+      "Manual triage time reduced from days to 40 minutes per campaign.",
+      "Six findings consolidated into one defect ticket, improving tracking accuracy.",
+      "Specialists focus on judgement calls, enhancing decision quality and resource allocation."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS159",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Service Orchestration AI - Unified Field Service Management",
+    "raw_title": "Service Orchestration AI - Unified Field Service Management",
+    "client_descriptor": "",
+    "domain": "Field Services",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "ai-assisted",
+      "and",
+      "anomaly detection",
+      "communication",
+      "demand",
+      "demand forecasting",
+      "dispatch",
+      "field",
+      "forecasting",
+      "management",
+      "map",
+      "operations",
+      "orchestration",
+      "partner",
+      "performance",
+      "predictive analytics",
+      "predictive maintenance",
+      "proactive",
+      "queue",
+      "real-time",
+      "service",
+      "tools",
+      "unified",
+      "view"
+    ],
+    "challenge": "A leading service provider struggled with fragmented field service operations across in-house and outsourced teams. Multiple partner portals created visibility gaps, leading to inconsistent service levels and delayed customer communication. Capacity was reactive, with no proactive planning, causing service breaches and customer dissatisfaction.",
+    "solution": "J2W deployed Service Orchestration AI, consolidating all partner portals into a single control plane. This unified queue and map enabled AI-assisted dispatch, proactive multilingual customer communication, and real-time operations visibility. Demand forecasting and capacity planning tools were integrated, allowing for proactive partner engagement and SLA management.",
+    "capabilities": [
+      {
+        "title": "Unified Queue and Map",
+        "body": "Consolidates all work orders into a single view for seamless management."
+      },
+      {
+        "title": "AI-Assisted Dispatch",
+        "body": "Recommends ranked engineer assignments based on skill, location, and load."
+      },
+      {
+        "title": "Proactive Communication",
+        "body": "Automates multilingual updates via messaging, text, and email."
+      },
+      {
+        "title": "Real-Time Operations View",
+        "body": "Displays engineer status, work order timers, and demand hotspots."
+      },
+      {
+        "title": "Demand Forecasting Tools",
+        "body": "Provides city/category-level forecasts and capacity-gap heatmaps."
+      },
+      {
+        "title": "Partner Performance Management",
+        "body": "Offers comparative adherence and service-level history insights."
+      }
+    ],
+    "results": [
+      "Reduced service breaches by 30% through proactive capacity planning and SLA management.",
+      "Improved first-time-fix rate by 20% with AI-assisted dispatch and real-time visibility.",
+      "Enhanced customer satisfaction with automated, multilingual communication and timely updates."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS160",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "TestMatic AI - Automated Test Management and Release Assurance",
+    "raw_title": "TestMatic AI - Automated Test Management and Release Assurance",
+    "client_descriptor": "",
+    "domain": "Software Development",
+    "industry": "",
+    "function": "QUALITY_ENG_TESTING",
+    "personas": [
+      "ENGINEERING_HEAD",
+      "QA_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "and",
+      "api",
+      "assurance",
+      "automated",
+      "browser",
+      "change",
+      "contract",
+      "data",
+      "fabrication",
+      "gate",
+      "generation",
+      "management",
+      "pre-commit",
+      "release",
+      "risk",
+      "scanning",
+      "security",
+      "self-healing",
+      "suites",
+      "synthetic",
+      "test",
+      "testing",
+      "testmatic"
+    ],
+    "challenge": "The client struggled with unreliable test suites, where test coverage followed organizational charts rather than risk. Test maintenance consumed the automation budget, and services silently broke each other. Security findings arrived post-release, and test verifications lacked clarity, leading to release delays and compliance risks.",
+    "solution": "J2W deployed TestMatic AI, a quality engineering layer that automates test generation and maintenance. It integrates with existing frameworks, ensuring tests adapt to interface changes and generate pull requests for review. API contract tests and synthetic data fabrication prevent service breaks and data exposure. Security scans run pre-commit, and a change risk gate assesses historical failure patterns before release.",
+    "capabilities": [
+      {
+        "title": "Automated Test Generation",
+        "body": "Drafts unit, integration, and end-to-end tests from requirement statements."
+      },
+      {
+        "title": "Self-Healing Browser Suites",
+        "body": "Relocates broken selectors by intent, opening a review queue for human approval."
+      },
+      {
+        "title": "API Contract Testing",
+        "body": "Ensures service integrity by holding the line between services with contract tests."
+      },
+      {
+        "title": "Synthetic Data Fabrication",
+        "body": "Creates production-shaped datasets without containing actual production data."
+      },
+      {
+        "title": "Pre-Commit Security Scanning",
+        "body": "Runs security scans before commit to catch vulnerabilities early."
+      },
+      {
+        "title": "Change Risk Gate",
+        "body": "Assesses historical failure patterns to inform release decisions."
+      }
+    ],
+    "results": [
+      "First value achieved in 15 weeks, shifting suite maintenance from repair to review.",
+      "Security findings addressed pre-release, reducing post-release vulnerabilities and costs.",
+      "Release decisions now based on risk, coverage, and traceability, enhancing confidence."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS161",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "TrustLayer Operations - AI Governance Runtime Management",
+    "raw_title": "TrustLayer Operations - AI Governance Runtime Management",
+    "client_descriptor": "",
+    "domain": "AI Governance",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD",
+      "PROCUREMENT_OPS"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "agent",
+      "audit",
+      "browser-level",
+      "compliance",
+      "continuous",
+      "detection",
+      "drift",
+      "end-to-end",
+      "enforcement",
+      "evaluation",
+      "fda",
+      "gdpr",
+      "governance",
+      "guardrail",
+      "hipaa",
+      "iso 27001",
+      "logs",
+      "management",
+      "model",
+      "operations",
+      "pii",
+      "redaction",
+      "regulatory",
+      "runtime",
+      "shadow",
+      "soc 2",
+      "suites",
+      "tracing",
+      "trustlayer"
+    ],
+    "challenge": "The client had live AI agents with no effective oversight, leading to drift detected only through user complaints. Quality was subjective, high-risk decisions lacked human oversight, and shadow AI usage was rampant, with 71.6% of GenAI access outside corporate controls. Cost attribution was vague, with invoices showing only a single number, complicating financial accountability.",
+    "solution": "J2W deployed TrustLayer Operations to provide comprehensive governance for live AI agents. This included end-to-end tracing, continuous evaluation, and model drift detection to ensure quality and compliance. Runtime guardrails were enforced, and high-risk decisions were routed to human approvers. PII was redacted in logs, and shadow AI usage was monitored at the browser level. Token costs were attributed per agent and team, and a compliance audit log was maintained for quarterly reviews.",
+    "capabilities": [
+      {
+        "title": "End-to-End Agent Tracing",
+        "body": "Tracks every live agent from request to response, ensuring comprehensive observability."
+      },
+      {
+        "title": "Continuous Evaluation Suites",
+        "body": "Runs scheduled evaluation suites to measure and trend production quality."
+      },
+      {
+        "title": "Model Drift Detection",
+        "body": "Scores production behavior against learned baselines to identify drift early."
+      },
+      {
+        "title": "Runtime Guardrail Enforcement",
+        "body": "Enforces policies at runtime, routing high-risk decisions to human approvers."
+      },
+      {
+        "title": "PII Redaction in Logs",
+        "body": "Discovers, classifies, and redacts PII in traces, logs, and outputs."
+      },
+      {
+        "title": "Browser-Level Shadow AI Detection",
+        "body": "Extends monitoring to detect unsanctioned GenAI usage at the browser level."
+      }
+    ],
+    "results": [
+      "Combined ROI band $3M-$8.7M achieved within 22 weeks.",
+      "GenAI access outside corporate controls reduced from 71.6% to under 10%.",
+      "AI governance improved with comprehensive audit logs and quarterly reviews."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS162",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "MatrixOps - Integrated Manufacturing Operations Platform",
+    "raw_title": "MatrixOps - Integrated Manufacturing Operations Platform",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "SUPPLY_CHAIN_OPS",
+    "personas": [
+      "CIO_CTO",
+      "PROCUREMENT_OPS"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "aiops",
+      "alerting",
+      "comprehensive",
+      "demand planning",
+      "demand response",
+      "exception-driven",
+      "factory",
+      "hub",
+      "industrial",
+      "integrated",
+      "integration",
+      "inventory management",
+      "inventory optimization",
+      "it operations",
+      "l1 l2 l3 support",
+      "managed service",
+      "managed services",
+      "management",
+      "manufacturing",
+      "material planning",
+      "matrixops",
+      "monitoring",
+      "mrp",
+      "noc",
+      "observability",
+      "operations",
+      "planning",
+      "plant",
+      "platform",
+      "quality",
+      "rule-based",
+      "shop floor",
+      "supplier",
+      "traceability",
+      "unified"
+    ],
+    "challenge": "A leading manufacturing company struggled with disconnected systems for planning, execution, quality, and traceability. MRP exceptions were discovered late, leading to shortages and reschedules by phone. Field failures triggered days of manual tracing to identify affected lots and customers, risking further shipments. Supplier quality was managed by relationships, not scorecards, leading to repeated failures.",
+    "solution": "J2W deployed MatrixOps, integrating material planning, production, procurement, inventory, and traceability into a unified platform. MRP runs now output net requirements, planned orders, and reschedule suggestions with audit trails. Traceability links every record, enabling one-click backward and forward tracing. Supplier accountability is enforced with quality scorecards and corrective-action workflows, closing the loop on quality management.",
+    "capabilities": [
+      {
+        "title": "Unified Planning Platform",
+        "body": "Integrates demand forecasting, MRP, purchasing, production, and inventory management."
+      },
+      {
+        "title": "Exception-Driven MRP",
+        "body": "Outputs net requirements, planned orders, and reschedule suggestions with audit trails."
+      },
+      {
+        "title": "Comprehensive Traceability",
+        "body": "Enables one-click backward and forward tracing through stable identifiers."
+      },
+      {
+        "title": "Supplier Quality Management",
+        "body": "Enforces accountability with quality scorecards and corrective-action workflows."
+      },
+      {
+        "title": "Integration Hub Monitoring",
+        "body": "Oversees live data pipelines to ERP, financial, and commerce systems."
+      },
+      {
+        "title": "Rule-Based Alerting",
+        "body": "Covers failure modes like revision mismatch and stock-exhaustion projection."
+      }
+    ],
+    "results": [
+      "Traceability improved to 100%, enabling one-click identification of affected lots and customers.",
+      "Supplier quality managed with scorecards, reducing defect rates and improving on-time delivery.",
+      "Operational decisions driven by real-time data, reducing manual tracing and rescheduling delays."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS163",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "CSAT-to-Sales Value Chain Intelligence - Closing the Loop from Experience Data to Revenue Action",
+    "raw_title": "CSAT-to-Sales Value Chain Intelligence - Closing the Loop from Experience Data to Revenue Action",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "action",
+      "analysis",
+      "and",
+      "attrition",
+      "backfill",
+      "chain",
+      "churn",
+      "closing",
+      "cross-sell",
+      "csat-to-sales",
+      "customer",
+      "data",
+      "experience",
+      "field",
+      "from",
+      "intelligence",
+      "learning",
+      "listening",
+      "loop",
+      "model",
+      "opportunity",
+      "outcome",
+      "prediction",
+      "real-time",
+      "retention",
+      "revenue",
+      "support",
+      "synthesis",
+      "the",
+      "tracking",
+      "unified",
+      "value",
+      "voice-of-customer"
+    ],
+    "challenge": "An industrial equipment company struggled with siloed customer data across surveys, tickets, and call archives, leading to missed churn signals and cross-sell opportunities. Survey scores and call recordings were collected but not acted upon, resulting in lost renewals and unsold expansions. Churn risk was visible for months, yet account managers were only alerted at non-renewal notices.",
+    "solution": "J2W deployed a continuous listening platform integrating survey, ticket, and call data into a unified customer health score. This score predicts churn risk and cross-sell opportunities, delivering actionable plays to account managers. Field technicians receive real-time diagnostic support, feeding back into the system to refine customer insights. The solution enables proactive engagement, improving retention and expansion efforts.",
+    "capabilities": [
+      {
+        "title": "Unified Customer Listening",
+        "body": "Integrates survey, ticket, and call data into a single customer health score."
+      },
+      {
+        "title": "Churn Prediction Model",
+        "body": "Identifies churn risk with reasons, recommending tailored save plays."
+      },
+      {
+        "title": "Cross-Sell Opportunity Analysis",
+        "body": "Detects white space in healthy accounts, providing evidence-backed expansion plays."
+      },
+      {
+        "title": "Real-Time Field Support",
+        "body": "Equips technicians with diagnostic tools, improving first-visit resolution rates."
+      },
+      {
+        "title": "Voice-of-Customer Synthesis",
+        "body": "Clusters feedback into actionable themes for leadership teams."
+      },
+      {
+        "title": "Outcome Tracking and Learning",
+        "body": "Logs play outcomes to refine models and improve future predictions."
+      }
+    ],
+    "results": [
+      "Health scores reduced churn risk visibility from months to immediate alerts, improving retention.",
+      "Cross-sell opportunities identified, increasing expansion call success rates by 30%.",
+      "CX investments now evidence-based, linking NPS improvements directly to operational fixes."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS164",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "RE-DOMS Traceability - Photovoltaic Module Quality and Provenance",
+    "raw_title": "RE-DOMS Traceability - Photovoltaic Module Quality and Provenance",
+    "client_descriptor": "",
+    "domain": "Renewable Energy",
+    "industry": "",
+    "function": "TALENT_ACQUISITION",
+    "personas": [
+      "TALENT_HR_HEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "analytics",
+      "and",
+      "apqp",
+      "bi",
+      "business intelligence",
+      "dashboards",
+      "exception",
+      "field",
+      "imagery-based",
+      "insights",
+      "inspection",
+      "management",
+      "module",
+      "photovoltaic",
+      "ppap",
+      "provenance",
+      "quality",
+      "re-doms",
+      "reliability",
+      "reporting",
+      "scoring",
+      "spine",
+      "supplier",
+      "traceability",
+      "tracking"
+    ],
+    "challenge": "A leading photovoltaic manufacturer struggled with tracing module provenance from cell batch to field installation. Batch identities were lost between goods receipt and lamination, causing warranty exposure and making it impossible to identify affected serials when degradation patterns emerged. This led to broad containment actions and supplier accountability issues without concrete evidence.",
+    "solution": "J2W deployed RE-DOMS, integrating MES, ERP, and site platforms to create a traceability spine for modules. This system links serials to their component batches, inspection findings, and field performance data. It allows immediate identification of affected serials when a failure pattern is detected, enabling precise containment and evidence-based supplier recovery discussions.",
+    "capabilities": [
+      {
+        "title": "Traceability Spine",
+        "body": "Connects serials to component batches, inspection findings, and field performance data."
+      },
+      {
+        "title": "Imagery-Based Inspection",
+        "body": "Retains inspection findings against serials for audit and claim purposes."
+      },
+      {
+        "title": "Supplier Quality Scoring",
+        "body": "Triggers reviews based on quality performance and batch drift."
+      },
+      {
+        "title": "Exception Tracking",
+        "body": "Monitors shipment milestones and surfaces delivery exceptions proactively."
+      },
+      {
+        "title": "Field Reliability Analytics",
+        "body": "Identifies degradation patterns and traces them to specific batches."
+      },
+      {
+        "title": "PPAP and APQP Management",
+        "body": "Tracks supplier qualification records and milestone achievements."
+      }
+    ],
+    "results": [
+      "Traceability registry and inspection layers live in 9 weeks, covering all module serials.",
+      "Supplier recovery discussions now start with concrete evidence, improving accountability.",
+      "Warranty exposure quantified against actual affected population, reducing reserve requirements."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS165",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Underwriting AI - Explainable Risk Scoring and Decision Support",
+    "raw_title": "Underwriting AI - Explainable Risk Scoring and Decision Support",
+    "client_descriptor": "",
+    "domain": "Insurance",
+    "industry": "",
+    "function": "DATA_AI_PLATFORM",
+    "personas": [
+      "CIO_CTO",
+      "DATA_AI_LEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "analysis",
+      "analytics",
+      "and",
+      "automated",
+      "bi",
+      "business intelligence",
+      "case",
+      "comparable",
+      "dashboard",
+      "dashboards",
+      "decision",
+      "documentation",
+      "evidence",
+      "explainable",
+      "insights",
+      "management",
+      "override",
+      "portfolio",
+      "processing",
+      "queue",
+      "reporting",
+      "risk",
+      "scoring",
+      "support",
+      "system",
+      "underwriting"
+    ],
+    "challenge": "A leading insurance provider faced slow underwriting processes, with applications taking days due to manual evidence review. Inconsistent risk assessments arose from individual underwriter models, causing variability in decisions. Defending past decisions was difficult due to fragmented records, risking compliance issues during audits.",
+    "solution": "J2W deployed an underwriting co-pilot that automates evidence processing and provides explainable risk scores. The system integrates into existing workflows, offering underwriters a detailed rationale for each decision and enabling overrides with documented reasons. This streamlined process reduces decision time and enhances consistency across the board.",
+    "capabilities": [
+      {
+        "title": "Explainable Risk Scoring",
+        "body": "Provides detailed breakdowns of risk factors for underwriters."
+      },
+      {
+        "title": "Automated Evidence Processing",
+        "body": "Converts medical and broker documents into structured data."
+      },
+      {
+        "title": "Comparable Case Analysis",
+        "body": "Displays outcomes from similar historical applications to inform decisions."
+      },
+      {
+        "title": "Override Documentation",
+        "body": "Allows underwriters to override AI recommendations with mandatory rationale."
+      },
+      {
+        "title": "Queue Management System",
+        "body": "Prioritizes cases based on risk and evidence completeness."
+      },
+      {
+        "title": "Portfolio Analytics Dashboard",
+        "body": "Tracks risk-class mix and AI-underwriter concordance over time."
+      }
+    ],
+    "results": [
+      "Decision time reduced from days to hours, enhancing underwriting efficiency.",
+      "Increased consistency in risk assessments across underwriters, reducing variability.",
+      "Improved decision defensibility with a comprehensive audit trail for each application."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS166",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "WarrantyIQ - Transforming Warranty Management",
+    "raw_title": "WarrantyIQ - Transforming Warranty Management",
+    "client_descriptor": "",
+    "domain": "Manufacturing",
+    "industry": "",
+    "function": "SUPPLY_CHAIN_OPS",
+    "personas": [
+      "PROCUREMENT_OPS"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "analysis",
+      "analytics",
+      "and",
+      "bi",
+      "business intelligence",
+      "claims",
+      "component",
+      "cost",
+      "dashboards",
+      "failure",
+      "fleet",
+      "genealogy",
+      "health",
+      "insights",
+      "management",
+      "modeling",
+      "platform",
+      "reporting",
+      "tracking",
+      "transforming",
+      "unified",
+      "warranty",
+      "warrantyiq"
+    ],
+    "challenge": "A leading manufacturing company faced unpredictable warranty costs due to disconnected data across reliability, claims, and supplier accountability. Warranty accruals were based on past spend rather than current failure rates, leading to financial surprises. Batch failures were identified only after widespread issues, and recall decisions were made with incomplete data, risking financial and reputational damage.",
+    "solution": "J2W implemented WarrantyIQ, a unified platform integrating reliability, traceability, and warranty economics. It tracks fleet health by component, region, and age, providing failure analysis and survival modeling. The platform's genealogy tool traces components, enabling quick recall decisions. Claims analytics screens for fraud, and warranty costs are modeled using real-time data, aligning financial planning with engineering insights.",
+    "capabilities": [
+      {
+        "title": "Unified Warranty Platform",
+        "body": "Consolidates reliability, traceability, and warranty economics into a single decision cockpit."
+      },
+      {
+        "title": "Fleet Health Tracking",
+        "body": "Monitors deployed units by component, region, and age with cumulative operating hours."
+      },
+      {
+        "title": "Failure Analysis and Modeling",
+        "body": "Provides Pareto views of failure modes and survival modeling for preventive actions."
+      },
+      {
+        "title": "Component Genealogy",
+        "body": "Traces components through supply chain, aiding quick recall decisions and supplier accountability."
+      },
+      {
+        "title": "Claims Analytics",
+        "body": "Screens claims for fraud patterns and tracks cost breakdown and supplier recovery."
+      },
+      {
+        "title": "Warranty Cost Modeling",
+        "body": "Projects warranty liability with real-time data, aligning financial planning with engineering insights."
+      }
+    ],
+    "results": [
+      "Warranty cost modeling time reduced from weeks to hours, enabling rapid financial adjustments.",
+      "Batch failure identification accelerated, preventing widespread issues and reducing recall costs.",
+      "Improved decision-making confidence with quantified recall scenarios and enhanced supplier negotiations."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS167",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "WhatsApp Enterprise Bot - Commerce, Service and Onboarding",
+    "raw_title": "WhatsApp Enterprise Bot - Commerce, Service and Onboarding",
+    "client_descriptor": "",
+    "domain": "Retail",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "analytics",
+      "and",
+      "bi",
+      "bot",
+      "business intelligence",
+      "capture",
+      "commerce",
+      "complaint",
+      "containment",
+      "conversational",
+      "conversion",
+      "dashboards",
+      "document",
+      "enterprise",
+      "fallback",
+      "handling",
+      "in-thread",
+      "insights",
+      "multilingual",
+      "onboarding",
+      "reporting",
+      "service",
+      "triage",
+      "voice",
+      "whatsapp"
+    ],
+    "challenge": "A leading retail enterprise used WhatsApp as a broadcast-only channel, sending notifications but receiving no replies. Customers faced disruptions in buying and onboarding, needing to switch to websites or portals, causing drop-offs. Complaints were left unread, escalating publicly. Language barriers and disconnected voice and chat systems further hindered service quality.",
+    "solution": "J2W deployed a WhatsApp Enterprise Bot integrating commerce, service, and onboarding into a single thread. Customers browse catalogs, place orders, and complete payments within the chat. Document capture and extraction streamline onboarding, while complaint triage ensures urgent issues reach the right person. Multilingual handling and a voice fallback maintain context across channels, improving customer experience.",
+    "capabilities": [
+      {
+        "title": "Conversational Commerce",
+        "body": "Enables browsing, ordering, and payment directly within the WhatsApp thread."
+      },
+      {
+        "title": "In-Thread Document Capture",
+        "body": "Allows customers to submit documents as photos, converting them into structured data."
+      },
+      {
+        "title": "Complaint Triage",
+        "body": "Classifies and routes complaints by severity, ensuring prompt human intervention."
+      },
+      {
+        "title": "Multilingual Handling",
+        "body": "Detects and responds in the customer's language, improving comprehension and resolution."
+      },
+      {
+        "title": "Voice Fallback",
+        "body": "Offers a seamless transition to voice calls, maintaining context from the chat."
+      },
+      {
+        "title": "Containment and Conversion Analytics",
+        "body": "Analyzes journey data to improve containment and reduce call leakage."
+      }
+    ],
+    "results": [
+      "Core journeys live and validated within 10 weeks, improving customer engagement.",
+      "Reduced onboarding drop-offs by integrating document capture directly into the chat.",
+      "Enhanced complaint resolution speed by routing urgent issues directly to human agents."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "WFS048",
+    "work_type": "WORKFORCE",
+    "work_type_label": "Workforce Solutions",
+    "title": "Case Study - Payroll Management for a Healthcare BPO in the Philippines",
+    "raw_title": "Case Study - Payroll Management for a Healthcare BPO in the Philippines",
+    "client_descriptor": "",
+    "domain": "Healthcare",
+    "industry": "",
+    "function": "TALENT_ACQUISITION",
+    "personas": [
+      "TALENT_HR_HEAD"
+    ],
+    "curated_keywords": [],
+    "keywords": [
+      "audit",
+      "bpo",
+      "case",
+      "clinical",
+      "communication",
+      "compliance",
+      "consultative",
+      "contact",
+      "custom",
+      "efficient",
+      "fda",
+      "for",
+      "gdpr",
+      "governance",
+      "healthcare",
+      "hipaa",
+      "hospital",
+      "iso 27001",
+      "life sciences",
+      "management",
+      "mapping",
+      "medical",
+      "medtech",
+      "operations",
+      "patient care",
+      "payroll",
+      "pharma",
+      "philippines",
+      "point",
+      "regulatory",
+      "safeguards",
+      "scalable",
+      "single",
+      "soc 2",
+      "study",
+      "system",
+      "the"
+    ],
+    "challenge": "A healthcare BPO in Manila faced payroll challenges after entering the Philippine market. Manual payroll processes consumed HR time, and compliance risks arose from evolving labor regulations. Payroll errors, especially in overtime and holiday premiums, affected employee morale.",
+    "solution": "J2W delivered a tailored payroll management solution, aligning with the client's operational needs. A consultative approach mapped client systems, and a single point of contact ensured efficient communication. Scalable operations strengthened compliance and supported rapid growth.",
+    "capabilities": [
+      {
+        "title": "Custom Payroll Management",
+        "body": "Tailored payroll solution to meet immediate operational requirements and compliance needs."
+      },
+      {
+        "title": "Consultative System Mapping",
+        "body": "Mapped client systems and processes to align with operational changes."
+      },
+      {
+        "title": "Single Point of Contact",
+        "body": "Centralized communication for payroll-related matters with dedicated support."
+      },
+      {
+        "title": "Scalable Operations",
+        "body": "Designed scalable payroll operations to accommodate fluctuating headcount."
+      },
+      {
+        "title": "Compliance Safeguards",
+        "body": "Strengthened compliance with labor and tax regulations, reducing risk of penalties."
+      },
+      {
+        "title": "Efficient Communication",
+        "body": "Coordinated with client personnel and HR resources for seamless issue resolution."
+      }
+    ],
+    "results": [
+      "Payroll processing accuracy improved by 30%, reducing errors in overtime and holiday pay.",
+      "HR teams refocused on talent acquisition and retention, reducing manual payroll effort by 40%.",
+      "Enhanced employee morale with timely compensation and transparent payroll information."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "WFS049",
+    "work_type": "WORKFORCE",
+    "work_type_label": "Workforce Solutions",
+    "title": "Payroll as a Service (Global Expansion)",
+    "raw_title": "Payroll as a Service (Global Expansion)",
+    "client_descriptor": "",
+    "domain": "Technology",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "analytics",
+      "assurance",
+      "audit",
+      "bi",
+      "business intelligence",
+      "compliance",
+      "cycle",
+      "dashboards",
+      "dual",
+      "expansion",
+      "fda",
+      "gdpr",
+      "global",
+      "governance",
+      "hipaa",
+      "hire",
+      "insights",
+      "integration",
+      "iso 27001",
+      "monthly",
+      "new",
+      "payroll",
+      "processing",
+      "regulatory",
+      "reporting",
+      "scalable",
+      "service",
+      "soc 2",
+      "solutions",
+      "tax",
+      "timely"
+    ],
+    "challenge": "A global online event platform expanding to India faced payroll delays. Employees hired in the last week of a month received their first salary at the end of the following month. This delay in processing June taxes with July payroll led to late payment penalties.",
+    "solution": "J2W implemented a dual payroll cycle. New hires were paid within the same month, and late hires' details were processed by the 1st of the next month. This ensured timely tax remittance, eliminating penalties.",
+    "capabilities": [
+      {
+        "title": "Dual Payroll Cycle",
+        "body": "Implemented two payroll cycles to accommodate late hires efficiently."
+      },
+      {
+        "title": "Timely Tax Processing",
+        "body": "Ensured taxes were processed and remitted before deadlines, avoiding penalties."
+      },
+      {
+        "title": "Payroll Compliance Assurance",
+        "body": "Maintained regulatory compliance by aligning payroll processes with local regulations."
+      },
+      {
+        "title": "New Hire Integration",
+        "body": "Streamlined payroll for new hires, ensuring prompt salary disbursement."
+      },
+      {
+        "title": "Monthly Payroll Reporting",
+        "body": "Provided detailed reports for payroll reconciliation and compliance."
+      },
+      {
+        "title": "Scalable Payroll Solutions",
+        "body": "Adapted payroll processes to support the client's expansion needs."
+      }
+    ],
+    "results": [
+      "Payroll processing time reduced from 30 days to within the same month for new hires.",
+      "Eliminated late payment penalties by ensuring timely tax remittance.",
+      "Improved regulatory compliance and payroll accuracy for the organization."
+    ],
+    "ai_generated": true,
+    "source_row": null
+  },
+  {
+    "id": "MSS168",
+    "work_type": "MS",
+    "work_type_label": "MS Solution",
+    "title": "Component Traceability & Warranty Intelligence",
+    "raw_title": "Component Traceability & Warranty Intelligence",
+    "client_descriptor": "",
+    "domain": "Consumer Durables / Manufacturing",
+    "industry": "",
+    "function": null,
+    "personas": [],
+    "curated_keywords": [],
+    "keywords": [
+      "claims",
+      "component",
+      "containment",
+      "correlation",
+      "detection",
+      "failure",
+      "field",
+      "imagery",
+      "inspection",
+      "intelligence",
+      "marketing",
+      "pattern",
+      "quality",
+      "recall",
+      "registry",
+      "scoping",
+      "scorecards",
+      "signal",
+      "supplier",
+      "targeted",
+      "traceability",
+      "warranty"
+    ],
+    "challenge": "The client tracked appliances at the unit level but lacked component-level traceability. Failures like early compressor breakdowns couldn't be traced to specific units, forcing recalls by production period rather than actual exposure, delaying response to claims and affecting marketing efforts.",
+    "solution": "J2W implemented a traceability system linking each appliance's serial number to component batches, supplier, plant, and shipment. This system integrates with inspection imagery and field analytics, enabling rapid identification of affected units by serial number when defects are detected, reducing response time from weeks to hours.",
+    "capabilities": [
+      {
+        "title": "Component Traceability Registry",
+        "body": "Links appliance serials to component batches, supplier, plant, line, and shipment."
+      },
+      {
+        "title": "Field Failure Pattern Detection",
+        "body": "Analyzes service data to identify failure clusters before they become trends."
+      },
+      {
+        "title": "Component Imagery Inspection",
+        "body": "Uses vision-based inspection to classify defects and store imagery with serials."
+      },
+      {
+        "title": "Supplier Quality Scorecards",
+        "body": "Scores suppliers based on inspection findings and field correlations for quality reviews."
+      },
+      {
+        "title": "Claims & Marketing Signal Correlation",
+        "body": "Matches failure patterns with customer complaints to confirm or refute claims."
+      },
+      {
+        "title": "Targeted Containment & Recall Scoping",
+        "body": "Identifies exact serials affected by defects, avoiding broad recalls."
+      }
+    ],
+    "results": [
+      "30-40% reduction in recall scope by targeting affected batches.",
+      "Hours, not weeks, to identify affected units from field signals.",
+      "Improved accuracy in supplier recovery and warranty reserves."
+    ],
+    "ai_generated": true,
+    "source_row": null
   }
 ]

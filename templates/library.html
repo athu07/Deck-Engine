@@ -24,6 +24,9 @@
     <option value="">All industries</option>
     {% for i in industries %}<option value="{{ i }}">{{ i|title }}</option>{% endfor %}
   </select>
+  <button type="button" id="lib-selall" class="btn" style="margin-left:auto"
+          title="Select every slide currently shown (respects your search and filters)">
+    <i class="ti ti-checks"></i> Select all</button>
 </div>
 
 <div class="lib-grid" id="lib-grid">

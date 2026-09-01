@@ -5490,3 +5490,178 @@ the <=620px horizontal strip).
 
 Verified: the sidebar renders "New deck" exactly once, in the Create group, on /new,
 /dashboard, /builder and /library. CSS brace- and comment-balanced. Tests: 70 passed.
+
+------------------------------------------------------------
+2026-08-12  New GCC slide set wired in (19 slides) + Slide Builder heading/metric reuse
+------------------------------------------------------------
+Owner had added 19 new slides to the master deck by hand (a redesigned Global Footprint
+slide, a Data CoE Framework slide, a GCC-flavoured "Why J2W" slide, and a 16-slide GCC
+proof-point block) but none carried a J2W_ID yet, so the engine completely ignored them --
+they couldn't be picked into any deck and didn't show in /library.
+
+STAMPED (scripts/stamp_ids.py, insert-safe, existing 39 slides untouched): CS150 (slide 4,
+"Global Footprint & Industries We Serve"), CS151 (slide 40, "Data CoE Framework"), CS152
+(slide 41, "Why J2W - Not the Big 4 or Large SIs", GCC-flavoured), CS153-CS168 (slides
+43-58, the GCC proof-point block: India GCC stats, setup models, 4 branded case-proof
+slides, delivery benchmarking, "Why J2W - Your GCC Partner of Choice", etc). Master deck was
+open in PowerPoint at the time -- write-back held until the owner closed it, then verified
+(slide count 58, all 19 new ids present, 0 duplicates, existing CS01 intact) before
+proceeding. Backup: data/decks/WORKING_COPY_Master_Deck.pptx.bak-2026-08-12.
+
+REGISTRY (data/registry/J2W_CaseStudy_Portfolio_Metadata.xlsx): added a Slide Registry row
+per new slide (stage_intro/first/second, trigger, title) so /library and matcher.plan both
+see them. LANDMINE hit and fixed: CS150 collided with a pre-existing ORPHANED registry row
+(kind=CASE_STUDY, title "Platform Modernization Pillars", Manufacturing) left over from an
+earlier deck revision -- not attached to any slide in the current 58-slide deck (verified via
+a read_id() scan: exactly one physical slide carries J2W_ID CS150, the new Global Footprint
+slide). Overwritten with the correct CS150 metadata; backup kept
+(*.xlsx.bak-2026-08-12b). library.json/tagged_library.json rebuilt (build_library + tagger)
+so all 19 show up in /library; backups kept (*.bak-2026-08-12).
+
+DEPRECATED: CS137, an older "Global Footprint" slide (same title, same purpose, buried at
+position 42 near the old appendix) -- CS150 is its redesigned, repositioned replacement.
+CS137's trigger set to "manual" (on-demand only) so a GCC deck doesn't ship two near-
+identical footprint slides. Not deleted -- still pickable by hand from the library.
+
+NEW TRIGGERS (matcher.py):
+ - "global_or_gcc" combo trigger for CS150 -- fires on the EXISTING _has_gcc_signal (GCC term
+   + build-intent verb in the same sentence, unchanged) OR a NEW, separate
+   _has_global_presence_signal (deliberately no intent-verb requirement: "we have a global
+   presence" / "operations across 12 countries" is a fair trigger on its own, per owner spec,
+   even with zero GCC-build intent).
+ - "data" trigger for CS151 -- NEW _has_data_signal, multi-word phrases only (data strategy /
+   data engineering / data platform / data governance / master data management / data
+   warehouse / etc) -- deliberately NOT a bare "data" match, same fragility already
+   documented for a bare "coe" acronym (2026-07-23 Kimberly-Clark false positive).
+ - CS152 and CS153-168 reuse the existing "gcc" trigger untouched.
+ - EXPLICIT GCC TOGGLE: new checkbox on /new ("This is a GCC deck") -> ctx["is_gcc_deck"] ->
+   ORs into matcher.plan's gcc_signal alongside the existing text inference (never replaces
+   it) -- so the 16-slide GCC block doesn't depend on the notes happening to phrase a
+   build-intent sentence the detector catches.
+LIVE-VERIFIED (real matcher.plan calls, 5 scenarios): toggle alone pulls in the whole GCC
+block + CS150, and correctly leaves the deprecated CS137 out; global-presence phrasing alone
+(no GCC intent, toggle off) fires only CS150; data-context phrasing fires only CS151; neutral
+text fires none of the 19; the OLD GCC-build-intent phrasing ("build a GCC in Bengaluru")
+still fires the GCC block with no toggle needed -- confirms nothing existing regressed.
+
+SLIDE BUILDER (slide_generator.py, case_from_content only -- scoped the same way as the
+2026-08-06 Depth Playbook work, draft_case_study untouched): two new prompt rules --
+ 1. TITLE/METRICS REUSE: if the pasted content already states a clear heading, use it
+    verbatim; if it already states specific result numbers, use those exact figures rather
+    than re-deriving or rounding them. (The already-existing _parse_formatted_case_study
+    no-AI path was already doing this for fully house-formatted pastes; this extends the same
+    discipline to the AI-restructuring path for less-structured pastes.)
+ 2. NAMED ACCELERATOR TITLES: if the content names a specific branded internal asset ("Resolve
+    AI", "Auto-Ops"), the title becomes "<Name> - <what it does>" instead of a generic
+    capability-style title.
+
+NOT DONE YET -- needs a machine with LibreOffice + poppler: scripts/prerender_master.py
+requires them and this dev machine has neither (matches the README's documented gap). Ran
+it; it correctly reported the 19 new slides missing a shipped preview and refused to
+proceed. test_master_previews_ship_and_serve_without_libreoffice will stay red until this is
+re-run (Docker build, or any machine with both installed) and static/previews/ is committed
+-- do this before deploying, or /review will show no image for these 19 slides on a host
+without LibreOffice.
+
+Tests: 68 passed / 1 pre-existing flaky (test_staging_reads_never_see_a_half_written_file,
+Windows file-lock timing -- passes in isolation, confirmed unrelated) / 1 deselected
+(previews, see above).
+
+------------------------------------------------------------
+2026-08-12  Generated case studies read as "made up" -- texture numbers vs proof numbers
+------------------------------------------------------------
+Owner: AI-generated case studies felt generic/fake -- no team size, no specific delay, just
+"the team" / "took weeks". REPRODUCED live (draft_case_study, thin context: a one-line ask, no
+research upload -- the common real case): Challenge came back "Invoices often took weeks to
+clear" with zero numbers anywhere in Challenge/Solution.
+
+ROOT CAUSE: the 2026-08-06 Depth Playbook's "NEVER INVENT A NUMBER IN CHALLENGE OR SOLUTION"
+rule banned ANY number there, not just risky ones -- so the model wrote around every number,
+including harmless scene-setting ones (team size, a rough delay), which is exactly what made
+the text read as vague/generic rather than real.
+
+FIX (slide_generator.py, CASE_STUDY_RULES -- applies to both case_from_content/Slide Builder
+and draft_case_study/Draft-with-AI, same shared block): split the ban into two kinds --
+ - TEXTURE numbers (team/headcount size, a rough duration, a volume count like invoices/month)
+   may now be invented realistically, the same license already given for qualitative
+   mechanism detail -- these are scene-setting like any anonymised case study's illustrative
+   team size, not something a client would fact-check or repeat externally.
+ - PROOF numbers (dollar figures, %, ROI, an actual headcount reduction) stay banned unless
+   genuinely present in the real source material -- the original risk (a fabricated stat in a
+   live client conversation) is untouched.
+Two internal cross-references to the old rule name updated to match.
+
+PREVIEWED before building (owner's request): patched the rule in a throwaway script, re-ran
+the exact same reproduction case, showed the owner the before/after, got explicit go-ahead
+before touching the real file.
+VERIFIED against the real (edited) function, same test case: Challenge now reads "A leading
+manufacturing enterprise's 12-person AP team faced delays with over 1,500 invoices monthly,
+averaging 3 weeks to process..." -- team size, volume, and duration all present; Results
+section (already benchmark-licensed) unaffected by this change.
+
+UNRELATED FINDING while testing (flagged to owner, not fixed -- pre-dates this session):
+test_matcher_golden[ms_manuf] is failing, and it's NOT caused by anything built today --
+bisected by reverting matcher.py, decks.py, and the registry/library files one at a time;
+only reverting data/case_study_content_store.json + data/case_embeddings.json to the last
+committed version fixes it. Cause: MSS141 ("Continuum - Predictive Maintenance and
+Intervention Platform", Manufacturing) doesn't exist in the last commit at all -- it's a
+real, new case study promoted into the content store in an earlier, uncommitted session --
+and it now legitimately outranks the golden snapshot's old expected pick for this one
+scenario. Same class of drift as the two golden baselines re-frozen on 2026-08-11: the
+snapshot is stale, not the matcher wrong. Left the snapshot alone rather than re-freeze it
+without asking -- owner should confirm MSS141 winning here is correct before it's updated.
+
+Tests: 67 passed / 1 pre-existing flaky (Windows file-lock timing, confirmed unrelated) / 2
+deselected (previews -- needs LibreOffice; ms_manuf golden -- pre-existing drift, see above).
+
+------------------------------------------------------------
+2026-08-12  /library: "Select all" respects the current filter/search
+------------------------------------------------------------
+Owner: wanted a select-all control in the top-right of the library toolbar for the existing
+per-slide bulk-download checkboxes, working whether or not a filter/search is applied.
+
+New button (templates/library.html, right-aligned in .toolbar via margin-left:auto) + JS
+(static/js/library.js): "Select all" always operates on whichever cards are CURRENTLY VISIBLE
+(post filter/search), never the full 298 -- toggles to "Deselect all" when everything visible
+is already ticked, re-evaluated on every filter change and every individual tick so the label
+never lies. Reuses the existing per-checkbox change handler (dispatches through it rather than
+duplicating the selection-state logic) so the bulk-download bar/count stay in sync exactly as
+if the slides had been ticked by hand.
+VERIFIED live in the browser: filtered to Workforce (82 of 298) -> Select all selected exactly
+those 82, 0 of the other 216 got selected, sel-bar showed "82 selected", button flipped to
+"Deselect all". Deselect all cleared exactly those 82. Re-selected, then cleared the work-type
+filter back to "All" (298 visible) -- the 82 stayed correctly checked and the button correctly
+reverted to "Select all" (298 visible, only 82 checked).
+
+Tests: 68 passed / 2 deselected (previews; ms_manuf golden, both pre-existing, see above).
+
+------------------------------------------------------------
+2026-08-13  /library card headings were noise ("01", "Photo", "BOT") -- now the registry's
+            curated slide name
+------------------------------------------------------------
+Owner: wanted the heading on each /library card to read as the slide's actual name. Traced:
+web/library.py sourced every master-slide card's title straight from data/tagged_library.json,
+which build_library.build() fills by grabbing whatever text is in the FIRST shape it finds on
+the slide -- fine for a slide whose first shape genuinely is its title, meaningless for one
+where it's a big decorative number, a photo caption, or a person's name (confirmed on real
+data: CS09/CS11/CS17/CS19 showed "01"/"03", CS61 showed "Photo", CS62 showed "Deepak Desai",
+CS140 showed "BOT", CS138 showed "4", CS02/CS02B showed the slide's own body paragraph).
+
+FIX (web/library.py): the Slide Registry Excel already carries a human-curated `title` for
+every one of these slides -- checked coverage first (0 of the library's slides had no
+registry row) -- so the master-slide loop now prefers registry_titles[slide_id] and only
+falls back to the old auto-extracted text if a slide's registry title is blank. Content-store
+case studies (MSS/WFS/AIP) were untouched -- those already carry their own AI-generated
+titles and have no registry row at all. Search stayed working on BOTH the new heading and the
+old auto-extracted text (union), so a card is still findable by whatever text is actually
+printed on the slide even when that differs from its curated name.
+VERIFIED live: CS02/CS02B now show "WHO WE ARE" (was the slide's own opening paragraph), CS61
+"ARCHITECTS OF TRANSFORMATION" (was "Photo"), CS62 "THE J2W SQUAD" (was "Deepak Desai"), CS138
+"END TO END GCC BUILD OFFERINGS" (was "4").
+
+Tests: 64 passed clean; 4 additional failures reproduced then diagnosed as NOT caused by this
+change -- the master deck was open in PowerPoint on the owner's machine at the time (file-lock
+PermissionError/PackageNotFoundError on data/decks/WORKING_COPY_Master_Deck.pptx, the same
+OneDrive-placeholder class of issue as earlier this session) -- confirmed by re-running the
+full suite with just those 4 deck-dependent tests deselected: clean. 1 pre-existing flaky
+(Windows file-lock timing) did not fire this run.
